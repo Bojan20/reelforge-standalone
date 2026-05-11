@@ -447,7 +447,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       child: TextField(
                       controller: _searchController,
                       focusNode: _searchFocusNode,
-                      style: const TextStyle(fontSize: 12, color: FluxForgeTheme.textSecondary),
+                      style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
                       decoration: InputDecoration(
                         isDense: true,
                         filled: true,
@@ -458,7 +458,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         hintText: 'Search slots...',
-                        hintStyle: const TextStyle(color: FluxForgeTheme.textDisabled, fontSize: 11),
+                        hintStyle: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textDisabled),
                         prefixIcon: const Icon(Icons.search, size: 15, color: FluxForgeTheme.textDisabled),
                         prefixIconConstraints: const BoxConstraints(minWidth: 32),
                         suffixIcon: _searchQuery.isNotEmpty
@@ -557,35 +557,35 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 color: FluxForgeTheme.bgMid,
                 tooltip: 'More',
                 itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'rename', height: 30,
+                  PopupMenuItem(value: 'rename', height: 30,
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.drive_file_rename_outline, size: 12, color: FluxForgeTheme.accentCyan),
-                      SizedBox(width: 6),
-                      Text('FFNC Rename Tool', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                      const Icon(Icons.drive_file_rename_outline, size: 12, color: FluxForgeTheme.accentCyan),
+                      const SizedBox(width: 6),
+                      Text('FFNC Rename Tool', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70)),
                     ])),
-                  const PopupMenuItem(value: 'export', height: 30,
+                  PopupMenuItem(value: 'export', height: 30,
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.file_upload_outlined, size: 12, color: Colors.white54),
-                      SizedBox(width: 6),
-                      Text('Export Profile (.zip)', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                      const Icon(Icons.file_upload_outlined, size: 12, color: Colors.white54),
+                      const SizedBox(width: 6),
+                      Text('Export Profile (.zip)', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70)),
                     ])),
-                  const PopupMenuItem(value: 'import', height: 30,
+                  PopupMenuItem(value: 'import', height: 30,
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.file_download_outlined, size: 12, color: Colors.white54),
-                      SizedBox(width: 6),
-                      Text('Import Profile (.zip)', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                      const Icon(Icons.file_download_outlined, size: 12, color: Colors.white54),
+                      const SizedBox(width: 6),
+                      Text('Import Profile (.zip)', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70)),
                     ])),
-                  const PopupMenuItem(value: 'csv_json', height: 30,
+                  PopupMenuItem(value: 'csv_json', height: 30,
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.table_chart, size: 12, color: Color(0xFFFFD700)),
-                      SizedBox(width: 6),
-                      Text('Import CSV / JSON', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                      const Icon(Icons.table_chart, size: 12, color: Color(0xFFFFD700)),
+                      const SizedBox(width: 6),
+                      Text('Import CSV / JSON', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70)),
                     ])),
-                  if (isNarrow) const PopupMenuItem(value: 'sfx', height: 30,
+                  if (isNarrow) PopupMenuItem(value: 'sfx', height: 30,
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.auto_fix_high, size: 12, color: FluxForgeTheme.accentCyan),
-                      SizedBox(width: 6),
-                      Text('SFX Pipeline', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                      const Icon(Icons.auto_fix_high, size: 12, color: FluxForgeTheme.accentCyan),
+                      const SizedBox(width: 6),
+                      Text('SFX Pipeline', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70)),
                     ])),
                 ],
                 onSelected: (value) {
@@ -605,9 +605,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ],
               Text(
                 '$assignedCount/$totalSlots',
-                style: const TextStyle(
-                  fontSize: 9, fontWeight: FontWeight.w500,
-                  color: FluxForgeTheme.textTertiary, fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 9, weight: FontWeight.w500,
+                  color: FluxForgeTheme.textTertiary,
                 ),
               ),
               if (widget.onQuickAssignSlotSelected != null)
@@ -685,20 +685,20 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgMid,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.warning_amber, color: FluxForgeTheme.accentRed, size: 20),
-              SizedBox(width: 8),
-              Text('Reset Slot Machine', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14)),
+              const Icon(Icons.warning_amber, color: FluxForgeTheme.accentRed, size: 20),
+              const SizedBox(width: 8),
+              Text('Reset Slot Machine', style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary)),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'This will delete the current slot machine configuration, all audio assignments, and all events.\n\nYou will start from scratch with the setup wizard.',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
               ),
               const SizedBox(height: 12),
               GestureDetector(
@@ -716,9 +716,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Also clear audio POOL (uploaded sounds)',
-                      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                      style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
                     ),
                   ],
                 ),
@@ -877,13 +877,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       color: Color(0xFF1A1A28),
                       borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.file_download, size: 18, color: Color(0xFF40FF90)),
-                        SizedBox(width: 8),
-                        Text('IMPORT MAPPINGS', style: TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w700,
-                          color: Color(0xFF40FF90), letterSpacing: 0.8,
+                        const Icon(Icons.file_download, size: 18, color: Color(0xFF40FF90)),
+                        const SizedBox(width: 8),
+                        Text('IMPORT MAPPINGS', style: FluxForgeTheme.dockSans(
+                          size: 13, weight: FontWeight.w700,
+                          color: const Color(0xFF40FF90), letterSpacing: 0.8,
                         )),
                       ],
                     ),
@@ -938,7 +938,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                                     const SizedBox(width: 6),
                                     Text(
                                       'Export current mappings (${widget.audioAssignments.length} assignments)',
-                                      style: const TextStyle(fontSize: 10, color: Colors.white38),
+                                      style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
                                     ),
                                   ],
                                 ),
@@ -983,11 +983,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w600, color: color,
+                  Text(title, style: FluxForgeTheme.dockSans(
+                    size: 11, weight: FontWeight.w600, color: color,
                   )),
                   const SizedBox(height: 2),
-                  Text(desc, style: const TextStyle(fontSize: 9, color: Colors.white38)),
+                  Text(desc, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
                 ],
               ),
             ),
@@ -1034,7 +1034,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: result.warnings.map((w) => Text(
-                    w, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.accentOrange),
+                    w, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentOrange),
                   )).toList(),
                 ),
               ),
@@ -1044,8 +1044,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
           // Matched list (scrollable, max 200px)
           if (result.mappings.isNotEmpty) ...[
-            Text('MATCHED', style: TextStyle(
-              fontSize: 10, fontWeight: FontWeight.w700,
+            Text('MATCHED', style: FluxForgeTheme.dockSans(
+              size: 10, weight: FontWeight.w700,
               color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6), letterSpacing: 1.0,
             )),
             const SizedBox(height: 4),
@@ -1081,7 +1081,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                           flex: 3,
                           child: Text(
                             m.audioPath.split('/').last,
-                            style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary),
+                            style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -1116,8 +1116,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       color: Colors.white.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Center(
-                      child: Text('Cancel', style: TextStyle(fontSize: 10, color: Colors.white54)),
+                    child: Center(
+                      child: Text('Cancel', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
                     ),
                   ),
                 ),
@@ -1141,9 +1141,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     child: Center(
                       child: Text(
                         'APPLY ${result.matchedCount} MAPPINGS',
-                        style: const TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.w700,
-                          color: Color(0xFF0D0D10), letterSpacing: 0.5,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10, weight: FontWeight.w700,
+                          color: const Color(0xFF0D0D10), letterSpacing: 0.5,
                         ),
                       ),
                     ),
@@ -1167,12 +1167,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         ),
         child: Column(
           children: [
-            Text(text ?? '$count', style: TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w700,
-              color: color, fontFamily: 'JetBrainsMono',
+            Text(text ?? '$count', style: FluxForgeTheme.dockSans(
+              size: 14, weight: FontWeight.w700,
+              color: color,
             )),
-            Text(label, style: TextStyle(
-              fontSize: 9, color: color.withValues(alpha: 0.7),
+            Text(label, style: FluxForgeTheme.dockSans(
+              size: 9, color: color.withValues(alpha: 0.7),
             )),
           ],
         ),
@@ -1227,8 +1227,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Enter ${type.toUpperCase()} file path:', style: const TextStyle(
-                fontSize: 11, color: Colors.white70,
+              Text('Enter ${type.toUpperCase()} file path:', style: FluxForgeTheme.dockSans(
+                size: 11, color: Colors.white70,
               )),
               const SizedBox(height: 8),
               TextField(
@@ -1243,7 +1243,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   hintText: '/path/to/mappings.${type}',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10),
+                  hintStyle: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.2)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1252,9 +1252,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.of(dialogCtx).pop(null),
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text('Cancel', style: TextStyle(fontSize: 10, color: Colors.white38)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text('Cancel', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1266,8 +1266,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         color: const Color(0xFF4A9EFF),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text('Import', style: TextStyle(
-                        fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white,
+                      child: Text('Import', style: FluxForgeTheme.dockSans(
+                        size: 10, weight: FontWeight.w600, color: Colors.white,
                       )),
                     ),
                   ),
@@ -1301,9 +1301,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('EXPORT — CSV Format', style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w700,
-                  color: Color(0xFF4A9EFF), letterSpacing: 0.5,
+                Text('EXPORT — CSV Format', style: FluxForgeTheme.dockSans(
+                  size: 11, weight: FontWeight.w700,
+                  color: const Color(0xFF4A9EFF), letterSpacing: 0.5,
                 )),
                 const SizedBox(height: 8),
                 Container(
@@ -1324,9 +1324,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Copy this CSV and save to a .csv file for later import.',
-                  style: TextStyle(fontSize: 9, color: Colors.white30),
+                  style: FluxForgeTheme.dockSans(size: 9, color: Colors.white30),
                 ),
                 const SizedBox(height: 8),
                 Align(
@@ -1339,7 +1339,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         color: Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text('Close', style: TextStyle(fontSize: 10, color: Colors.white54)),
+                      child: Text('Close', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
                     ),
                   ),
                 ),
@@ -1386,8 +1386,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     const SizedBox(width: 2),
                     Text(
                       i == 0 ? 'STG' : 'PCG',
-                      style: TextStyle(
-                        fontSize: 8, fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 8, weight: FontWeight.w600,
                         color: _panelMode == i ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
                       ),
                     ),
@@ -1424,8 +1424,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 children: [
                   Text(
                     'MECHANICS',
-                    style: TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10, weight: FontWeight.w600,
                       color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
                       letterSpacing: 0.8,
                     ),
@@ -1434,7 +1434,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   if (featureCount > 0)
                     Text(
                       '+$featureCount',
-                      style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled, fontFamily: 'monospace'),
+                      style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textDisabled),
                     ),
                 ],
               ),
@@ -1459,9 +1459,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       ),
                       child: Text(
                         mechanic.displayName,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: isOn ? FontWeight.w600 : FontWeight.w400,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: isOn ? FontWeight.w600 : FontWeight.w400,
                           color: isOn ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
                         ),
                       ),
@@ -1482,9 +1482,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   if (enabled.isNotEmpty)
                     GestureDetector(
                       onTap: () => composer.disableAll(),
-                      child: const Text(
+                      child: Text(
                         'Clear',
-                        style: TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled),
+                        style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textDisabled),
                       ),
                     ),
                 ],
@@ -1532,8 +1532,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 10, fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 10, weight: FontWeight.w600,
             color: color.withValues(alpha: 0.6),
             letterSpacing: 0.5,
           ),
@@ -1548,7 +1548,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               color: value > min ? FluxForgeTheme.bgSurface : Colors.transparent,
               borderRadius: BorderRadius.circular(3),
             ),
-            child: Text('−', style: TextStyle(fontSize: 11, color: value > min ? color : FluxForgeTheme.textDisabled)),
+            child: Text('−', style: FluxForgeTheme.dockSans(size: 11, color: value > min ? color : FluxForgeTheme.textDisabled)),
           ),
         ),
         Container(
@@ -1556,7 +1556,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           alignment: Alignment.center,
           child: Text(
             '$value',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.bold, color: color),
           ),
         ),
         GestureDetector(
@@ -1568,7 +1568,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               color: value < max ? FluxForgeTheme.bgSurface : Colors.transparent,
               borderRadius: BorderRadius.circular(3),
             ),
-            child: Text('+', style: TextStyle(fontSize: 11, color: value < max ? color : FluxForgeTheme.textDisabled)),
+            child: Text('+', style: FluxForgeTheme.dockSans(size: 11, color: value < max ? color : FluxForgeTheme.textDisabled)),
           ),
         ),
       ],
@@ -1583,8 +1583,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       children: [
         Text(
           'ANTICIPATION REELS',
-          style: TextStyle(
-            fontSize: 9, fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 9, weight: FontWeight.w600,
             color: FluxForgeTheme.accentRed.withValues(alpha: 0.6),
             letterSpacing: 0.5,
           ),
@@ -1614,9 +1614,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 ),
                 child: Text(
                   'R${r + 1}',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: activeReels.contains(r) ? FontWeight.w700 : FontWeight.w400,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: activeReels.contains(r) ? FontWeight.w700 : FontWeight.w400,
                     color: activeReels.contains(r)
                         ? FluxForgeTheme.accentRed
                         : FluxForgeTheme.textDisabled,
@@ -1641,10 +1641,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: FluxForgeTheme.textDisabled,
-            fontWeight: FontWeight.w500,
+            weight: FontWeight.w500,
           ),
         ),
       ),
@@ -1747,9 +1747,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   Widget _buildPacingSectionHeader(String title) {
     return Text(
       title,
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
+      style: FluxForgeTheme.dockSans(
+        size: 10,
+        weight: FontWeight.w700,
         color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
         letterSpacing: 1.2,
       ),
@@ -1769,9 +1769,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         children: [
           Row(
             children: [
-              Text(label, style: const TextStyle(fontSize: 9, color: Colors.white54)),
+              Text(label, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54)),
               const Spacer(),
-              Text(valueText, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w600)),
+              Text(valueText, style: FluxForgeTheme.dockSans(size: 9, color: color, weight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 2),
@@ -1810,13 +1810,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             ),
           ),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontSize: 9, color: Colors.white38)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
           const Spacer(),
-          Text(value, style: TextStyle(
-            fontSize: 9,
+          Text(value, style: FluxForgeTheme.dockSans(
+            size: 9,
             color: color,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'JetBrainsMono',
+            weight: FontWeight.w600,
           )),
         ],
       ),
@@ -1836,8 +1835,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 9, color: Colors.white60, fontWeight: FontWeight.w600)),
-            Text(desc, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textDisabled)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white60, weight: FontWeight.w600)),
+            Text(desc, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textDisabled)),
           ],
         ),
       ),
@@ -1870,15 +1869,15 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             color: Color(0xFF141418),
             border: Border(bottom: BorderSide(color: Color(0xFF2A2A32))),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.casino, size: 14, color: Color(0xFF808088)),
-              SizedBox(width: 6),
+              const Icon(Icons.casino, size: 14, color: Color(0xFF808088)),
+              const SizedBox(width: 6),
               Text(
                 'NEW MACHINE',
-                style: TextStyle(
-                  fontSize: 10, fontWeight: FontWeight.w600,
-                  color: Color(0xFFB0B0B8), letterSpacing: 0.8,
+                style: FluxForgeTheme.dockSans(
+                  size: 10, weight: FontWeight.w600,
+                  color: const Color(0xFFB0B0B8), letterSpacing: 0.8,
                 ),
               ),
             ],
@@ -1895,7 +1894,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 _wizardLabel('SLOT NAME'),
                 const SizedBox(height: 4),
                 TextField(
-                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
                   decoration: InputDecoration(
                     isDense: true,
                     filled: true,
@@ -1906,7 +1905,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     hintText: 'e.g. Book of Ra, Sweet Bonanza...',
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10),
+                    hintStyle: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.2)),
                   ),
                   onChanged: (v) => _wizardName = v,
                 ),
@@ -1924,7 +1923,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Text('x', style: TextStyle(color: Colors.white24, fontSize: 12)),
+                    Text('x', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white24)),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _wizardStepper(
@@ -1957,10 +1956,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         ),
                         child: Text(
                           type.displayName,
-                          style: TextStyle(
-                            fontSize: 9,
+                          style: FluxForgeTheme.dockSans(
+                            size: 9,
                             color: isOn ? const Color(0xFFD0D0D8) : const Color(0xFF505058),
-                            fontWeight: isOn ? FontWeight.w600 : FontWeight.w400,
+                            weight: isOn ? FontWeight.w600 : FontWeight.w400,
                           ),
                         ),
                       ),
@@ -2003,9 +2002,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         ),
                         child: Text(
                           mechanic.displayName,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: isOn ? FontWeight.w600 : FontWeight.w400,
+                          style: FluxForgeTheme.dockSans(
+                            size: 9,
+                            weight: isOn ? FontWeight.w600 : FontWeight.w400,
                             color: isOn ? const Color(0xFFD0D0D8) : const Color(0xFF505058),
                           ),
                         ),
@@ -2100,12 +2099,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: const Color(0xFF404048)),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Text(
                         'CREATE',
-                        style: TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.w600,
-                          color: Color(0xFFD0D0D8), letterSpacing: 1.0,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10, weight: FontWeight.w600,
+                          color: const Color(0xFFD0D0D8), letterSpacing: 1.0,
                         ),
                       ),
                     ),
@@ -2122,9 +2121,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   Widget _wizardLabel(String text) {
     return Text(
       text,
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
+      style: FluxForgeTheme.dockSans(
+        size: 10,
+        weight: FontWeight.w700,
         color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
         letterSpacing: 1.2,
       ),
@@ -2140,7 +2139,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       ),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 9, color: Colors.white38)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
           const Spacer(),
           GestureDetector(
             onTap: value > min ? () => onChanged(value - 1) : null,
@@ -2151,10 +2150,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               '$value',
-              style: const TextStyle(
-                fontSize: 12, color: Colors.white70,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'JetBrainsMono',
+              style: FluxForgeTheme.dockSans(
+                size: 12, color: Colors.white70,
+                weight: FontWeight.w600,
               ),
             ),
           ),
@@ -2178,7 +2176,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
-        child: Text(label, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textDisabled)),
+        child: Text(label, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textDisabled)),
       ),
     );
   }
@@ -2217,9 +2215,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ),
               child: Text(
                 'R${r + 1}',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: active.contains(r) ? FontWeight.w700 : FontWeight.w400,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: active.contains(r) ? FontWeight.w700 : FontWeight.w400,
                   color: active.contains(r)
                       ? const Color(0xFFFF5252)
                       : const Color(0xFF505058),
@@ -2264,7 +2262,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ),
               const SizedBox(width: 6),
               Text('Engine Core: $coreCount stages',
-                style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54)),
             ],
           ),
           if (featureCount > 0) ...[
@@ -2280,7 +2278,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 ),
                 const SizedBox(width: 6),
                 Text('Features: $featureCount stages',
-                  style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                  style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54)),
               ],
             ),
           ],
@@ -2296,7 +2294,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ),
               const SizedBox(width: 6),
               Text('Music & UI: $alwaysCount stages',
-                style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54)),
             ],
           ),
           const SizedBox(height: 6),
@@ -2308,10 +2306,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             ),
             child: Text(
               'Total: $total audio slots',
-              style: const TextStyle(
-                fontSize: 10,
-                color: Color(0xFF4A9EFF),
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                color: const Color(0xFF4A9EFF),
+                weight: FontWeight.w600,
               ),
             ),
           ),
@@ -2376,8 +2374,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ),
             ),
           ),
-          child: Text(label, style: TextStyle(
-            fontSize: 10, fontWeight: FontWeight.w600,
+          child: Text(label, style: FluxForgeTheme.dockSans(
+            size: 10, weight: FontWeight.w600,
             color: isActive
                 ? tabTint
                 : hovered ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled,
@@ -2428,12 +2426,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             children: [
               Text(
                 '${_selectedSlots.length} selected',
-                style: const TextStyle(color: FluxForgeTheme.accentOrange, fontSize: 11, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.accentOrange, weight: FontWeight.bold),
               ),
               const Spacer(),
               GestureDetector(
                 onTap: () => setState(() => _selectedSlots.clear()),
-                child: const Text('Clear', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                child: Text('Clear', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38)),
               ),
             ],
           ),
@@ -2442,7 +2440,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           Row(
             children: [
               // Volume
-              const Text('Vol', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              Text('Vol', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
               const SizedBox(width: 4),
               SizedBox(
                 width: 80,
@@ -2463,17 +2461,17 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   ),
                 ),
               ),
-              Text('${(_batchVolume * 100).round()}%', style: const TextStyle(color: Colors.white54, fontSize: 9, fontFamily: 'monospace')),
+              Text('${(_batchVolume * 100).round()}%', style: FluxForgeTheme.dockMono(size: 9, color: Colors.white54)),
               const SizedBox(width: 10),
               // Bus dropdown
-              const Text('Bus', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              Text('Bus', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
               const SizedBox(width: 4),
               SizedBox(
                 height: 22,
                 child: DropdownButton<int>(
                   value: _batchBusId,
                   dropdownColor: FluxForgeTheme.bgMid,
-                  style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70),
                   underline: const SizedBox.shrink(),
                   isDense: true,
                   items: const [
@@ -2487,7 +2485,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ),
               const SizedBox(width: 10),
               // Fade out — tap to cycle through common values
-              const Text('FO', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              Text('FO', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
               const SizedBox(width: 4),
               GestureDetector(
                 onTap: () {
@@ -2506,7 +2504,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   ),
                   child: Text(
                     '${_batchFadeOut.round()}ms',
-                    style: const TextStyle(color: Colors.white70, fontSize: 10, fontFamily: 'monospace'),
+                    style: FluxForgeTheme.dockMono(size: 10, color: Colors.white70),
                   ),
                 ),
               ),
@@ -2524,7 +2522,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   backgroundColor: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
-                child: const Text('Apply to Selected', style: TextStyle(color: FluxForgeTheme.accentOrange, fontSize: 10)),
+                child: Text('Apply to Selected', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentOrange)),
               ),
             ),
           ),
@@ -2559,10 +2557,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
       color: FluxForgeTheme.bgMid,
       items: [
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           enabled: false,
           height: 24,
-          child: Text('Phase Preset', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 11, fontWeight: FontWeight.bold)),
+          child: Text('Phase Preset', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.accentCyan, weight: FontWeight.bold)),
         ),
         ...PhasePresets.all.map((preset) => PopupMenuItem<String>(
           value: preset.name,
@@ -2571,40 +2569,40 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(preset.name, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-              Text(preset.description, style: const TextStyle(color: Colors.white30, fontSize: 8)),
+              Text(preset.name, style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70)),
+              Text(preset.description, style: FluxForgeTheme.dockSans(size: 8, color: Colors.white30)),
             ],
           ),
         )),
         const PopupMenuDivider(height: 8),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: '__RESET__',
           height: 28,
-          child: Text('Reset to Smart Defaults', style: TextStyle(color: Colors.white54, fontSize: 10)),
+          child: Text('Reset to Smart Defaults', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
         ),
         const PopupMenuDivider(height: 8),
         PopupMenuItem<String>(
           value: '__SELECT_ALL__',
           height: 28,
-          child: Text('Select All (${phaseStages.length})', style: const TextStyle(color: FluxForgeTheme.accentOrange, fontSize: 10)),
+          child: Text('Select All (${phaseStages.length})', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentOrange)),
         ),
         const PopupMenuDivider(height: 8),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: '__COPY__',
           height: 28,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.copy, size: 11, color: Colors.white38),
-            SizedBox(width: 6),
-            Text('Copy Phase Config', style: TextStyle(color: Colors.white54, fontSize: 10)),
+            const Icon(Icons.copy, size: 11, color: Colors.white38),
+            const SizedBox(width: 6),
+            Text('Copy Phase Config', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
           ]),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: '__PASTE__',
           height: 28,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.paste, size: 11, color: Colors.white38),
-            SizedBox(width: 6),
-            Text('Paste Phase Config', style: TextStyle(color: Colors.white54, fontSize: 10)),
+            const Icon(Icons.paste, size: 11, color: Colors.white38),
+            const SizedBox(width: 6),
+            Text('Paste Phase Config', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
           ]),
         ),
       ],
@@ -3028,8 +3026,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   Flexible(
                     child: Text(
                       phase.title,
-                      style: TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11, weight: FontWeight.w600,
                         color: tintColor, letterSpacing: 0.5,
                       ),
                       overflow: TextOverflow.ellipsis, maxLines: 1,
@@ -3038,12 +3036,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   const Spacer(),
                   Text(
                     '$assignedSlots/$totalSlots',
-                    style: TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockMono(
+                      size: 10, weight: FontWeight.w500,
                       color: isComplete
                           ? FluxForgeTheme.accentGreen.withValues(alpha: 0.6)
                           : tintColor.withValues(alpha: 0.45),
-                      fontFamily: 'monospace',
                     ),
                   ),
                   // Phase validation warnings badge
@@ -3069,10 +3066,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         ),
                         child: Text(
                           '${phaseWarnings.length}',
-                          style: TextStyle(
-                            fontSize: 8,
+                          style: FluxForgeTheme.dockSans(
+                            size: 8,
                             color: errors > 0 ? FluxForgeTheme.accentRed : FluxForgeTheme.accentOrange,
-                            fontWeight: FontWeight.bold,
+                            weight: FontWeight.bold,
                           ),
                         ),
                       );
@@ -3139,8 +3136,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   Flexible(
                     child: Text(
                       config.title,
-                      style: TextStyle(
-                        fontSize: 10, fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10, weight: FontWeight.w600,
                         color: sectionTint.withValues(alpha: 0.8), letterSpacing: 0.3,
                       ),
                       overflow: TextOverflow.ellipsis, maxLines: 1,
@@ -3152,12 +3149,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       final percentage = _getSectionPercentage(config);
                       return Text(
                         '$percentage%',
-                        style: TextStyle(
-                          fontSize: 9, fontWeight: FontWeight.w500,
+                        style: FluxForgeTheme.dockMono(
+                          size: 9, weight: FontWeight.w500,
                           color: percentage == 100
                               ? sectionTint.withValues(alpha: 0.6)
                               : FluxForgeTheme.textDisabled,
-                          fontFamily: 'monospace',
                         ),
                       );
                     },
@@ -3378,8 +3374,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     Expanded(
                       child: Text(
                         slot.label,
-                        style: TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                          size: 11, weight: FontWeight.w600,
                           color: isSlotHovered
                               ? slotTint
                               : hasAudio ? FluxForgeTheme.textPrimary : const Color(0xFFA0A0A8),
@@ -3390,8 +3386,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     // Priority badge
                     Text(
                       priorityInfo.label,
-                      style: TextStyle(
-                        fontSize: 8, fontWeight: FontWeight.w700,
+                      style: FluxForgeTheme.dockSans(
+                        size: 8, weight: FontWeight.w700,
                         color: priorityInfo.color.withValues(alpha: 0.85),
                         letterSpacing: 0.3,
                       ),
@@ -3444,7 +3440,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       Expanded(
                         child: Text(
                           fileName!,
-                          style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary),
+                          style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary),
                           overflow: TextOverflow.ellipsis, maxLines: 1,
                         ),
                       ),
@@ -3452,13 +3448,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       Expanded(
                         child: Text(
                           isQuickAssignSelected ? '← drop audio' : slot.stage,
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: isQuickAssignSelected
-                                ? FluxForgeTheme.textTertiary
-                                : const Color(0xFF707078),
-                            fontFamily: isQuickAssignSelected ? null : 'monospace',
-                          ),
+                          style: isQuickAssignSelected
+                              ? FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary)
+                              : FluxForgeTheme.dockMono(size: 9, color: const Color(0xFF707078)),
                           overflow: TextOverflow.ellipsis, maxLines: 1,
                         ),
                       ),
@@ -3469,7 +3461,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         padding: const EdgeInsets.only(left: 4),
                         child: Text(
                           'x$variantCount',
-                          style: const TextStyle(fontSize: 8, color: FluxForgeTheme.textDisabled, fontFamily: 'monospace'),
+                          style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textDisabled),
                         ),
                       ),
                     // Layer count badge
@@ -3486,10 +3478,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                             if (lc <= 1) return const SizedBox.shrink();
                             return Text(
                               '${lc}L',
-                              style: TextStyle(
-                                fontSize: 8,
+                              style: FluxForgeTheme.dockMono(
+                                size: 8,
                                 color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
-                                fontFamily: 'monospace',
                               ),
                             );
                           },
@@ -3548,17 +3539,17 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
       color: FluxForgeTheme.bgMid,
       items: [
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           enabled: false,
           height: 24,
-          child: Text('Event Preset', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 11, fontWeight: FontWeight.bold)),
+          child: Text('Event Preset', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.accentCyan, weight: FontWeight.bold)),
         ),
         ...presets.asMap().entries.map((e) => PopupMenuItem<String>(
           value: 'preset_${e.key}',
           height: 28,
           child: Text(
             '${e.value.name}  (v:${(e.value.volume * 100).round()}%)',
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70),
           ),
         )),
         if (event != null) ...[
@@ -3568,7 +3559,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             height: 28,
             child: Text(
               'Save Current as Preset (v:${(currentVolume * 100).round()}%, bus:$currentBus)',
-              style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentGreen),
             ),
           ),
         ],
@@ -3593,13 +3584,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgMid,
-        title: const Text('Save Event Preset', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 13)),
+        title: Text('Save Event Preset', style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.accentCyan)),
         content: SizedBox(
           width: 250,
           child: TextField(
             controller: controller,
             autofocus: true,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
             decoration: const InputDecoration(
               hintText: 'Preset name',
               hintStyle: TextStyle(color: Colors.white24),
@@ -3854,7 +3845,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             const SizedBox(width: 8),
             Text(
               'Auto-Distribution Result',
-              style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+              style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
             ),
           ],
         ),
@@ -3882,9 +3873,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               const SizedBox(height: 12),
               // Matched files
               if (matched.isNotEmpty) ...[
-                const Text(
+                Text(
                   'MATCHED FILES:',
-                  style: TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled, letterSpacing: 1),
+                  style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textDisabled, letterSpacing: 1),
                 ),
                 const SizedBox(height: 4),
                 ...matched.take(8).map((m) => Padding(
@@ -3896,13 +3887,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       Expanded(
                         child: Text(
                           m.audioFileName,
-                          style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       Text(
                         '→ ${m.stage}',
-                        style: TextStyle(fontSize: 10, color: FluxForgeTheme.accentBlue),
+                        style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentBlue),
                       ),
                     ],
                   ),
@@ -3910,15 +3901,15 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 if (matched.length > 8)
                   Text(
                     '... and ${matched.length - 8} more',
-                    style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textDisabled),
                   ),
               ],
               // Unmatched files
               if (unmatched.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'UNMATCHED FILES:',
-                  style: TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled, letterSpacing: 1),
+                  style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textDisabled, letterSpacing: 1),
                 ),
                 const SizedBox(height: 4),
                 ...unmatched.take(5).map((u) => Padding(
@@ -3930,14 +3921,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       Expanded(
                         child: Text(
                           u.audioFileName,
-                          style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+                          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (u.topSuggestion != null)
                         Text(
                           '? ${u.topSuggestion!.stage}',
-                          style: const TextStyle(fontSize: 10, color: FluxForgeTheme.accentOrange),
+                          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentOrange),
                         ),
                     ],
                   ),
@@ -3945,7 +3936,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 if (unmatched.length > 5)
                   Text(
                     '... and ${unmatched.length - 5} more',
-                    style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textDisabled),
                   ),
               ],
             ],
@@ -3975,13 +3966,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           ),
           child: Text(
             '$count',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+            style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold, color: color),
           ),
         ),
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
         ),
       ],
     );
@@ -4112,22 +4103,22 @@ class _GroupDropZoneState extends State<_GroupDropZone> {
                   Expanded(
                     child: Text(
                       widget.group.title,
-                      style: TextStyle(
-                        fontSize: 10, fontWeight: FontWeight.w500,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10, weight: FontWeight.w500,
                         color: _isMouseHover ? groupTint : FluxForgeTheme.textTertiary,
                       ),
                     ),
                   ),
                   if (_isHovering)
-                    const Text('DROP', style: TextStyle(
-                      fontSize: 9, fontWeight: FontWeight.w600,
+                    Text('DROP', style: FluxForgeTheme.dockSans(
+                      size: 9, weight: FontWeight.w600,
                       color: FluxForgeTheme.textTertiary, letterSpacing: 0.5,
                     ))
                   else if (widget.assignedCount > 0)
                     Text(
                       '${widget.assignedCount}/${widget.group.slots.length}',
-                      style: const TextStyle(
-                        fontSize: 9, color: FluxForgeTheme.textDisabled, fontFamily: 'monospace',
+                      style: FluxForgeTheme.dockMono(
+                        size: 9, color: FluxForgeTheme.textDisabled,
                       ),
                     ),
                 ],
@@ -6084,9 +6075,9 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
                 Expanded(
                   child: Text(
                     'Variants: ${widget.stage}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 16,
+                      weight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
@@ -6101,28 +6092,28 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
             // Mode selector
             Row(
               children: [
-                const Text(
+                Text(
                   'Selection Mode:',
-                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: SegmentedButton<VariantSelectionMode>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: VariantSelectionMode.random,
-                        label: Text('Random', style: TextStyle(fontSize: 11)),
-                        icon: Icon(Icons.shuffle, size: 14),
+                        label: Text('Random', style: FluxForgeTheme.dockSans(size: 11)),
+                        icon: const Icon(Icons.shuffle, size: 14),
                       ),
                       ButtonSegment(
                         value: VariantSelectionMode.sequence,
-                        label: Text('Sequence', style: TextStyle(fontSize: 11)),
-                        icon: Icon(Icons.format_list_numbered, size: 14),
+                        label: Text('Sequence', style: FluxForgeTheme.dockSans(size: 11)),
+                        icon: const Icon(Icons.format_list_numbered, size: 14),
                       ),
                       ButtonSegment(
                         value: VariantSelectionMode.manual,
-                        label: Text('Manual', style: TextStyle(fontSize: 11)),
-                        icon: Icon(Icons.touch_app, size: 14),
+                        label: Text('Manual', style: FluxForgeTheme.dockSans(size: 11)),
+                        icon: const Icon(Icons.touch_app, size: 14),
                       ),
                     ],
                     selected: {_mode},
@@ -6157,13 +6148,12 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
                 border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
               child: _variants.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'No variants yet. Drop audio files to add.',
-                        style: TextStyle(
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: Colors.white38,
-                          fontStyle: FontStyle.italic,
                         ),
                       ),
                     )
@@ -6212,10 +6202,9 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
                   alignment: Alignment.center,
                   child: Text(
                     'Drop audio to add variant',
-                    style: TextStyle(
-                      fontSize: 12,
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
                       color: isHovering ? widget.accentColor : Colors.white38,
-                      fontStyle: FontStyle.italic,
                     ),
                   ),
                 );
@@ -6271,9 +6260,9 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
             ),
             child: Text(
               '${index + 1}',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: widget.accentColor,
               ),
             ),
@@ -6283,7 +6272,7 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
           Expanded(
             child: Text(
               fileName,
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
               overflow: TextOverflow.ellipsis,
             ),
           ),

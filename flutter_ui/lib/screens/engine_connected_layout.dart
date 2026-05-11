@@ -2217,12 +2217,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         backgroundColor: FluxForgeTheme.bgSurface,
         title: Text(
           'Rename Track',
-          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+          style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 13),
+          style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             hintText: 'Track name',
             hintStyle: TextStyle(color: FluxForgeTheme.textSecondary),
@@ -2286,7 +2286,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         backgroundColor: FluxForgeTheme.bgSurface,
         title: Text(
           'Track Color',
-          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+          style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
         ),
         content: Wrap(
           spacing: 8,
@@ -3144,7 +3144,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           children: [
             Text('Create a new project?', style: TextStyle(color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 8),
-            Text('Unsaved changes will be lost.', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
+            Text('Unsaved changes will be lost.', style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textTertiary)),
           ],
         ),
         actions: [
@@ -4382,7 +4382,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     children: [
                       Icon(Icons.warning, size: 14, color: FluxForgeTheme.warningOrange),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(i, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12))),
+                      Expanded(child: Text(i, style: FluxForgeTheme.dockSans(size: 12))),
                     ],
                   ),
                 )).toList(),
@@ -4846,7 +4846,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   children: [
                     const AssetCloudStatusBadge(),
                     const SizedBox(width: 12),
-                    const Text('Asset Cloud Library', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text('Asset Cloud Library', style: FluxForgeTheme.dockSans(size: 18, color: Colors.white, weight: FontWeight.bold)),
                     const Spacer(),
                     IconButton(icon: const Icon(Icons.close, color: Colors.white70), tooltip: 'Close', padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32), onPressed: () => Navigator.pop(ctx)),
                   ],
@@ -4880,7 +4880,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   children: [
                     const CrdtSyncStatusBadge(size: 24),
                     const SizedBox(width: 12),
-                    const Text('Collaborative Project Sync', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text('Collaborative Project Sync', style: FluxForgeTheme.dockSans(size: 18, color: Colors.white, weight: FontWeight.bold)),
                     const Spacer(),
                     IconButton(icon: const Icon(Icons.close, color: Colors.white70), tooltip: 'Close', padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32), onPressed: () => Navigator.pop(ctx)),
                   ],
@@ -5197,9 +5197,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           children: [
             Icon(Icons.warning_amber_rounded, color: const Color(0xFFFF9040), size: 20),
             const SizedBox(width: 8),
-            const Text(
+            Text(
               'Sample Rate Mismatch',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+              style: FluxForgeTheme.dockSans(size: 14, color: Colors.white, weight: FontWeight.w600),
             ),
           ],
         ),
@@ -5211,7 +5211,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             children: [
               Text(
                 'Project sample rate: ${_formatSampleRate(projectRate)}',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white.withValues(alpha: 0.7)),
               ),
               const SizedBox(height: 10),
               ...byRate.entries.map((entry) {
@@ -5243,7 +5243,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       Expanded(
                         child: Text(
                           '$fileNames$suffix',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
+                          style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6)),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -5255,7 +5255,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               const SizedBox(height: 8),
               Text(
                 'Audio will play at the project rate. Pitch/speed may differ from original.',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10.5),
+                style: FluxForgeTheme.dockSans(size: 10.5, color: Colors.white.withValues(alpha: 0.4)),
               ),
             ],
           ),
@@ -5263,7 +5263,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK', style: TextStyle(color: Color(0xFF4a9eff), fontSize: 12)),
+            child: Text('OK', style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFF4a9eff))),
           ),
         ],
       ),
@@ -5632,7 +5632,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             children: [
               Icon(Icons.add_circle_outline, color: FluxForgeTheme.accentGreen, size: 20),
               const SizedBox(width: 8),
-              Text('Create New Event', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 16)),
+              Text('Create New Event', style: FluxForgeTheme.dockSans(size: 16, color: FluxForgeTheme.textPrimary)),
             ],
           ),
           content: SizedBox(
@@ -5654,7 +5654,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('Category', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
+                Text('Category', style: FluxForgeTheme.dockSans(size: 12)),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -5860,13 +5860,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgElevated,
-        title: Text('Rename Event', style: TextStyle(fontSize: 13, color: FluxForgeTheme.textPrimary)),
+        title: Text('Rename Event', style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textPrimary)),
         content: SizedBox(
           width: 280,
           child: TextField(
             controller: controller,
             autofocus: true,
-            style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
             decoration: InputDecoration(
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -5883,7 +5883,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(size: 11)),
           ),
           TextButton(
             onPressed: () {
@@ -5893,7 +5893,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               }
               Navigator.of(ctx).pop();
             },
-            child: Text('Rename', style: TextStyle(fontSize: 11, color: FluxForgeTheme.accentOrange)),
+            child: Text('Rename', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.accentOrange)),
           ),
         ],
       ),
@@ -6860,9 +6860,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                             child: Text(
                               'FOCUS: ${_dawLowerZoneController.superTab.label} › ${_dawLowerZoneController.subTabLabels.length > _dawLowerZoneController.currentSubTabIndex ? _dawLowerZoneController.subTabLabels[_dawLowerZoneController.currentSubTabIndex] : ""}',
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                              style: FluxForgeTheme.dockSans(
+                                size: 11,
+                                weight: FontWeight.w700,
                                 color: _dawLowerZoneController.accentColor,
                                 letterSpacing: 0.5,
                               ),
@@ -6877,12 +6877,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                                 color: const Color(0xFF2A2A32),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text('ESC', style: TextStyle(fontSize: 9, color: Color(0xFF808088), fontFamily: 'monospace')),
-                                  SizedBox(width: 4),
-                                  Icon(Icons.fullscreen_exit, size: 12, color: Color(0xFF808088)),
+                                  Text('ESC', style: FluxForgeTheme.dockMono(size: 9, color: Color(0xFF808088))),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.fullscreen_exit, size: 12, color: Color(0xFF808088)),
                                 ],
                               ),
                             ),
@@ -9195,8 +9195,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                             color: FluxForgeTheme.bgElevated,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: BorderSide(color: FluxForgeTheme.borderSubtle)),
                             itemBuilder: (context) => [
-                              PopupMenuItem(value: 'export', height: 28, child: Row(children: [Icon(Icons.upload, size: 13, color: FluxForgeTheme.textSecondary), const SizedBox(width: 6), Text('Export', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary))])),
-                              PopupMenuItem(value: 'import', height: 28, child: Row(children: [Icon(Icons.download, size: 13, color: FluxForgeTheme.textSecondary), const SizedBox(width: 6), Text('Import', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary))])),
+                              PopupMenuItem(value: 'export', height: 28, child: Row(children: [Icon(Icons.upload, size: 13, color: FluxForgeTheme.textSecondary), const SizedBox(width: 6), Text('Export', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary))])),
+                              PopupMenuItem(value: 'import', height: 28, child: Row(children: [Icon(Icons.download, size: 13, color: FluxForgeTheme.textSecondary), const SizedBox(width: 6), Text('Import', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary))])),
                             ],
                             child: Padding(
                               padding: const EdgeInsets.all(4),
@@ -9276,7 +9276,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 const SizedBox(width: 8),
                 Text(
                   event.name,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FluxForgeTheme.textPrimary),
+                  style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.w600, color: FluxForgeTheme.textPrimary),
                 ),
                 const SizedBox(width: 16),
                 Container(
@@ -9287,7 +9287,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   ),
                   child: Text(
                     '${layers.length} layers',
-                    style: TextStyle(fontSize: 10, color: FluxForgeTheme.accentBlue),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentBlue),
                   ),
                 ),
                 const Spacer(),
@@ -9301,7 +9301,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 ),
                 Text(
                   '${(_middlewareTimelineZoom * 100).round()}%',
-                  style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                  style: FluxForgeTheme.dockSans(size: 10),
                 ),
                 IconButton(
                   icon: Icon(Icons.add, size: 16, color: FluxForgeTheme.textSecondary),
@@ -9342,7 +9342,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           ),
                         ),
                         child: Center(
-                          child: Text('Time', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                          child: Text('Time', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary)),
                         ),
                       ),
                       // Track headers
@@ -9446,7 +9446,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               child: Center(
                 child: Text(
                   '${index + 1}',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: layerColor),
+                  style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: layerColor),
                 ),
               ),
             ),
@@ -9459,13 +9459,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 children: [
                   Text(
                     layer.name,
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: FluxForgeTheme.textPrimary),
+                    style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: FluxForgeTheme.textPrimary),
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (layer.audioPath.isNotEmpty)
                     Text(
                       layer.audioPath.split('/').last,
-                      style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary),
+                      style: FluxForgeTheme.dockSans(size: 9),
                       overflow: TextOverflow.ellipsis,
                     ),
                 ],
@@ -9603,12 +9603,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   children: [
                     Text(
                       layer.name,
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: Colors.white),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       '${durationSecs.toStringAsFixed(2)}s',
-                      style: TextStyle(fontSize: 8, color: Colors.white.withValues(alpha: 0.8)),
+                      style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.8)),
                     ),
                   ],
                 ),
@@ -9623,7 +9623,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   ),
                   child: Text(
                     '${(layer.volume * 100).toInt()}%',
-                    style: const TextStyle(fontSize: 7, color: Colors.white70),
+                    style: FluxForgeTheme.dockSans(size: 7, color: Colors.white70),
                   ),
                 ),
             ],
@@ -9749,14 +9749,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 TextButton.icon(
                   onPressed: () => _showAddLayerToCompositeDialog(event),
                   icon: Icon(Icons.add, size: 14, color: event.color),
-                  label: Text('Add', style: TextStyle(fontSize: 11, color: event.color)),
+                  label: Text('Add', style: FluxForgeTheme.dockSans(color: event.color)),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     minimumSize: Size.zero,
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text('${event.layers.length} layers', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+                Text('${event.layers.length} layers', style: FluxForgeTheme.dockSans(size: 10)),
               ],
             ),
           ),
@@ -9800,24 +9800,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Index
-                        SizedBox(width: 18, child: Center(child: Text('${idx + 1}', style: TextStyle(fontSize: 11, color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary, fontWeight: FontWeight.w700)))),
+                        SizedBox(width: 18, child: Center(child: Text('${idx + 1}', style: FluxForgeTheme.dockSans(size: 11, color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary, weight: FontWeight.w700)))),
                         // Type dropdown with label — fixed width
                         SizedBox(width: 72, child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          const Text('Type', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
+                          Text('Type', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary, weight: FontWeight.w600, height: 1)),
                           const SizedBox(height: 2),
                           _CellDropdown(value: layer.actionType, options: kActionTypes, color: _getTypeColor(layer.actionType), onChanged: (val) => _updateLayer(event, idx, layer.copyWith(actionType: val), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
                         ])),
                         const SizedBox(width: 3),
                         // Bus dropdown with label — fixed width
                         SizedBox(width: 68, child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          const Text('Bus', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
+                          Text('Bus', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary, weight: FontWeight.w600, height: 1)),
                           const SizedBox(height: 2),
                           _CellDropdown(value: _busIdToName(layer.busId), options: const ['Master', 'Music', 'SFX', 'Voice', 'UI', 'Ambience'], color: FluxForgeTheme.accentCyan, onChanged: (val) => _updateLayer(event, idx, layer.copyWith(busId: _busNameToId(val)), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
                         ])),
                         const SizedBox(width: 3),
                         // Asset dropdown with label — expanded for long filenames
                         Expanded(flex: 3, child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          const Text('Asset', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
+                          Text('Asset', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary, weight: FontWeight.w600, height: 1)),
                           const SizedBox(height: 2),
                           _CellDropdown(value: assetName, options: assetOptions, color: FluxForgeTheme.accentCyan, onChanged: (val) {
                             final path = val.isEmpty ? '' : _audioPool.firstWhere((f) => f.name == val, orElse: () => _audioPool.first).path;
@@ -11500,8 +11500,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           const SizedBox(width: 8),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: isDestructive
                   ? const Color(0xFFFF4060)
                   : const Color(0xFFCCCCDD),
@@ -11531,7 +11531,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFFCCCCDD)),
+            style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFFCCCCDD)),
           ),
         ],
       ),
@@ -11554,7 +11554,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             child: Text(
               label,
               style:
-                  const TextStyle(fontSize: 12, color: Color(0xFFCCCCDD)),
+                  FluxForgeTheme.dockSans(size: 12, color: Color(0xFFCCCCDD)),
             ),
           ),
           const Icon(Icons.chevron_right,
@@ -11605,8 +11605,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     ),
                     const SizedBox(width: 8),
                     Text(g.name,
-                        style: const TextStyle(
-                            fontSize: 11, color: Color(0xFFCCCCDD))),
+                        style: FluxForgeTheme.dockSans(
+                            color: Color(0xFFCCCCDD))),
                   ],
                 ),
               ))
@@ -11659,8 +11659,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     ),
                     const SizedBox(width: 8),
                     Text(v.name,
-                        style: const TextStyle(
-                            fontSize: 11, color: Color(0xFFCCCCDD))),
+                        style: FluxForgeTheme.dockSans(
+                            color: Color(0xFFCCCCDD))),
                   ],
                 ),
               ))
@@ -11683,12 +11683,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A22),
-        title: const Text('Rename Channel',
-            style: TextStyle(fontSize: 14, color: Color(0xFFCCCCDD))),
+        title: Text('Rename Channel',
+            style: FluxForgeTheme.dockSans(size: 14, color: Color(0xFFCCCCDD))),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Color(0xFFCCCCDD), fontSize: 13),
+          style: FluxForgeTheme.dockSans(size: 13, color: Color(0xFFCCCCDD)),
           decoration: const InputDecoration(
             isDense: true,
             border: OutlineInputBorder(),
@@ -11770,8 +11770,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     const SizedBox(width: 8),
                     Text(
                       _colorName(c),
-                      style: const TextStyle(
-                          fontSize: 11, color: Color(0xFFCCCCDD)),
+                      style: FluxForgeTheme.dockSans(
+                          color: Color(0xFFCCCCDD)),
                     ),
                   ],
                 ),
@@ -12670,7 +12670,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             mainAxisSize: MainAxisSize.min,
             children: outputs.map((output) => ListTile(
               dense: true,
-              title: Text(output, style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary)),
+              title: Text(output, style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary)),
               onTap: () => Navigator.pop(ctx, output),
             )).toList(),
           ),
@@ -12711,7 +12711,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             mainAxisSize: MainAxisSize.min,
             children: inputs.map((input) => ListTile(
               dense: true,
-              title: Text(input, style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary)),
+              title: Text(input, style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary)),
               onTap: () => Navigator.pop(ctx, input),
             )).toList(),
           ),
@@ -12768,7 +12768,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 ListTile(
                   dense: true,
                   leading: const Icon(Icons.block, size: 16, color: Color(0xFF808080)),
-                  title: const Text('None', style: TextStyle(fontSize: 12, color: Color(0xFF808080))),
+                  title: Text('None', style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFF808080))),
                   onTap: () => Navigator.pop(ctx, const _SendDialogResult(isRemove: true)),
                 ),
                 const Divider(height: 1, color: Color(0xFF333340)),
@@ -12777,16 +12777,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 if (existingBuses.isNotEmpty) ...[
                   Padding(
                     padding: const EdgeInsets.only(left: 16, top: 8, bottom: 4),
-                    child: Text('EXISTING BUSES', style: TextStyle(
-                      fontSize: 9, color: FluxForgeTheme.textSecondary,
-                      fontWeight: FontWeight.bold, letterSpacing: 1.2,
+                    child: Text('EXISTING BUSES', style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.bold, letterSpacing: 1.2,
                     )),
                   ),
                   for (final bus in existingBuses)
                     ListTile(
                       dense: true,
                       leading: Icon(Icons.call_split, size: 16, color: bus.color),
-                      title: Text(bus.name, style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary)),
+                      title: Text(bus.name, style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary)),
                       onTap: () => Navigator.pop(ctx, _SendDialogResult(existingBusId: bus.id, existingBusName: bus.name)),
                     ),
                   const Divider(height: 1, color: Color(0xFF333340)),
@@ -12795,17 +12795,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 // Create new FX bus
                 Padding(
                   padding: const EdgeInsets.only(left: 16, top: 8, bottom: 4),
-                  child: Text('CREATE NEW FX BUS', style: TextStyle(
-                    fontSize: 9, color: FluxForgeTheme.textSecondary,
-                    fontWeight: FontWeight.bold, letterSpacing: 1.2,
+                  child: Text('CREATE NEW FX BUS', style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.bold, letterSpacing: 1.2,
                   )),
                 ),
                 for (final entry in fxEffects.entries)
                   ListTile(
                     dense: true,
                     leading: Icon(Icons.add_circle_outline, size: 16, color: _fxColor(entry.value)),
-                    title: Text(entry.key, style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary)),
-                    subtitle: Text('New FX bus with ${entry.key}', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+                    title: Text(entry.key, style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary)),
+                    subtitle: Text('New FX bus with ${entry.key}', style: FluxForgeTheme.dockSans(size: 10)),
                     onTap: () => Navigator.pop(ctx, _SendDialogResult(isCreateNew: true, effectName: entry.key, effectType: entry.value)),
                   ),
               ],
@@ -13272,7 +13272,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
-                  Text(reason, style: const TextStyle(fontSize: 12)),
+                  Text(reason, style: FluxForgeTheme.dockSans(size: 12)),
                 ],
               ),
               action: SnackBarAction(
@@ -13458,10 +13458,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         const SizedBox(width: 8),
                         Text(
                           'FF-Q 64 — $channelName',
-                          style: const TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 12,
                             color: Color(0xFFB0B0B8),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            weight: FontWeight.w500,
                           ),
                         ),
                         const Spacer(),
@@ -13529,9 +13529,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 const Spacer(),
                 Text(
                   'Vintage Analog EQ Models',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textTertiary,
-                    fontSize: 12,
                   ),
                 ),
               ],
@@ -13582,10 +13582,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
             color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            weight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -13631,18 +13631,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Elastic Pro',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 14,
                       color: Color(0xFF4A9EFF),
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                      weight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Ultimate Time-Stretching Engine',
-                    style: TextStyle(color: Color(0xFFB0B0B8), fontSize: 12),
+                    style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFFB0B0B8)),
                   ),
                   const SizedBox(height: 16),
                   _buildInfoRow('STN Decomposition', 'Sines + Transients + Noise'),
@@ -13657,14 +13657,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       color: const Color(0xFF4A9EFF).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: Color(0xFF4A9EFF), size: 14),
-                        SizedBox(width: 8),
+                        const Icon(Icons.info_outline, color: Color(0xFF4A9EFF), size: 14),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Select a clip and adjust stretch/pitch parameters.',
-                            style: TextStyle(color: Color(0xFF4A9EFF), fontSize: 10),
+                            style: FluxForgeTheme.dockSans(size: 10, color: Color(0xFF4A9EFF)),
                           ),
                         ),
                       ],
@@ -13691,8 +13691,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(color: Color(0xFFE0E0E8), fontSize: 11)),
-                Text(value, style: const TextStyle(color: Color(0xFF808088), fontSize: 9)),
+                Text(label, style: FluxForgeTheme.dockSans(color: Color(0xFFE0E0E8))),
+                Text(value, style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFF808088))),
               ],
             ),
           ),
@@ -13729,10 +13729,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       const SizedBox(width: 8),
                       Text(
                         'Transient Detection',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 14,
                           color: FluxForgeTheme.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          weight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -13743,11 +13743,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     '• Automatic beat slicing\n'
                     '• Tempo detection\n'
                     '• Quantization points',
-                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12, height: 1.5),
+                    style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textTertiary, height: 1.5),
                   ),
                   const SizedBox(height: 16),
                   // Sensitivity slider
-                  Text('Sensitivity', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+                  Text('Sensitivity', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary)),
                   Slider(
                     value: _transientSensitivity,
                     min: 0.0,
@@ -13756,12 +13756,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     activeColor: FluxForgeTheme.accentOrange,
                   ),
                   // Algorithm selector
-                  Text('Algorithm', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+                  Text('Algorithm', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary)),
                   const SizedBox(height: 4),
                   DropdownButton<int>(
                     value: _transientAlgorithm,
                     dropdownColor: FluxForgeTheme.bgMid,
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
                     underline: Container(height: 1, color: FluxForgeTheme.borderSubtle),
                     isExpanded: true,
                     items: const [
@@ -13843,10 +13843,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       const SizedBox(width: 8),
                       Text(
                         'BPM Detection',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 14,
                           color: FluxForgeTheme.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          weight: FontWeight.w600,
                         ),
                       ),
                       const Spacer(),
@@ -13859,10 +13859,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           ),
                           child: Text(
                             'STABLE',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 9,
                               color: FluxForgeTheme.accentGreen,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
+                              weight: FontWeight.bold,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -13890,7 +13890,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Detected BPM', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                              Text('Detected BPM', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary)),
                               Text(
                                 _detectedBpm > 0
                                     ? _detectedBpm.toStringAsFixed(2)
@@ -13912,7 +13912,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text('Confidence', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                              Text('Confidence', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary)),
                               const SizedBox(height: 4),
                               // Confidence bar
                               ClipRRect(
@@ -13949,7 +13949,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Text('Min', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                      Text('Min', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary)),
                       Expanded(
                         child: Slider(
                           value: _bpmMinRange,
@@ -13966,7 +13966,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   ),
                   Row(
                     children: [
-                      Text('Max', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                      Text('Max', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary)),
                       Expanded(
                         child: Slider(
                           value: _bpmMaxRange,
@@ -13984,7 +13984,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   // Alternatives (half/double tempo)
                   if (_bpmAlternatives.isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    Text('Alternatives', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                    Text('Alternatives', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary)),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
@@ -14075,7 +14075,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         Expanded(
                           child: OutlinedButton.icon(
                             icon: const Icon(Icons.push_pin, size: 14),
-                            label: const Text('Set Project Tempo', style: TextStyle(fontSize: 11)),
+                            label: Text('Set Project Tempo', style: FluxForgeTheme.dockSans()),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: FluxForgeTheme.accentGreen,
                               side: BorderSide(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.5)),
@@ -14091,7 +14091,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         Expanded(
                           child: OutlinedButton.icon(
                             icon: const Icon(Icons.grid_on, size: 14),
-                            label: const Text('Warp to BPM', style: TextStyle(fontSize: 11)),
+                            label: Text('Warp to BPM', style: FluxForgeTheme.dockSans()),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: FluxForgeTheme.accentOrange,
                               side: BorderSide(color: FluxForgeTheme.accentOrange.withValues(alpha: 0.5)),
@@ -14257,10 +14257,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               children: [
                 Text(
                   'Target Standards',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: FluxForgeTheme.textSecondary,
+                  style: FluxForgeTheme.dockSans(
+                    weight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -14281,8 +14279,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     children: [
                       Text(
                         'Current Reading',
-                        style: TextStyle(
-                          fontSize: 9,
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
                           color: FluxForgeTheme.textTertiary,
                         ),
                       ),
@@ -14292,19 +14290,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         children: [
                           Text(
                             'LUFS-I',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: FluxForgeTheme.textSecondary,
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
                             ),
                           ),
                           Text(
                             metering.masterLufsI > -70
                                 ? '${metering.masterLufsI.toStringAsFixed(1)} LUFS'
                                 : '-∞',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'monospace',
+                            style: FluxForgeTheme.dockMono(
+                              size: 12,
+                              weight: FontWeight.w600,
                               color: FluxForgeTheme.textPrimary,
                             ),
                           ),
@@ -14316,19 +14312,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         children: [
                           Text(
                             'True Peak',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: FluxForgeTheme.textSecondary,
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
                             ),
                           ),
                           Text(
                             metering.masterTruePeak > -70
                                 ? '${metering.masterTruePeak.toStringAsFixed(1)} dBTP'
                                 : '-∞',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'monospace',
+                            style: FluxForgeTheme.dockMono(
+                              size: 12,
+                              weight: FontWeight.w600,
                               color: metering.masterTruePeak > -1
                                   ? const Color(0xFFFF4040)
                                   : FluxForgeTheme.textPrimary,
@@ -14355,26 +14349,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           Expanded(
             child: Text(
               name,
-              style: TextStyle(
-                fontSize: 10,
-                color: FluxForgeTheme.textSecondary,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
               ),
             ),
           ),
           Text(
             lufs,
-            style: TextStyle(
-              fontSize: 9,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
           const SizedBox(width: 8),
           Text(
             tp,
-            style: TextStyle(
-              fontSize: 9,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -14451,7 +14442,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 const SizedBox(height: 8),
                 Text(
                   'Select a layer to edit properties',
-                  style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontStyle: FontStyle.italic),
+                  style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary).copyWith(fontStyle: FontStyle.italic),
                 ),
               ],
             ),
@@ -14536,7 +14527,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                             }
                           } : null,
                           icon: const Icon(Icons.folder_open, size: 12),
-                          label: const Text('Browse...', style: TextStyle(fontSize: 10)),
+                          label: Text('Browse...', style: FluxForgeTheme.dockSans(size: 10)),
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             minimumSize: Size.zero,

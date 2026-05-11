@@ -46,6 +46,7 @@ pub mod blueprint;
 pub mod executor;
 pub mod export;
 pub mod flow;
+pub mod math;
 pub mod node;
 pub mod template;
 pub mod validator;
@@ -63,5 +64,6 @@ pub use node::{
     ComplianceRule, NodeId, NodeVisualMeta, StageNode, StageTransition, TransitionCondition,
     TransitionPriority,
 };
+pub use math::{solve_paytable, solution_to_math_config, RtpSolverConfig, RtpSolution, SolvedSymbol};
 pub use template::SlotTemplate;
 pub use validator::{BlueprintReport, ValidationSeverity, Validator};

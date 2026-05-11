@@ -77,7 +77,15 @@ import 'package:flutter_test/flutter_test.dart';
 // audio/audio_dna/bt/math/timeline/cloud/spine_chrome paneli.
 // Ukupan Sprint 15 B.2 pad: -255.
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 5) -101 za spine_game_config.dart — agent migration.
-const int _kRawTextStyleBaseline = 8901;
+// Lowered 2026-05-11 (Sprint 15 B.2 mega-wave) -1110 za ultimativnu batch
+// migraciju: slot_lab_screen.dart (-181), slotlab_lower_zone_widget.dart (-115),
+// ultimate_audio_panel.dart (-121), engine_connected_layout.dart (-88),
+// export_panels.dart (-110), premium_slot_preview.dart (-80),
+// events_folder_panel.dart (-69), slotlab_logic_tab.dart (-63),
+// soundbank_panel.dart (-52), room_wizard.dart (-35),
+// sfx_pipeline_wizard.dart (-45), engine_layout_widgets.dart (-110),
+// slot_voice_mixer.dart (-54), problems_inbox_panel.dart (-1 Curves fix).
+const int _kRawTextStyleBaseline = 7791;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -106,7 +114,9 @@ const int _kRawTextStyleBaseline = 8901;
 // audio/audio_dna/bt/math/timeline/cloud/spine_chrome paneli.
 // Ukupan Sprint 15 B.2 pad: -229.
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 5) -104 za spine_game_config.dart — agent migration.
-const int _kRawFontFamilyBaseline = 897;
+// Lowered 2026-05-11 (Sprint 15 B.2 mega-wave) -73 za istu batch migraciju
+// (sve dockMono/dockSans pozivi eliminišu fontFamily: literale).
+const int _kRawFontFamilyBaseline = 824;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -133,7 +143,9 @@ const int _kRawFontFamilyBaseline = 897;
 // audio/audio_dna/bt/math/timeline/cloud/spine_chrome paneli.
 // Ukupan Sprint 15 B.2 pad: -255.
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 5) -110 za spine_game_config.dart — agent migration.
-const int _kRawFontSizeBaseline = 8449;
+// Lowered 2026-05-11 (Sprint 15 B.2 mega-wave) -1095 za istu batch migraciju
+// (sve dockMono/dockSans pozivi koriste size: arg, ne fontSize:).
+const int _kRawFontSizeBaseline = 7354;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

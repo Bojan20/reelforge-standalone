@@ -74,6 +74,7 @@ import '../slot_lab/lower_zone/bake/macro_history.dart';
 import '../../services/diagnostics/diagnostics_service.dart';
 import '../../providers/slot_lab/slotlab_export_provider.dart';
 import '../../providers/slot_lab/slotlab_notification_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ── Part files (FAZA 2.3 monolith split) ─────────────────────────────────────
 // Painters extracted to keep this file under control while staying backward-
@@ -472,11 +473,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         children: [
           Text(
             'SPIN:',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: LowerZoneColors.slotLabAccent,
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
           ),
           const SizedBox(width: 6),
           // Outcome dropdown (force outcome)
@@ -529,7 +526,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               value: v,
               child: Text(
                 v.name[0].toUpperCase() + v.name.substring(1), // Capitalize
-                style: const TextStyle(fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10),
               ),
             )).toList(),
             onChanged: (v) {
@@ -538,10 +535,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 provider?.setVolatilityPreset(v);
               }
             },
-            style: TextStyle(
-              fontSize: 10,
-              color: LowerZoneColors.slotLabAccent,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.slotLabAccent),
           ),
         ),
       ),
@@ -574,7 +568,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               value: t,
               child: Text(
                 t.name[0].toUpperCase() + t.name.substring(1), // Capitalize
-                style: const TextStyle(fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10),
               ),
             )).toList(),
             onChanged: (t) {
@@ -583,10 +577,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 provider?.setTimingProfile(t);
               }
             },
-            style: TextStyle(
-              fontSize: 10,
-              color: LowerZoneColors.slotLabAccent,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.slotLabAccent),
           ),
         ),
       ),
@@ -623,7 +614,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             icon: Icon(Icons.arrow_drop_down, size: 14, color: LowerZoneColors.textMuted),
             items: gridOptions.map((o) => DropdownMenuItem(
               value: o,
-              child: Text(o, style: const TextStyle(fontSize: 10)),
+              child: Text(o, style: FluxForgeTheme.dockSans(size: 10)),
             )).toList(),
             onChanged: (v) {
               if (v != null) {
@@ -638,10 +629,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 setState(() => _selectedGrid = v);
               }
             },
-            style: TextStyle(
-              fontSize: 10,
-              color: LowerZoneColors.slotLabAccent,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.slotLabAccent),
           ),
         ),
       ),
@@ -667,13 +655,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             icon: Icon(Icons.arrow_drop_down, size: 14, color: LowerZoneColors.textMuted),
             items: options.map((o) => DropdownMenuItem(
               value: o,
-              child: Text(o, style: const TextStyle(fontSize: 10)),
+              child: Text(o, style: FluxForgeTheme.dockSans(size: 10)),
             )).toList(),
             onChanged: (v) => v != null ? onChanged(v) : null,
-            style: TextStyle(
-              fontSize: 10,
-              color: LowerZoneColors.slotLabAccent,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.slotLabAccent),
           ),
         ),
       ),
@@ -706,16 +691,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             const SizedBox(height: 6),
             Text(
               title,
-              style: const TextStyle(
-                color: LowerZoneColors.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textSecondary, weight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: const TextStyle(color: LowerZoneColors.textTertiary, fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textTertiary),
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null && onAction != null) ...[
@@ -731,11 +712,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   ),
                   child: Text(
                     actionLabel,
-                    style: const TextStyle(
-                      color: LowerZoneColors.slotLabAccent,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.slotLabAccent, weight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -763,11 +740,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             const SizedBox(width: 4),
             Text(
               'Spin',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: LowerZoneColors.slotLabAccent,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
             ),
           ],
         ),
@@ -872,11 +845,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     const SizedBox(width: 2),
                     Text(
                       'PAUSED',
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                        color: LowerZoneColors.warning,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: LowerZoneColors.warning),
                     ),
                   ],
                 ],
@@ -933,11 +902,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             ),
             child: Text(
               '${provider.currentStageIndex + 1}/${provider.lastStages.length}',
-              style: TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
-                color: LowerZoneColors.success,
-              ),
+              style: FluxForgeTheme.dockMono(size: 9, color: LowerZoneColors.success),
             ),
           ),
         ],
@@ -1320,19 +1285,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           const SizedBox(height: 12),
           Text(
             'No Project Loaded',
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            style: FluxForgeTheme.dockSans(size: 14, color: Colors.white54, weight: FontWeight.w500),
           ),
           const SizedBox(height: 4),
           Text(
             'Save your project to enable version control',
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 11,
-            ),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.white38),
           ),
         ],
       ),
@@ -1353,19 +1311,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           const SizedBox(height: 12),
           Text(
             'No Git Repository',
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            style: FluxForgeTheme.dockSans(size: 14, color: Colors.white54, weight: FontWeight.w500),
           ),
           const SizedBox(height: 4),
           Text(
             'Initialize a repository to track changes',
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 11,
-            ),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.white38),
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
@@ -1431,12 +1382,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         const SizedBox(width: 5),
         Text(
           title,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: LowerZoneColors.slotLabAccent,
-            letterSpacing: 0.8,
-          ),
+          style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: LowerZoneColors.slotLabAccent, letterSpacing: 0.8),
         ),
       ],
     );
@@ -1489,10 +1435,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 Icon(Icons.view_timeline, size: 32, color: LowerZoneColors.textMuted),
                 const SizedBox(height: 8),
                 Text('No events yet',
-                  style: TextStyle(fontSize: 12, color: LowerZoneColors.textMuted)),
+                  style: FluxForgeTheme.dockSans(size: 12, color: LowerZoneColors.textMuted)),
                 const SizedBox(height: 4),
                 Text('Drop audio on the slot machine to create events',
-                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted.withValues(alpha: 0.6))),
+                  style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted.withValues(alpha: 0.6))),
               ],
             ),
           );
@@ -1543,8 +1489,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                             alignment: Alignment.centerLeft,
                             padding: const EdgeInsets.only(left: 6),
                             child: Text('EVENT / LAYER',
-                              style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold,
-                                color: Colors.white24, letterSpacing: 0.5)),
+                              style: FluxForgeTheme.dockSans(size: 7, weight: FontWeight.bold, color: Colors.white24, letterSpacing: 0.5)),
                           ),
                           // Track labels
                           Expanded(
@@ -1626,8 +1571,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           Icon(Icons.view_timeline, size: 13, color: LowerZoneColors.slotLabAccent),
           const SizedBox(width: 6),
           Text('TIMELINE',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-              color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
+            style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1637,7 +1581,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             ),
             child: Text(
               '${events.length} events • $totalLayers layers',
-              style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent),
+              style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.slotLabAccent),
             ),
           ),
           const Spacer(),
@@ -1646,7 +1590,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             setState(() => _tlPixelsPerSecond = (_tlPixelsPerSecond * 0.8).clamp(30.0, 500.0))),
           const SizedBox(width: 4),
           Text('${_tlPixelsPerSecond.toInt()}px/s',
-            style: const TextStyle(fontSize: 8, color: Colors.white24, fontFamily: 'monospace')),
+            style: FluxForgeTheme.dockMono(size: 8, color: Colors.white24)),
           const SizedBox(width: 4),
           _buildTlZoomButton(Icons.zoom_in, () =>
             setState(() => _tlPixelsPerSecond = (_tlPixelsPerSecond * 1.25).clamp(30.0, 500.0))),
@@ -1745,11 +1689,11 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(event.name,
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.textPrimary),
+                      style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: LowerZoneColors.textPrimary),
                       overflow: TextOverflow.ellipsis),
                     if (event.triggerStages.isNotEmpty)
                       Text(event.triggerStages.first,
-                        style: TextStyle(fontSize: 7, color: color.withValues(alpha: 0.7)),
+                        style: FluxForgeTheme.dockSans(size: 7, color: color.withValues(alpha: 0.7)),
                         overflow: TextOverflow.ellipsis),
                   ],
                 ),
@@ -1761,7 +1705,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text('${event.layers.length}',
-                  style: TextStyle(fontSize: 8, color: color, fontWeight: FontWeight.bold)),
+                  style: FluxForgeTheme.dockSans(size: 8, color: color, weight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1808,13 +1752,13 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   ),
                   alignment: Alignment.center,
                   child: Text('${layerIndex + 1}',
-                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: trackColor)),
+                    style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: trackColor)),
                 ),
                 const SizedBox(width: 3),
                 Expanded(
                   child: Text(
                     l.name.isNotEmpty ? l.name : l.audioPath.split('/').last,
-                    style: const TextStyle(fontSize: 8, color: Colors.white70),
+                    style: FluxForgeTheme.dockSans(size: 8, color: Colors.white70),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1875,7 +1819,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       child: GestureDetector(
         onTap: onTap,
         child: Text(label,
-          style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: color)),
+          style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: color)),
       ),
     );
   }
@@ -1927,8 +1871,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '${event.name} • ${duration.toStringAsFixed(1)}s',
-                  style: TextStyle(fontSize: 8, color: Colors.white.withValues(alpha: 0.6),
-                    fontWeight: FontWeight.bold),
+                  style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.6), weight: FontWeight.bold),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -2015,22 +1958,21 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                           Center(
                             child: Text(
                               hasAudio ? 'Loading...' : 'No audio',
-                              style: const TextStyle(fontSize: 8, color: Colors.white24),
+                              style: FluxForgeTheme.dockSans(size: 8, color: Colors.white24),
                             ),
                           ),
                         // File name label
                         Positioned(
                           left: 4, top: 2,
                           child: Text(fileName,
-                            style: TextStyle(fontSize: 8, color: trackColor.withValues(alpha: 0.9),
-                              fontWeight: FontWeight.w500)),
+                            style: FluxForgeTheme.dockSans(size: 8, color: trackColor.withValues(alpha: 0.9), weight: FontWeight.w500)),
                         ),
                         // Offset + duration
                         Positioned(
                           right: 4, bottom: 2,
                           child: Text(
                             '${l.offsetMs.toInt()}ms  ${duration.toStringAsFixed(1)}s',
-                            style: const TextStyle(fontSize: 7, color: Colors.white38, fontFamily: 'monospace'),
+                            style: FluxForgeTheme.dockMono(size: 7, color: Colors.white38),
                           ),
                         ),
                       ],
@@ -2202,7 +2144,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 ),
                 child: Text(
                   '${events.length}',
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
+                  style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
                 ),
               ),
               const Spacer(),
@@ -2227,7 +2169,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     children: [
                       Icon(Icons.add, size: 10, color: LowerZoneColors.slotLabAccent),
                       const SizedBox(width: 2),
-                      Text('New', style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent)),
+                      Text('New', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.slotLabAccent)),
                     ],
                   ),
                 ),
@@ -2323,10 +2265,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             Expanded(
               child: Text(
                 name,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary,
-                ),
+                style: FluxForgeTheme.dockSans(size: 10, color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary),
               ),
             ),
             Container(
@@ -2339,11 +2278,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               ),
               child: Text(
                 '$count',
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
-                ),
+                style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted),
               ),
             ),
           ],
@@ -2399,17 +2334,13 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 children: [
                   Text(
                     event.name,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 10, weight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary),
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (event.triggerStages.isNotEmpty)
                     Text(
                       event.triggerStages.take(2).join(', '),
-                      style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                      style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
                     ),
                 ],
               ),
@@ -2423,7 +2354,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               ),
               child: Text(
                 '${event.layers.length}L',
-                style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
               ),
             ),
             const SizedBox(width: 4),
@@ -2467,7 +2398,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             children: [
               Icon(Icons.copy, size: 16, color: LowerZoneColors.slotLabAccent),
               const SizedBox(width: 8),
-              const Text('Duplicate', style: TextStyle(fontSize: 12)),
+              Text('Duplicate', style: FluxForgeTheme.dockSans(size: 12)),
             ],
           ),
         ),
@@ -2477,7 +2408,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             children: [
               Icon(Icons.play_circle, size: 16, color: LowerZoneColors.success),
               const SizedBox(width: 8),
-              const Text('Test Playback', style: TextStyle(fontSize: 12)),
+              Text('Test Playback', style: FluxForgeTheme.dockSans(size: 12)),
             ],
           ),
         ),
@@ -2488,7 +2419,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             children: [
               Icon(Icons.code, size: 16, color: LowerZoneColors.textMuted),
               const SizedBox(width: 8),
-              const Text('Export as JSON', style: TextStyle(fontSize: 12)),
+              Text('Export as JSON', style: FluxForgeTheme.dockSans(size: 12)),
             ],
           ),
         ),
@@ -2498,7 +2429,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             children: [
               Icon(Icons.audio_file, size: 16, color: LowerZoneColors.textMuted),
               const SizedBox(width: 8),
-              const Text('Export Audio Bundle', style: TextStyle(fontSize: 12)),
+              Text('Export Audio Bundle', style: FluxForgeTheme.dockSans(size: 12)),
             ],
           ),
         ),
@@ -2509,7 +2440,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             children: [
               Icon(Icons.delete, size: 16, color: LowerZoneColors.error),
               const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(fontSize: 12, color: LowerZoneColors.error)),
+              Text('Delete', style: FluxForgeTheme.dockSans(size: 12, color: LowerZoneColors.error)),
             ],
           ),
         ),
@@ -2584,12 +2515,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           children: [
             Icon(Icons.warning_amber, color: LowerZoneColors.error),
             const SizedBox(width: 8),
-            const Text('Delete Event', style: TextStyle(fontSize: 14)),
+            Text('Delete Event', style: FluxForgeTheme.dockSans(size: 14)),
           ],
         ),
         content: Text(
           'Delete "${event.name}"?\n\nThis will remove the event and all its layers.',
-          style: const TextStyle(fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12),
         ),
         actions: [
           TextButton(
@@ -2623,14 +2554,14 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'No events in this folder',
-            style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Click "New Event" to create one',
-            style: TextStyle(fontSize: 9, color: LowerZoneColors.textTertiary),
+            style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textTertiary),
           ),
         ],
       ),
@@ -2652,13 +2583,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           Expanded(
             child: Text(
               name,
-              style: TextStyle(
-                fontSize: 10,
-                color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary,
-              ),
+              style: FluxForgeTheme.dockSans(size: 10, color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary),
             ),
           ),
-          Text('$count', style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+          Text('$count', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
         ],
       ),
     );
@@ -2681,7 +2609,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(name, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary)),
+            child: Text(name, style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary)),
           ),
           Icon(Icons.play_arrow, size: 12, color: LowerZoneColors.textMuted),
         ],
@@ -2726,15 +2654,15 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                       height: 24,
                       child: DropdownButton<String>(
                         value: selectedEvent?.id,
-                        hint: const Text('Select', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                        hint: Text('Select', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
                         dropdownColor: LowerZoneColors.bgMid,
-                        style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent),
+                        style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.slotLabAccent),
                         underline: const SizedBox(),
                         isDense: true,
                         isExpanded: true,
                         items: events.map((e) => DropdownMenuItem(
                           value: e.id,
-                          child: Text(e.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9)),
+                          child: Text(e.name, overflow: TextOverflow.ellipsis, style: FluxForgeTheme.dockSans(size: 9)),
                         )).toList(),
                         onChanged: (id) => setState(() => _selectedEventId = id),
                       ),
@@ -2753,10 +2681,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   ),
                   clipBehavior: Clip.hardEdge,
                   child: selectedEvent == null
-                      ? const Center(
+                      ? Center(
                           child: Text(
                             'No events. Create one in Events Folder.',
-                            style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
                           ),
                         )
                       : Column(
@@ -2777,11 +2705,11 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                                   Expanded(
                                     child: Text(
                                       selectedEvent.name,
-                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
+                                      style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  Text('${selectedEvent.layers.length}L', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                                  Text('${selectedEvent.layers.length}L', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                                 ],
                               ),
                             ),
@@ -2795,8 +2723,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                                   // Request focus on tap to enable keyboard shortcuts
                                   onTap: () => _layerListFocusNode.requestFocus(),
                                   child: selectedEvent.layers.isEmpty
-                                      ? const Center(
-                                          child: Text('No layers', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                                      ? Center(
+                                          child: Text('No layers', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
                                         )
                                       : ListView.builder(
                                           padding: const EdgeInsets.all(3),
@@ -2894,11 +2822,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 Expanded(
                   child: Text(
                     'L${index + 1}: $audioName',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 10, color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textPrimary, weight: isSelected ? FontWeight.w600 : FontWeight.normal),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -2996,13 +2920,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           children: [
             Text(
               'FADES',
-              style: TextStyle(
-                fontSize: 8,
-                color: (layer.fadeInMs > 0 || layer.fadeOutMs > 0)
-                    ? LowerZoneColors.slotLabAccent
-                    : LowerZoneColors.textMuted,
-                fontWeight: FontWeight.w600,
-              ),
+              style: FluxForgeTheme.dockSans(size: 8, color: (layer.fadeInMs > 0 || layer.fadeOutMs > 0) ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted, weight: FontWeight.w600),
             ),
             const SizedBox(width: 8),
             // Visual fade curve preview (mini waveform representation)
@@ -3075,7 +2993,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     return Row(
       // mainAxisSize removed — fills Flexible parent
       children: [
-        Text(label, style: const TextStyle(fontSize: 7, color: LowerZoneColors.textMuted)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 7, color: LowerZoneColors.textMuted)),
         const SizedBox(width: 4),
         PopupMenuButton<CrossfadeCurve>(
           initialValue: value,
@@ -3091,7 +3009,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               children: [
                 Text(
                   _getCurveShortName(value),
-                  style: const TextStyle(fontSize: 7, color: LowerZoneColors.textSecondary),
+                  style: FluxForgeTheme.dockSans(size: 7, color: LowerZoneColors.textSecondary),
                 ),
                 const Icon(Icons.arrow_drop_down, size: 10, color: LowerZoneColors.textMuted),
               ],
@@ -3101,7 +3019,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             return PopupMenuItem<CrossfadeCurve>(
               value: curve,
               height: 28,
-              child: Text(_getCurveDisplayName(curve), style: const TextStyle(fontSize: 10)),
+              child: Text(_getCurveDisplayName(curve), style: FluxForgeTheme.dockSans(size: 10)),
             );
           }).toList(),
         ),
@@ -3141,7 +3059,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       children: [
         SizedBox(
           width: 32,
-          child: Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          child: Text(label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
         ),
         Expanded(
           child: SliderTheme(
@@ -3165,7 +3083,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           width: 36,
           child: Text(
             displayValue,
-            style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary),
+            style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textSecondary),
             textAlign: TextAlign.right,
           ),
         ),
@@ -3207,7 +3125,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               const Spacer(),
               Text(
                 '$activeVoices/$totalVoices',
-                style: TextStyle(fontSize: 10, color: usagePercent > 0.8 ? LowerZoneColors.warning : LowerZoneColors.slotLabAccent),
+                style: FluxForgeTheme.dockSans(size: 10, color: usagePercent > 0.8 ? LowerZoneColors.warning : LowerZoneColors.slotLabAccent),
               ),
             ],
           ),
@@ -3267,9 +3185,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       child: Row(
         // mainAxisSize removed — fills Flexible parent
         children: [
-          Text(label, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
           const SizedBox(width: 4),
-          Text(value, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: valueColor)),
+          Text(value, style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: valueColor)),
         ],
       ),
     );
@@ -3281,7 +3199,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          SizedBox(width: 60, child: Text(busName, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary))),
+          SizedBox(width: 60, child: Text(busName, style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary))),
           Expanded(
             child: Container(
               height: 12,
@@ -3302,7 +3220,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             ),
           ),
           const SizedBox(width: 8),
-          SizedBox(width: 40, child: Text('$used/$limit', style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted))),
+          SizedBox(width: 40, child: Text('$used/$limit', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted))),
         ],
       ),
     );
@@ -3343,7 +3261,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Column(
           children: [
-            Text(name, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: LowerZoneColors.textSecondary)),
+            Text(name, style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: LowerZoneColors.textSecondary)),
             const SizedBox(height: 8),
             Expanded(
               child: GestureDetector(
@@ -3384,8 +3302,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                         ),
                       ),
                       // L/R labels
-                      const Positioned(left: 4, top: 4, child: Text('L', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted))),
-                      const Positioned(right: 4, top: 4, child: Text('R', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted))),
+                      Positioned(left: 4, top: 4, child: Text('L', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted))),
+                      Positioned(right: 4, top: 4, child: Text('R', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted))),
                     ],
                   ),
                 ),
@@ -3393,7 +3311,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             ),
             const SizedBox(height: 4),
             Text(pan == 0 ? 'C' : '${(pan * 100).toInt().abs()}${pan > 0 ? 'R' : 'L'}',
-              style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent)),
+              style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.slotLabAccent)),
           ],
         ),
       ),
@@ -3487,7 +3405,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: color)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: color)),
         ],
       ),
     );
@@ -3518,9 +3436,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       ),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.textPrimary)),
+          Text(value, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: LowerZoneColors.textPrimary)),
         ],
       ),
     );
@@ -3564,15 +3482,14 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             child: Row(children: [
               Icon(Icons.layers, size: 13, color: LowerZoneColors.slotLabAccent),
               const SizedBox(width: 6),
-              Text('LAYER PLAYBACK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
+              Text('LAYER PLAYBACK', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(3)),
                 child: Text('${allLayers.where((l) => l.isPlaying).length}/${allLayers.length} active',
-                  style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent)),
+                  style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.slotLabAccent)),
               ),
             ]),
           ),
@@ -3594,19 +3511,18 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     shape: BoxShape.circle, color: layer.isPlaying ? const Color(0xFF50FF98) : Colors.white12)),
                   const SizedBox(width: 8),
                   SizedBox(width: 90, child: Text(layer.eventName,
-                    style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary), overflow: TextOverflow.ellipsis)),
+                    style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textSecondary), overflow: TextOverflow.ellipsis)),
                   const SizedBox(width: 6),
                   Expanded(child: Text(layer.audioFile,
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500,
-                      color: layer.isPlaying ? Colors.white : LowerZoneColors.textSecondary), overflow: TextOverflow.ellipsis)),
+                    style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500, color: layer.isPlaying ? Colors.white : LowerZoneColors.textSecondary), overflow: TextOverflow.ellipsis)),
                   if (layer.isLooping)
                     Container(margin: const EdgeInsets.only(right: 6),
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(color: const Color(0xFFB080FF).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(3)),
-                      child: const Text('LOOP', style: TextStyle(fontSize: 7, color: Color(0xFFB080FF), fontWeight: FontWeight.bold))),
+                      child: Text('LOOP', style: FluxForgeTheme.dockSans(size: 7, color: const Color(0xFFB080FF), weight: FontWeight.bold))),
                   Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(color: busColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(3)),
-                    child: Text(busName, style: TextStyle(fontSize: 8, color: busColor, fontWeight: FontWeight.w600))),
+                    child: Text(busName, style: FluxForgeTheme.dockSans(size: 8, color: busColor, weight: FontWeight.w600))),
                 ]),
               );
             },
@@ -3639,10 +3555,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             child: Row(children: [
               Icon(Icons.tune, size: 13, color: LowerZoneColors.slotLabAccent),
               const SizedBox(width: 6),
-              Text('LAYER DSP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
+              Text('LAYER DSP', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
               const Spacer(),
-              Text('${audioEvents.length} events', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+              Text('${audioEvents.length} events', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
             ]),
           ),
           Expanded(child: ListView.builder(
@@ -3661,23 +3576,22 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     decoration: BoxDecoration(color: LowerZoneColors.bgMid,
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(5))),
                     child: Row(children: [
-                      Text(event.name, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
+                      Text(event.name, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: Colors.white)),
                       const Spacer(),
                       if (activeNodes > 0)
                         Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(3)),
-                          child: Text('$activeNodes FX', style: TextStyle(fontSize: 8,
-                            color: LowerZoneColors.slotLabAccent, fontWeight: FontWeight.bold)))
+                          child: Text('$activeNodes FX', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.slotLabAccent, weight: FontWeight.bold)))
                       else
-                        Text('No FX', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                        Text('No FX', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                     ]),
                   ),
                   Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     child: chain.nodes.isEmpty
-                      ? Text('IN \u2192 OUT (bypass)', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted))
+                      ? Text('IN \u2192 OUT (bypass)', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted))
                       : SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
-                          Text('IN', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted, fontWeight: FontWeight.bold)),
+                          Text('IN', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted, weight: FontWeight.bold)),
                           ...chain.nodes.expand((node) => [
                             Container(width: 12, height: 1, margin: const EdgeInsets.symmetric(horizontal: 2), color: LowerZoneColors.border),
                             Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
@@ -3685,11 +3599,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                                 color: node.bypass ? Colors.transparent : LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(3),
                                 border: Border.all(color: node.bypass ? LowerZoneColors.border : LowerZoneColors.slotLabAccent.withValues(alpha: 0.4))),
-                              child: Text(node.type.shortName, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
-                                color: node.bypass ? LowerZoneColors.textMuted : LowerZoneColors.slotLabAccent))),
+                              child: Text(node.type.shortName, style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: node.bypass ? LowerZoneColors.textMuted : LowerZoneColors.slotLabAccent))),
                           ]),
                           Container(width: 12, height: 1, margin: const EdgeInsets.symmetric(horizontal: 2), color: LowerZoneColors.border),
-                          Text('OUT', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted, fontWeight: FontWeight.bold)),
+                          Text('OUT', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted, weight: FontWeight.bold)),
                         ])),
                   ),
                 ]),
@@ -3724,10 +3637,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             child: Row(children: [
               Icon(Icons.surround_sound, size: 13, color: LowerZoneColors.slotLabAccent),
               const SizedBox(width: 6),
-              Text('SPATIAL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
+              Text('SPATIAL', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
               const Spacer(),
-              Text('${audioEvents.length} events', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+              Text('${audioEvents.length} events', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
             ]),
           ),
           Expanded(child: Row(children: [
@@ -3753,12 +3665,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     Container(width: 8, height: 8, decoration: BoxDecoration(
                       shape: BoxShape.circle, color: LowerZoneColors.slotLabAccent)),
                     const SizedBox(width: 6),
-                    Expanded(child: Text(event.name, style: const TextStyle(fontSize: 9, color: Colors.white),
+                    Expanded(child: Text(event.name, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white),
                       overflow: TextOverflow.ellipsis)),
                     Text('${pan >= 0 ? '+' : ''}${(pan * 100).round()}',
-                      style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                      style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                     const SizedBox(width: 6),
-                    Text(busName, style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                    Text(busName, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                   ]),
                 );
               },
@@ -3787,7 +3699,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               const Spacer(),
               Text(
                 '${_selectedStemBusIds.length}/${buses.length} selected',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.slotLabAccent),
               ),
             ],
           ),
@@ -3908,8 +3820,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               color: isSelected ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
             ),
             const SizedBox(width: 6),
-            Expanded(child: Text(name, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary))),
-            Text('Bus $busIndex', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+            Expanded(child: Text(name, style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary))),
+            Text('Bus $busIndex', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           ],
         ),
       ),
@@ -3931,7 +3843,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           children: [
             Icon(icon, size: 12, color: LowerZoneColors.slotLabAccent),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: LowerZoneColors.slotLabAccent)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: LowerZoneColors.slotLabAccent)),
           ],
         ),
       ),
@@ -3975,7 +3887,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 ),
                 child: Text(
                   '${randomContainers.length} containers',
-                  style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
+                  style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.slotLabAccent),
                 ),
               ),
             ],
@@ -4019,9 +3931,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   child: Column(
                     // mainAxisSize removed — fills Flexible parent
                     children: [
-                      Text('Children', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                      Text('Children', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
                       const SizedBox(height: 4),
-                      Text('$variationCount', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: LowerZoneColors.slotLabAccent)),
+                      Text('$variationCount', style: FluxForgeTheme.dockSans(size: 20, weight: FontWeight.bold, color: LowerZoneColors.slotLabAccent)),
                       const SizedBox(height: 4),
                       GestureDetector(
                         onTap: () => _resetVariations(middleware),
@@ -4042,7 +3954,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             children: [
               Text(
                 randomContainers.isEmpty ? 'No containers' : 'Applies to all containers',
-                style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
               ),
             ],
           ),
@@ -4097,7 +4009,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       margin: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          SizedBox(width: 50, child: Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted))),
+          SizedBox(width: 50, child: Text(label, style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted))),
           Expanded(
             child: SliderTheme(
               data: SliderThemeData(
@@ -4122,7 +4034,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             width: 35,
             child: Text(
               formatValue(value),
-              style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent),
+              style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.slotLabAccent),
               textAlign: TextAlign.right,
             ),
           ),
@@ -4150,7 +4062,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               const Spacer(),
               Text(
                 '$eventCount events',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.slotLabAccent),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.slotLabAccent),
               ),
             ],
           ),
@@ -4194,11 +4106,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                       const SizedBox(height: 6),
                       Text(
                         'PACKAGE',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: LowerZoneColors.slotLabAccent,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: LowerZoneColors.slotLabAccent),
                       ),
                     ],
                   ),
@@ -4323,19 +4231,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           const SizedBox(height: 12),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: LowerZoneColors.textSecondary,
-            ),
+            style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.w600, color: LowerZoneColors.textSecondary),
           ),
           const SizedBox(height: 4),
           Text(
             'Requires $providerName',
-            style: const TextStyle(
-              fontSize: 11,
-              color: LowerZoneColors.textMuted,
-            ),
+            style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted),
           ),
         ],
       ),

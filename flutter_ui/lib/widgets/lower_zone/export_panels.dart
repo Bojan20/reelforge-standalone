@@ -15,6 +15,7 @@ import 'dart:convert';
 import 'dart:io' as java_io;
 import 'package:flutter/material.dart';
 import '../../services/native_file_picker.dart';
+import '../../theme/fluxforge_theme.dart';
 
 import '../../providers/subsystems/composite_event_system_provider.dart';
 import '../../services/export_service.dart';
@@ -254,19 +255,14 @@ class _DawExportPanelState extends State<DawExportPanel> {
         const SizedBox(width: 8),
         Text(
           'EXPORT AUDIO',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: widget.accentColor,
-            letterSpacing: 1.0,
-          ),
+          style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 1.0),
         ),
         const Spacer(),
         if (_outputPath != null)
           Flexible(
             child: Text(
               _outputPath!.split('/').last,
-              style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -353,7 +349,7 @@ class _DawExportPanelState extends State<DawExportPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           DropdownButtonHideUnderline(
             child: DropdownButton<T>(
               value: value,
@@ -363,7 +359,7 @@ class _DawExportPanelState extends State<DawExportPanel> {
               icon: Icon(Icons.arrow_drop_down, size: 14, color: widget.accentColor),
               items: items.map((item) => DropdownMenuItem(
                 value: item,
-                child: Text(labelFn(item), style: TextStyle(fontSize: 10, color: widget.accentColor)),
+                child: Text(labelFn(item), style: FluxForgeTheme.dockSans(size: 10, color: widget.accentColor)),
               )).toList(),
               onChanged: _isExporting ? null : (v) => v != null ? onChanged(v) : null,
             ),
@@ -390,11 +386,11 @@ class _DawExportPanelState extends State<DawExportPanel> {
         children: [
           Row(
             children: [
-              Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              Text(label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
               const Spacer(),
               Text(
                 '${_normalizationTarget.toStringAsFixed(1)} ${_normalization == NormalizationMode.peak ? 'dB' : 'LUFS'}',
-                style: TextStyle(fontSize: 9, color: widget.accentColor, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(size: 9, color: widget.accentColor, weight: FontWeight.bold),
               ),
             ],
           ),
@@ -437,8 +433,8 @@ class _DawExportPanelState extends State<DawExportPanel> {
               color: value ? widget.accentColor : LowerZoneColors.textMuted,
             ),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(
-              fontSize: 10,
+            Text(label, style: FluxForgeTheme.dockSans(
+              size: 10,
               color: value ? widget.accentColor : LowerZoneColors.textPrimary,
             )),
           ],
@@ -464,7 +460,7 @@ class _DawExportPanelState extends State<DawExportPanel> {
             Expanded(
               child: Text(
                 _outputPath?.split('/').last ?? 'Choose Location...',
-                style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -495,12 +491,7 @@ class _DawExportPanelState extends State<DawExportPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('PREVIEW', style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
-            color: widget.accentColor,
-            letterSpacing: 0.5,
-          )),
+          Text('PREVIEW', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 0.5)),
           const SizedBox(height: 12),
           _buildPreviewRow('Format', '${_format.label} ${_sampleRate.label}/${_bitDepth.label}'),
           _buildPreviewRow('Duration', _formatDuration(estimatedDuration)),
@@ -524,7 +515,7 @@ class _DawExportPanelState extends State<DawExportPanel> {
                 Expanded(
                   child: Text(
                     _format.description,
-                    style: TextStyle(fontSize: 8, color: widget.accentColor),
+                    style: FluxForgeTheme.dockSans(size: 8, color: widget.accentColor),
                   ),
                 ),
               ],
@@ -550,9 +541,9 @@ class _DawExportPanelState extends State<DawExportPanel> {
             children: [
               const Icon(Icons.graphic_eq, size: 12, color: LowerZoneColors.textMuted),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'LOUDNESS',
-                style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: LowerZoneColors.textMuted),
+                style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: LowerZoneColors.textMuted),
               ),
               const Spacer(),
               // Target selector
@@ -571,7 +562,7 @@ class _DawExportPanelState extends State<DawExportPanel> {
                     items: LoudnessTarget.values.where((t) => t != LoudnessTarget.custom).map((target) {
                       return DropdownMenuItem(
                         value: target,
-                        child: Text(target.name, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textPrimary)),
+                        child: Text(target.name, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textPrimary)),
                       );
                     }).toList(),
                     onChanged: (t) => setState(() => _loudnessTarget = t ?? LoudnessTarget.streaming),
@@ -596,7 +587,7 @@ class _DawExportPanelState extends State<DawExportPanel> {
                 const SizedBox(width: 8),
                 Text(
                   'Analyzing... ${(_analysisProgress * 100).toInt()}%',
-                  style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                  style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
                 ),
               ],
             )
@@ -625,7 +616,7 @@ class _DawExportPanelState extends State<DawExportPanel> {
                     const SizedBox(width: 4),
                     Text(
                       'Analyze Loudness',
-                      style: TextStyle(fontSize: 9, color: widget.accentColor),
+                      style: FluxForgeTheme.dockSans(size: 9, color: widget.accentColor),
                     ),
                   ],
                 ),
@@ -641,9 +632,9 @@ class _DawExportPanelState extends State<DawExportPanel> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textPrimary, fontWeight: FontWeight.w500)),
+          Text(value, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textPrimary, weight: FontWeight.w500)),
         ],
       ),
     );
@@ -662,18 +653,9 @@ class _DawExportPanelState extends State<DawExportPanel> {
         children: [
           Row(
             children: [
-              Text('EXPORTING', style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                color: widget.accentColor,
-                letterSpacing: 0.5,
-              )),
+              Text('EXPORTING', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 0.5)),
               const Spacer(),
-              Text(_progress.progressPercent, style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: widget.accentColor,
-              )),
+              Text(_progress.progressPercent, style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: widget.accentColor)),
             ],
           ),
           const SizedBox(height: 12),
@@ -709,12 +691,12 @@ class _DawExportPanelState extends State<DawExportPanel> {
                 color: LowerZoneColors.success.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle, size: 14, color: LowerZoneColors.success),
-                  SizedBox(width: 6),
-                  Text('Export Complete!', style: TextStyle(fontSize: 10, color: LowerZoneColors.success)),
+                  const Icon(Icons.check_circle, size: 14, color: LowerZoneColors.success),
+                  const SizedBox(width: 6),
+                  Text('Export Complete!', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.success)),
                 ],
               ),
             ),
@@ -725,12 +707,12 @@ class _DawExportPanelState extends State<DawExportPanel> {
                 color: LowerZoneColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.cancel, size: 14, color: LowerZoneColors.warning),
-                  SizedBox(width: 6),
-                  Text('Export Cancelled', style: TextStyle(fontSize: 10, color: LowerZoneColors.warning)),
+                  const Icon(Icons.cancel, size: 14, color: LowerZoneColors.warning),
+                  const SizedBox(width: 6),
+                  Text('Export Cancelled', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.warning)),
                 ],
               ),
             ),
@@ -744,9 +726,9 @@ class _DawExportPanelState extends State<DawExportPanel> {
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textPrimary)),
+          Text(value, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textPrimary)),
         ],
       ),
     );
@@ -762,18 +744,14 @@ class _DawExportPanelState extends State<DawExportPanel> {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: LowerZoneColors.error),
           ),
-          child: const Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.stop, size: 32, color: LowerZoneColors.error),
-              SizedBox(height: 8),
+              const Icon(Icons.stop, size: 32, color: LowerZoneColors.error),
+              const SizedBox(height: 8),
               Text(
                 'CANCEL',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: LowerZoneColors.error,
-                ),
+                style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: LowerZoneColors.error),
               ),
             ],
           ),
@@ -803,11 +781,7 @@ class _DawExportPanelState extends State<DawExportPanel> {
             const SizedBox(height: 8),
             Text(
               'EXPORT',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: widget.accentColor,
-              ),
+              style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: widget.accentColor),
             ),
           ],
         ),
@@ -977,17 +951,12 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
         const SizedBox(width: 8),
         Text(
           'STEM EXPORT',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: widget.accentColor,
-            letterSpacing: 1.0,
-          ),
+          style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 1.0),
         ),
         const SizedBox(width: 8),
         Text(
           '$selectedCount items selected',
-          style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+          style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
         ),
       ],
     );
@@ -1050,15 +1019,10 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
               color: widget.accentColor,
             ),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: widget.accentColor,
-              letterSpacing: 0.5,
-            )),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 0.5)),
             const Spacer(),
             Text('${items.where((i) => i.selected).length}/${items.length}',
-              style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           ],
         ),
       ),
@@ -1083,8 +1047,8 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
               color: item.selected ? widget.accentColor : LowerZoneColors.textMuted,
             ),
             const SizedBox(width: 6),
-            Text(item.name, style: TextStyle(
-              fontSize: 10,
+            Text(item.name, style: FluxForgeTheme.dockSans(
+              size: 10,
               color: item.selected ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted,
             )),
           ],
@@ -1131,7 +1095,7 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
               children: [
                 const Icon(Icons.check_circle, size: 14, color: LowerZoneColors.success),
                 const SizedBox(width: 6),
-                Text('$_exportedCount stems exported', style: const TextStyle(fontSize: 10, color: LowerZoneColors.success)),
+                Text('$_exportedCount stems exported', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.success)),
               ],
             ),
           ),
@@ -1156,7 +1120,7 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           DropdownButtonHideUnderline(
             child: DropdownButton<T>(
               value: value,
@@ -1166,7 +1130,7 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
               icon: Icon(Icons.arrow_drop_down, size: 14, color: widget.accentColor),
               items: items.map((item) => DropdownMenuItem(
                 value: item,
-                child: Text(labelFn(item), style: TextStyle(fontSize: 10, color: widget.accentColor)),
+                child: Text(labelFn(item), style: FluxForgeTheme.dockSans(size: 10, color: widget.accentColor)),
               )).toList(),
               onChanged: _isExporting ? null : (v) => v != null ? onChanged(v) : null,
             ),
@@ -1187,10 +1151,10 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('File Prefix', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          Text('File Prefix', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           TextFormField(
             initialValue: _filePrefix,
-            style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
             decoration: const InputDecoration(
               border: InputBorder.none,
               isDense: true,
@@ -1220,7 +1184,7 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
             Expanded(
               child: Text(
                 _outputDirectory?.split('/').last ?? 'Choose Folder...',
-                style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1263,9 +1227,9 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
             const SizedBox(height: 8),
             Text(
               _isExporting ? 'EXPORTING...' : 'STEMS',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: _isExporting ? LowerZoneColors.textMuted : widget.accentColor,
               ),
             ),
@@ -1401,19 +1365,14 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
       children: [
         Icon(Icons.speed, size: 16, color: LowerZoneColors.success),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'REALTIME BOUNCE',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: LowerZoneColors.success,
-            letterSpacing: 1.0,
-          ),
+          style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: LowerZoneColors.success, letterSpacing: 1.0),
         ),
         const Spacer(),
         Text(
           'Master Output',
-          style: TextStyle(fontSize: 9, color: widget.accentColor),
+          style: FluxForgeTheme.dockSans(size: 9, color: widget.accentColor),
         ),
       ],
     );
@@ -1448,9 +1407,9 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
       ),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textPrimary, fontWeight: FontWeight.w500)),
+          Text(value, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textPrimary, weight: FontWeight.w500)),
         ],
       ),
     );
@@ -1469,9 +1428,9 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
         children: [
           Row(
             children: [
-              const Text('Tail', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              Text('Tail', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
               const Spacer(),
-              Text('${_tailSeconds.toStringAsFixed(1)} sec', style: const TextStyle(fontSize: 9, color: LowerZoneColors.textPrimary)),
+              Text('${_tailSeconds.toStringAsFixed(1)} sec', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textPrimary)),
             ],
           ),
           SliderTheme(
@@ -1516,9 +1475,9 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
               child: Center(
                 child: Text(
                   f.label,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: _format == f ? FontWeight.bold : FontWeight.normal,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: _format == f ? FontWeight.bold : FontWeight.normal,
                     color: _format == f ? LowerZoneColors.success : LowerZoneColors.textMuted,
                   ),
                 ),
@@ -1547,7 +1506,7 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
             Expanded(
               child: Text(
                 _outputPath?.split('/').last ?? 'Choose Location...',
-                style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1566,16 +1525,16 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: LowerZoneColors.border),
         ),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.play_circle_outline, size: 48, color: LowerZoneColors.textMuted),
-            SizedBox(height: 12),
-            Text('Ready to Bounce', style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted)),
+            const Icon(Icons.play_circle_outline, size: 48, color: LowerZoneColors.textMuted),
+            const SizedBox(height: 12),
+            Text('Ready to Bounce', style: FluxForgeTheme.dockSans(color: LowerZoneColors.textMuted)),
             SizedBox(height: 4),
             Text(
               'Bouncing plays the project in realtime\nand captures the audio output',
-              style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1605,22 +1564,18 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Text('RECORDING', style: TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold)),
+                Text('RECORDING', style: FluxForgeTheme.dockSans(size: 10, color: Colors.red, weight: FontWeight.bold)),
               ] else if (_progress.isComplete) ...[
                 const Icon(Icons.check_circle, size: 14, color: LowerZoneColors.success),
                 const SizedBox(width: 6),
-                const Text('COMPLETE', style: TextStyle(fontSize: 10, color: LowerZoneColors.success, fontWeight: FontWeight.bold)),
+                Text('COMPLETE', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.success, weight: FontWeight.bold)),
               ] else ...[
                 const Icon(Icons.cancel, size: 14, color: LowerZoneColors.warning),
                 const SizedBox(width: 6),
-                const Text('CANCELLED', style: TextStyle(fontSize: 10, color: LowerZoneColors.warning, fontWeight: FontWeight.bold)),
+                Text('CANCELLED', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.warning, weight: FontWeight.bold)),
               ],
               const Spacer(),
-              Text(_progress.progressPercent, style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: _isBouncing ? LowerZoneColors.success : LowerZoneColors.textPrimary,
-              )),
+              Text(_progress.progressPercent, style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: _isBouncing ? LowerZoneColors.success : LowerZoneColors.textPrimary)),
             ],
           ),
           const SizedBox(height: 12),
@@ -1663,9 +1618,9 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textPrimary)),
+          Text(value, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textPrimary)),
         ],
       ),
     );
@@ -1710,12 +1665,12 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: LowerZoneColors.error),
           ),
-          child: const Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.stop, size: 32, color: LowerZoneColors.error),
-              SizedBox(height: 8),
-              Text('STOP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.error)),
+              const Icon(Icons.stop, size: 32, color: LowerZoneColors.error),
+              const SizedBox(height: 8),
+              Text('STOP', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: LowerZoneColors.error)),
             ],
           ),
         ),
@@ -1737,12 +1692,12 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: LowerZoneColors.success),
         ),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.play_circle, size: 32, color: LowerZoneColors.success),
-            SizedBox(height: 8),
-            Text('BOUNCE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: LowerZoneColors.success)),
+            const Icon(Icons.play_circle, size: 32, color: LowerZoneColors.success),
+            const SizedBox(height: 8),
+            Text('BOUNCE', style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: LowerZoneColors.success)),
           ],
         ),
       ),
@@ -2011,12 +1966,7 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
         const SizedBox(width: 8),
         Text(
           'EVENT DATA EXPORT',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: widget.accentColor,
-            letterSpacing: 1.0,
-          ),
+          style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 1.0),
         ),
         const SizedBox(width: 8),
         Container(
@@ -2027,13 +1977,13 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
           ),
           child: Text(
             _format.label,
-            style: TextStyle(fontSize: 8, color: widget.accentColor, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 8, color: widget.accentColor, weight: FontWeight.bold),
           ),
         ),
         const Spacer(),
         Text(
           '$exportCount events',
-          style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+          style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
         ),
       ],
     );
@@ -2077,15 +2027,10 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
                     color: widget.accentColor,
                   ),
                   const SizedBox(width: 6),
-                  Text('EVENTS', style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: widget.accentColor,
-                    letterSpacing: 0.5,
-                  )),
+                  Text('EVENTS', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 0.5)),
                   const Spacer(),
                   Text('${_events.where((e) => e.selected).length}/${_events.length}',
-                    style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                    style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                 ],
               ),
             ),
@@ -2120,12 +2065,12 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
             ),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(event.name, style: TextStyle(
-                fontSize: 10,
+              child: Text(event.name, style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: event.selected ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted,
               )),
             ),
-            Text(event.stage, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+            Text(event.stage, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           ],
         ),
       ),
@@ -2157,12 +2102,7 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
           const SizedBox(height: 8),
 
           // Options
-          Text('INCLUDE', style: TextStyle(
-            fontSize: 8,
-            fontWeight: FontWeight.bold,
-            color: widget.accentColor,
-            letterSpacing: 0.5,
-          )),
+          Text('INCLUDE', style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 0.5)),
           const SizedBox(height: 4),
           _buildToggle('Metadata', _includeMetadata, (v) => setState(() => _includeMetadata = v)),
           _buildToggle('Layers', _includeLayers, (v) => setState(() => _includeLayers = v)),
@@ -2193,7 +2133,7 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           DropdownButtonHideUnderline(
             child: DropdownButton<T>(
               value: value,
@@ -2203,7 +2143,7 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
               icon: Icon(Icons.arrow_drop_down, size: 14, color: widget.accentColor),
               items: items.map((item) => DropdownMenuItem(
                 value: item,
-                child: Text(labelFn(item), style: TextStyle(fontSize: 10, color: widget.accentColor)),
+                child: Text(labelFn(item), style: FluxForgeTheme.dockSans(size: 10, color: widget.accentColor)),
               )).toList(),
               onChanged: _isExporting ? null : (v) => v != null ? onChanged(v) : null,
             ),
@@ -2232,8 +2172,8 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
               color: value ? widget.accentColor : LowerZoneColors.textMuted,
             ),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(
-              fontSize: 9,
+            Text(label, style: FluxForgeTheme.dockSans(
+              size: 9,
               color: value ? widget.accentColor : LowerZoneColors.textPrimary,
             )),
           ],
@@ -2259,7 +2199,7 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
             Expanded(
               child: Text(
                 _outputPath?.split('/').last ?? 'Choose Location...',
-                style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -2283,15 +2223,11 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('FORMAT', style: TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                color: widget.accentColor,
-              )),
+              Text('FORMAT', style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: widget.accentColor)),
               const SizedBox(height: 4),
               Text(
                 _format.description,
-                style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
               ),
             ],
           ),
@@ -2316,7 +2252,7 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
                 const SizedBox(height: 4),
                 Text(
                   '$_exportedCount events',
-                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.success),
+                  style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.success),
                 ),
               ],
             ),
@@ -2362,9 +2298,9 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
             const SizedBox(height: 8),
             Text(
               _isExporting ? 'EXPORTING...' : 'EXPORT\n${_format.label.toUpperCase()}',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.bold,
                 color: _isExporting ? LowerZoneColors.textMuted : widget.accentColor,
               ),
               textAlign: TextAlign.center,
@@ -2526,17 +2462,12 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
         const SizedBox(width: 8),
         Text(
           'BATCH EXPORT',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: widget.accentColor,
-            letterSpacing: 1.0,
-          ),
+          style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 1.0),
         ),
         const SizedBox(width: 8),
         Text(
           '$totalEvents files to export',
-          style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+          style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
         ),
       ],
     );
@@ -2580,15 +2511,10 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
                     color: widget.accentColor,
                   ),
                   const SizedBox(width: 6),
-                  Text('EVENTS', style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: widget.accentColor,
-                    letterSpacing: 0.5,
-                  )),
+                  Text('EVENTS', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 0.5)),
                   const Spacer(),
                   Text('${_events.where((e) => e.selected).length}/${_events.length}',
-                    style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                    style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                 ],
               ),
             ),
@@ -2623,12 +2549,12 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
             ),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(event.name, style: TextStyle(
-                fontSize: 10,
+              child: Text(event.name, style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: event.selected ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted,
               )),
             ),
-            Text(event.stage, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+            Text(event.stage, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           ],
         ),
       ),
@@ -2693,7 +2619,7 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
                 children: [
                   const Icon(Icons.check_circle, size: 14, color: LowerZoneColors.success),
                   const SizedBox(width: 6),
-                  Text('$_exportedCount events exported', style: const TextStyle(fontSize: 10, color: LowerZoneColors.success)),
+                  Text('$_exportedCount events exported', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.success)),
                 ],
               ),
             ),
@@ -2720,7 +2646,7 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           DropdownButtonHideUnderline(
             child: DropdownButton<T>(
               value: value,
@@ -2730,7 +2656,7 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
               icon: Icon(Icons.arrow_drop_down, size: 14, color: widget.accentColor),
               items: items.map((item) => DropdownMenuItem(
                 value: item,
-                child: Text(labelFn(item), style: TextStyle(fontSize: 10, color: widget.accentColor)),
+                child: Text(labelFn(item), style: FluxForgeTheme.dockSans(size: 10, color: widget.accentColor)),
               )).toList(),
               onChanged: _isExporting ? null : (v) => v != null ? onChanged(v) : null,
             ),
@@ -2750,11 +2676,11 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
       ),
       child: Row(
         children: [
-          const Text('Target', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          Text('Target', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           const Spacer(),
           Text(
             '${_normalizationTarget.toStringAsFixed(1)} dB',
-            style: TextStyle(fontSize: 10, color: widget.accentColor, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 10, color: widget.accentColor, weight: FontWeight.bold),
           ),
         ],
       ),
@@ -2779,13 +2705,13 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
               color: _includeVariations ? widget.accentColor : LowerZoneColors.textMuted,
             ),
             const SizedBox(width: 6),
-            Text('Include Variations', style: TextStyle(
-              fontSize: 10,
+            Text('Include Variations', style: FluxForgeTheme.dockSans(
+              size: 10,
               color: _includeVariations ? widget.accentColor : LowerZoneColors.textPrimary,
             )),
             const Spacer(),
             if (_includeVariations)
-              Text('×$_variationCount', style: TextStyle(fontSize: 10, color: widget.accentColor, fontWeight: FontWeight.bold)),
+              Text('×$_variationCount', style: FluxForgeTheme.dockSans(size: 10, color: widget.accentColor, weight: FontWeight.bold)),
           ],
         ),
       ),
@@ -2805,9 +2731,9 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
         children: [
           Row(
             children: [
-              const Text('Variations', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              Text('Variations', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
               const Spacer(),
-              Text('$_variationCount', style: TextStyle(fontSize: 10, color: widget.accentColor, fontWeight: FontWeight.bold)),
+              Text('$_variationCount', style: FluxForgeTheme.dockSans(size: 10, color: widget.accentColor, weight: FontWeight.bold)),
             ],
           ),
           SliderTheme(
@@ -2849,7 +2775,7 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
             Expanded(
               child: Text(
                 _outputDirectory?.split('/').last ?? 'Choose Folder...',
-                style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -2895,9 +2821,9 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
             const SizedBox(height: 8),
             Text(
               _isExporting ? 'EXPORTING...' : 'EXPORT',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: _isExporting ? LowerZoneColors.textMuted : widget.accentColor,
               ),
             ),
@@ -3285,12 +3211,7 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
         const SizedBox(width: 8),
         Text(
           'AUDIO PACK EXPORT',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: widget.accentColor,
-            letterSpacing: 1.0,
-          ),
+          style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 1.0),
         ),
         const SizedBox(width: 8),
         Container(
@@ -3301,13 +3222,13 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
           ),
           child: Text(
             _format.extension.toUpperCase().substring(1),
-            style: TextStyle(fontSize: 8, color: widget.accentColor, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 8, color: widget.accentColor, weight: FontWeight.bold),
           ),
         ),
         const Spacer(),
         Text(
           '$selectedCount events → $_packName/',
-          style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+          style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
         ),
       ],
     );
@@ -3351,15 +3272,10 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
                     color: widget.accentColor,
                   ),
                   const SizedBox(width: 6),
-                  Text('EVENTS', style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: widget.accentColor,
-                    letterSpacing: 0.5,
-                  )),
+                  Text('EVENTS', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: widget.accentColor, letterSpacing: 0.5)),
                   const Spacer(),
                   Text('${_events.where((e) => e.selected).length}/${_events.length}',
-                    style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                    style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                 ],
               ),
             ),
@@ -3394,12 +3310,12 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
             ),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(event.name, style: TextStyle(
-                fontSize: 10,
+              child: Text(event.name, style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: event.selected ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted,
               )),
             ),
-            Text(event.stage, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+            Text(event.stage, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           ],
         ),
       ),
@@ -3485,10 +3401,10 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Pack Name', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          Text('Pack Name', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           TextFormField(
             initialValue: _packName,
-            style: TextStyle(fontSize: 10, color: widget.accentColor),
+            style: FluxForgeTheme.dockSans(size: 10, color: widget.accentColor),
             decoration: const InputDecoration(
               border: InputBorder.none,
               isDense: true,
@@ -3518,7 +3434,7 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           DropdownButtonHideUnderline(
             child: DropdownButton<T>(
               value: value,
@@ -3528,7 +3444,7 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
               icon: Icon(Icons.arrow_drop_down, size: 14, color: widget.accentColor),
               items: items.map((item) => DropdownMenuItem(
                 value: item,
-                child: Text(labelFn(item), style: TextStyle(fontSize: 10, color: widget.accentColor)),
+                child: Text(labelFn(item), style: FluxForgeTheme.dockSans(size: 10, color: widget.accentColor)),
               )).toList(),
               onChanged: _isExporting ? null : (v) => v != null ? onChanged(v) : null,
             ),
@@ -3555,11 +3471,11 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
         children: [
           Row(
             children: [
-              Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              Text(label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
               const Spacer(),
               Text(
                 '${_normalizationTarget.toStringAsFixed(1)}',
-                style: TextStyle(fontSize: 9, color: widget.accentColor, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(size: 9, color: widget.accentColor, weight: FontWeight.bold),
               ),
             ],
           ),
@@ -3603,8 +3519,8 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
             ),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(label, style: TextStyle(
-                fontSize: 9,
+              child: Text(label, style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: value ? widget.accentColor : LowerZoneColors.textPrimary,
               )),
             ),
@@ -3631,7 +3547,7 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
             Expanded(
               child: Text(
                 _outputDirectory?.split('/').last ?? 'Choose Output Folder...',
-                style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -3659,22 +3575,18 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
                 children: [
                   Icon(Icons.info_outline, size: 10, color: widget.accentColor),
                   const SizedBox(width: 4),
-                  Text('FORMAT', style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: widget.accentColor,
-                  )),
+                  Text('FORMAT', style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: widget.accentColor)),
                 ],
               ),
               const SizedBox(height: 4),
               Text(
                 _format.description,
-                style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
               ),
               const SizedBox(height: 4),
               Text(
                 _structure.description,
-                style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
               ),
             ],
           ),
@@ -3694,11 +3606,7 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
               children: [
                 Text(
                   '${(_exportProgress * 100).toInt()}%',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: widget.accentColor,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.bold, color: widget.accentColor),
                 ),
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
@@ -3709,7 +3617,7 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
                 const SizedBox(height: 4),
                 Text(
                   _exportStatus,
-                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                  style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -3736,11 +3644,11 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
                 const SizedBox(height: 4),
                 Text(
                   '$_exportedCount files',
-                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.success),
+                  style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.success),
                 ),
                 Text(
                   _createZip ? '+ ZIP' : '',
-                  style: const TextStyle(fontSize: 7, color: LowerZoneColors.success),
+                  style: FluxForgeTheme.dockSans(size: 7, color: LowerZoneColors.success),
                 ),
               ],
             ),
@@ -3786,9 +3694,9 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
             const SizedBox(height: 8),
             Text(
               _isExporting ? 'EXPORTING...' : 'CREATE\nPACK',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.bold,
                 color: _isExporting ? LowerZoneColors.textMuted : widget.accentColor,
               ),
               textAlign: TextAlign.center,

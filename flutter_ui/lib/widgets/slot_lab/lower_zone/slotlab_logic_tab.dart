@@ -6,6 +6,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import '../../../theme/fluxforge_theme.dart';
 import '../../../providers/slot_lab/behavior_tree_provider.dart';
 import '../../../providers/slot_lab/state_gate_provider.dart';
 import '../../../providers/slot_lab/trigger_layer_provider.dart';
@@ -152,9 +153,9 @@ class _CategorySection extends StatelessWidget {
               children: [
                 Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more, size: 12, color: color),
                 const SizedBox(width: 2),
-                Text(category.displayName, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                Text(category.displayName, style: FluxForgeTheme.dockSans(size: 10, color: color, weight: FontWeight.w600, letterSpacing: 0.5)),
                 const Spacer(),
-                Text('${nodes.length}', style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: 9)),
+                Text('${nodes.length}', style: FluxForgeTheme.dockSans(size: 9, color: color.withValues(alpha: 0.5))),
                 const SizedBox(width: 6),
                 _coverageDot(coveragePct),
               ],
@@ -218,8 +219,8 @@ class _InteractiveNodeRow extends StatelessWidget {
           children: [
             Icon(hasSounds ? Icons.volume_up : Icons.volume_off, size: 10, color: hasSounds ? const Color(0xFF40FF90) : Colors.white24),
             const SizedBox(width: 4),
-            Expanded(child: Text(node.nodeType.displayName, style: TextStyle(color: isSelected ? const Color(0xFF40C8FF) : Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
-            Text(node.basicParams.priorityClass.name, style: const TextStyle(color: Colors.white30, fontSize: 9)),
+            Expanded(child: Text(node.nodeType.displayName, style: FluxForgeTheme.dockSans(size: 11, color: isSelected ? const Color(0xFF40C8FF) : Colors.white70), overflow: TextOverflow.ellipsis)),
+            Text(node.basicParams.priorityClass.name, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white30)),
             const SizedBox(width: 4),
             GestureDetector(
               onTap: onMarkVerified,
@@ -295,10 +296,10 @@ class _TriggersPanel extends StatelessWidget {
                                   width: 4, height: 4, margin: const EdgeInsets.only(right: 3),
                                   decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF40FF90)),
                                 ),
-                              Expanded(child: Text(b.hookName, style: TextStyle(color: recentlyFired ? const Color(0xFF40FF90) : (b.enabled ? Colors.white70 : Colors.white30), fontSize: 11, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis)),
-                              Text('→ ${b.targetNodeIds.length}', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                              Expanded(child: Text(b.hookName, style: FluxForgeTheme.dockMono(size: 11, color: recentlyFired ? const Color(0xFF40FF90) : (b.enabled ? Colors.white70 : Colors.white30)), overflow: TextOverflow.ellipsis)),
+                              Text('→ ${b.targetNodeIds.length}', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38)),
                               if (b.delayMs > 0)
-                                Padding(padding: const EdgeInsets.only(left: 4), child: Text('+${b.delayMs}ms', style: const TextStyle(color: Colors.orangeAccent, fontSize: 9))),
+                                Padding(padding: const EdgeInsets.only(left: 4), child: Text('+${b.delayMs}ms', style: FluxForgeTheme.dockSans(size: 9, color: Colors.orangeAccent))),
                               const SizedBox(width: 4),
                               // Remove binding
                               GestureDetector(
@@ -315,7 +316,7 @@ class _TriggersPanel extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1)))),
-              child: Text('Resolution Log (${history.length})', style: const TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: 0.5)),
+              child: Text('Resolution Log (${history.length})', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38, letterSpacing: 0.5)),
             ),
             Expanded(
               flex: 2,
@@ -333,8 +334,8 @@ class _TriggersPanel extends StatelessWidget {
                             children: [
                               Icon(activated ? Icons.check_circle : Icons.radio_button_unchecked, size: 10, color: activated ? const Color(0xFF40FF90) : Colors.white24),
                               const SizedBox(width: 4),
-                              Expanded(child: Text(r.hookName, style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis)),
-                              Text('${r.activatedNodeIds.length} nodes', style: TextStyle(color: activated ? const Color(0xFF40C8FF) : Colors.white24, fontSize: 9)),
+                              Expanded(child: Text(r.hookName, style: FluxForgeTheme.dockMono(size: 10, color: Colors.white54), overflow: TextOverflow.ellipsis)),
+                              Text('${r.activatedNodeIds.length} nodes', style: FluxForgeTheme.dockSans(size: 9, color: activated ? const Color(0xFF40C8FF) : Colors.white24)),
                             ],
                           ),
                         );
@@ -347,7 +348,7 @@ class _TriggersPanel extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1)))),
                 child: Text('${unbound.length} unbound: ${unbound.take(3).join(", ")}${unbound.length > 3 ? "..." : ""}',
-                    style: const TextStyle(color: Color(0xFFFF9040), fontSize: 9)),
+                    style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFFFF9040))),
               ),
           ],
         );
@@ -405,7 +406,7 @@ class _GatePanel extends StatelessWidget {
                         borderRadius: BorderRadius.circular(3),
                         border: isCurrent ? Border.all(color: const Color(0xFF40FF90), width: 1) : null,
                       ),
-                      child: Text(s.name, style: TextStyle(color: isCurrent ? const Color(0xFF40FF90) : Colors.white54, fontSize: 10)),
+                      child: Text(s.name, style: FluxForgeTheme.dockSans(size: 10, color: isCurrent ? const Color(0xFF40FF90) : Colors.white54)),
                     ),
                   );
                 }).toList(),
@@ -416,7 +417,7 @@ class _GatePanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
-                  const Text('Volatility', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  Text('Volatility', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38)),
                   Expanded(
                     child: SliderTheme(
                       data: _compactSlider(const Color(0xFFFF9040)),
@@ -428,7 +429,7 @@ class _GatePanel extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Text('${(provider.volatilityIndex * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Color(0xFFFF9040), fontSize: 10)),
+                  Text('${(provider.volatilityIndex * 100).toStringAsFixed(0)}%', style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFFF9040))),
                 ],
               ),
             ),
@@ -437,9 +438,9 @@ class _GatePanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
-                  Text('Passed: ${provider.passedCount}', style: const TextStyle(color: Color(0xFF40FF90), fontSize: 10)),
+                  Text('Passed: ${provider.passedCount}', style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF40FF90))),
                   const SizedBox(width: 12),
-                  Text('Blocked: ${provider.blockedCount}', style: const TextStyle(color: Color(0xFFFF4060), fontSize: 10)),
+                  Text('Blocked: ${provider.blockedCount}', style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFFF4060))),
                   const Spacer(),
                   if (history.isNotEmpty)
                     Row(
@@ -453,10 +454,7 @@ class _GatePanel extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 3),
-                        Text(history.last.hookName, style: TextStyle(
-                          color: history.last.result.allowed ? const Color(0xFF40FF90) : const Color(0xFFFF4060),
-                          fontSize: 9, fontFamily: 'monospace',
-                        )),
+                        Text(history.last.hookName, style: FluxForgeTheme.dockMono(size: 9, color: history.last.result.allowed ? const Color(0xFF40FF90) : const Color(0xFFFF4060))),
                       ],
                     ),
                 ],
@@ -476,8 +474,8 @@ class _GatePanel extends StatelessWidget {
                       children: [
                         Icon(entry.result.allowed ? Icons.check : Icons.block, size: 10, color: entry.result.allowed ? const Color(0xFF40FF90) : const Color(0xFFFF4060)),
                         const SizedBox(width: 4),
-                        Expanded(child: Text(entry.hookName, style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis)),
-                        Text(entry.substate.name, style: const TextStyle(color: Colors.white30, fontSize: 9)),
+                        Expanded(child: Text(entry.hookName, style: FluxForgeTheme.dockMono(size: 10, color: Colors.white54), overflow: TextOverflow.ellipsis)),
+                        Text(entry.substate.name, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white30)),
                       ],
                     ),
                   );
@@ -525,7 +523,7 @@ class _PriorityPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Active', style: TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: 0.5)),
+                    Text('Active', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38, letterSpacing: 0.5)),
                     const SizedBox(height: 2),
                     ...active.values.map((ab) => Padding(
                       padding: const EdgeInsets.only(bottom: 1),
@@ -533,11 +531,11 @@ class _PriorityPanel extends StatelessWidget {
                         children: [
                           Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: _priorityClassColor(ab.priorityClass))),
                           const SizedBox(width: 4),
-                          Expanded(child: Text(ab.nodeId, style: const TextStyle(color: Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
-                          Text(ab.priorityClass.name, style: TextStyle(color: _priorityClassColor(ab.priorityClass), fontSize: 9)),
+                          Expanded(child: Text(ab.nodeId, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70), overflow: TextOverflow.ellipsis)),
+                          Text(ab.priorityClass.name, style: FluxForgeTheme.dockSans(size: 9, color: _priorityClassColor(ab.priorityClass))),
                           const SizedBox(width: 4),
                           if (ab.currentGain < 1.0)
-                            Text('${(20 * _log10(ab.currentGain)).toStringAsFixed(1)}dB', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 9)),
+                            Text('${(20 * _log10(ab.currentGain)).toStringAsFixed(1)}dB', style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFFFFD700))),
                           const SizedBox(width: 4),
                           GestureDetector(
                             onTap: () => provider.removeBehavior(ab.nodeId),
@@ -564,10 +562,10 @@ class _PriorityPanel extends StatelessWidget {
                             children: [
                               Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: _actionColor(res.action))),
                               const SizedBox(width: 4),
-                              Expanded(child: Text('${res.winnerId} > ${res.loserId}', style: const TextStyle(color: Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
-                              Text(res.action.name, style: TextStyle(color: _actionColor(res.action), fontSize: 10)),
+                              Expanded(child: Text('${res.winnerId} > ${res.loserId}', style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70), overflow: TextOverflow.ellipsis)),
+                              Text(res.action.name, style: FluxForgeTheme.dockSans(size: 10, color: _actionColor(res.action))),
                               if (res.action == PriorityConflictAction.duck)
-                                Text(' ${res.duckAmountDb.toStringAsFixed(0)}dB', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 9)),
+                                Text(' ${res.duckAmountDb.toStringAsFixed(0)}dB', style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFFFFD700))),
                             ],
                           ),
                         );
@@ -679,8 +677,8 @@ class _OrchestrationPanel extends StatelessWidget {
                                   children: [
                                     if (d.suppressed)
                                       const Padding(padding: EdgeInsets.only(right: 4), child: Icon(Icons.volume_off, size: 10, color: Color(0xFFFF4060))),
-                                    Expanded(child: Text(d.nodeId, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
-                                    if (d.triggerDelayMs > 0) Text('+${d.triggerDelayMs}ms', style: const TextStyle(color: Colors.orangeAccent, fontSize: 9)),
+                                    Expanded(child: Text(d.nodeId, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70, weight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                                    if (d.triggerDelayMs > 0) Text('+${d.triggerDelayMs}ms', style: FluxForgeTheme.dockSans(size: 9, color: Colors.orangeAccent)),
                                   ],
                                 ),
                                 const SizedBox(height: 2),
@@ -706,7 +704,7 @@ class _OrchestrationPanel extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1)))),
-              child: Text('Decision Log (${diagLog.length})', style: const TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: 0.5)),
+              child: Text('Decision Log (${diagLog.length})', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38, letterSpacing: 0.5)),
             ),
             Expanded(
               flex: 2,
@@ -725,16 +723,13 @@ class _OrchestrationPanel extends StatelessWidget {
                               Icon(d.suppressed ? Icons.volume_off : Icons.volume_up, size: 10,
                                 color: d.suppressed ? const Color(0xFFFF4060) : const Color(0xFF40FF90)),
                               const SizedBox(width: 4),
-                              Expanded(child: Text(entry.nodeId, style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis)),
-                              Text('${d.gainBiasDb > 0 ? "+" : ""}${d.gainBiasDb.toStringAsFixed(1)}dB', style: TextStyle(
-                                color: d.gainBiasDb > 0 ? const Color(0xFF40FF90) : (d.gainBiasDb < 0 ? const Color(0xFFFF4060) : Colors.white30),
-                                fontSize: 9,
-                              )),
+                              Expanded(child: Text(entry.nodeId, style: FluxForgeTheme.dockMono(size: 10, color: Colors.white54), overflow: TextOverflow.ellipsis)),
+                              Text('${d.gainBiasDb > 0 ? "+" : ""}${d.gainBiasDb.toStringAsFixed(1)}dB', style: FluxForgeTheme.dockSans(size: 9, color: d.gainBiasDb > 0 ? const Color(0xFF40FF90) : (d.gainBiasDb < 0 ? const Color(0xFFFF4060) : Colors.white30))),
                               const SizedBox(width: 4),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                                 decoration: BoxDecoration(color: _emotionLogColor(entry.emotionalState).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(2)),
-                                child: Text(entry.emotionalState.name, style: TextStyle(color: _emotionLogColor(entry.emotionalState), fontSize: 8)),
+                                child: Text(entry.emotionalState.name, style: FluxForgeTheme.dockSans(size: 8, color: _emotionLogColor(entry.emotionalState))),
                               ),
                             ],
                           ),
@@ -764,14 +759,14 @@ class _OrchestrationPanel extends StatelessWidget {
       height: 20,
       child: Row(
         children: [
-          SizedBox(width: 70, child: Text(label, style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 10))),
+          SizedBox(width: 70, child: Text(label, style: FluxForgeTheme.dockSans(size: 10, color: color.withValues(alpha: 0.7)))),
           Expanded(
             child: SliderTheme(
               data: _compactSlider(color),
               child: Slider(value: value.clamp(min, max), min: min, max: max, onChanged: onChanged),
             ),
           ),
-          SizedBox(width: 32, child: Text(value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1), style: TextStyle(color: color, fontSize: 10), textAlign: TextAlign.right)),
+          SizedBox(width: 32, child: Text(value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1), style: FluxForgeTheme.dockSans(size: 10, color: color), textAlign: TextAlign.right)),
         ],
       ),
     );
@@ -783,7 +778,7 @@ class _OrchestrationPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$label: ${value.toStringAsFixed(1)}', style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 9)),
+          Text('$label: ${value.toStringAsFixed(1)}', style: FluxForgeTheme.dockSans(size: 9, color: color.withValues(alpha: 0.7))),
           const SizedBox(height: 1),
           Container(
             height: 3,
@@ -840,7 +835,7 @@ class _EmotionalPanel extends StatelessWidget {
                       borderRadius: BorderRadius.circular(3),
                       border: isCurrent ? Border.all(color: _emotionColor(s), width: 1) : null,
                     ),
-                    child: Text(s.name, style: TextStyle(color: isCurrent ? _emotionColor(s) : Colors.white38, fontSize: 10)),
+                    child: Text(s.name, style: FluxForgeTheme.dockSans(size: 10, color: isCurrent ? _emotionColor(s) : Colors.white38)),
                   );
                 }).toList(),
               ),
@@ -866,7 +861,7 @@ class _EmotionalPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 '${provider.spinHistory.length} spins | ${provider.consecutiveLossCount} loss streak | cascade: ${provider.cascadeDepth}',
-                style: const TextStyle(color: Colors.white38, fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
               ),
             ),
             const SizedBox(height: 4),
@@ -875,7 +870,7 @@ class _EmotionalPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
-                  const Text('Test:', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                  Text('Test:', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
                   const SizedBox(width: 4),
                   _eventBtn('Spin', const Color(0xFF40C8FF), () {
                     provider.onSpinStart();
@@ -919,7 +914,7 @@ class _EmotionalPanel extends StatelessWidget {
             borderRadius: BorderRadius.circular(3),
             border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
           ),
-          child: Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
+          child: Text(label, style: FluxForgeTheme.dockSans(size: 9, color: color, weight: FontWeight.w600)),
         ),
       ),
     );
@@ -929,7 +924,7 @@ class _EmotionalPanel extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Text(label, style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 9)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, color: color.withValues(alpha: 0.7))),
           const SizedBox(height: 2),
           Container(
             height: 4,
@@ -1006,7 +1001,7 @@ class _ContextPanel extends StatelessWidget {
                         borderRadius: BorderRadius.circular(3),
                         border: isCurrent ? Border.all(color: const Color(0xFF40C8FF), width: 1) : null,
                       ),
-                      child: Text(m.name, style: TextStyle(color: isCurrent ? const Color(0xFF40C8FF) : Colors.white54, fontSize: 10)),
+                      child: Text(m.name, style: FluxForgeTheme.dockSans(size: 10, color: isCurrent ? const Color(0xFF40C8FF) : Colors.white54)),
                     ),
                   );
                 }).toList(),
@@ -1045,7 +1040,7 @@ class _NodeOverrideView extends StatelessWidget {
             children: [
               Icon(Icons.tune, size: 10, color: hasOverride ? const Color(0xFF40C8FF) : Colors.white38),
               const SizedBox(width: 4),
-              Expanded(child: Text('Overrides for "$nodeId" in ${mode.name}', style: const TextStyle(color: Colors.white54, fontSize: 10))),
+              Expanded(child: Text('Overrides for "$nodeId" in ${mode.name}', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54))),
               if (hasOverride)
                 GestureDetector(
                   onTap: () => provider.removeOverride(nodeId, mode),
@@ -1055,11 +1050,11 @@ class _NodeOverrideView extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           if (hasOverride) ...[
-            if (ovr.gainDb != null) Text('  Gain: ${ovr.gainDb!.toStringAsFixed(1)} dB', style: const TextStyle(color: Colors.white54, fontSize: 10)),
-            if (ovr.priority != null) Text('  Priority: ${ovr.priority}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
-            if (ovr.playbackMode != null) Text('  Playback: ${ovr.playbackMode!.name}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
-            if (ovr.stereoWidth != null) Text('  Stereo Width: ${ovr.stereoWidth!.toStringAsFixed(1)}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
-            if (ovr.active != null) Text('  Active: ${ovr.active}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+            if (ovr.gainDb != null) Text('  Gain: ${ovr.gainDb!.toStringAsFixed(1)} dB', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
+            if (ovr.priority != null) Text('  Priority: ${ovr.priority}', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
+            if (ovr.playbackMode != null) Text('  Playback: ${ovr.playbackMode!.name}', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
+            if (ovr.stereoWidth != null) Text('  Stereo Width: ${ovr.stereoWidth!.toStringAsFixed(1)}', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
+            if (ovr.active != null) Text('  Active: ${ovr.active}', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
           ] else
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -1077,7 +1072,7 @@ class _NodeOverrideView extends StatelessWidget {
                     border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                     borderRadius: BorderRadius.circular(3),
                   ),
-                  child: const Text('+ Add Override', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  child: Text('+ Add Override', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38)),
                 ),
               ),
             ),
@@ -1113,8 +1108,8 @@ class _OverrideSummary extends StatelessWidget {
             children: [
               Icon(Icons.tune, size: 10, color: hasForMode ? const Color(0xFF40C8FF) : Colors.white24),
               const SizedBox(width: 4),
-              Expanded(child: Text(nodeId, style: const TextStyle(color: Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
-              Text('$count modes', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+              Expanded(child: Text(nodeId, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70), overflow: TextOverflow.ellipsis)),
+              Text('$count modes', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38)),
               const SizedBox(width: 4),
               GestureDetector(
                 onTap: () => provider.removeAllOverrides(nodeId),
@@ -1188,7 +1183,7 @@ class _SimulationPanel extends StatelessWidget {
                         borderRadius: BorderRadius.circular(3),
                         border: isCurrent ? Border.all(color: const Color(0xFF9370DB), width: 1) : null,
                       ),
-                      child: Text(m.name, style: TextStyle(color: isCurrent ? const Color(0xFF9370DB) : Colors.white54, fontSize: 10)),
+                      child: Text(m.name, style: FluxForgeTheme.dockSans(size: 10, color: isCurrent ? const Color(0xFF9370DB) : Colors.white54)),
                     ),
                   );
                 }).toList(),
@@ -1203,18 +1198,18 @@ class _SimulationPanel extends StatelessWidget {
                     if (errorCount > 0) ...[
                       Icon(Icons.error, size: 10, color: const Color(0xFFFF4060)),
                       const SizedBox(width: 2),
-                      Text('$errorCount errors', style: const TextStyle(color: Color(0xFFFF4060), fontSize: 10)),
+                      Text('$errorCount errors', style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFFF4060))),
                       const SizedBox(width: 8),
                     ],
                     if (warnCount > 0) ...[
                       Icon(Icons.warning, size: 10, color: const Color(0xFFFFD700)),
                       const SizedBox(width: 2),
-                      Text('$warnCount warnings', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10)),
+                      Text('$warnCount warnings', style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFFFD700))),
                     ],
                     const Spacer(),
                     GestureDetector(
                       onTap: () => errors.clearIssues(),
-                      child: const Text('Clear', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                      child: Text('Clear', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
                     ),
                   ],
                 ),
@@ -1224,15 +1219,15 @@ class _SimulationPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
-                  Text('Transition rules: ${transition.allRules.length}', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                  Text('Transition rules: ${transition.allRules.length}', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38)),
                   const Spacer(),
                   if (transition.isTransitioning)
                     Text('Transitioning ${(transition.activeTransition!.progress * 100).toStringAsFixed(0)}%',
-                        style: const TextStyle(color: Color(0xFF9370DB), fontSize: 10)),
+                        style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF9370DB))),
                   const SizedBox(width: 6),
                   GestureDetector(
                     onTap: () => transition.resetDefaults(),
-                    child: const Text('Reset Rules', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                    child: Text('Reset Rules', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
                   ),
                 ],
               ),
@@ -1253,10 +1248,10 @@ class _SimulationPanel extends StatelessWidget {
                             children: [
                               Icon(r.warnings.isEmpty ? Icons.check_circle : Icons.warning, size: 10, color: r.warnings.isEmpty ? const Color(0xFF40FF90) : const Color(0xFFFF9040)),
                               const SizedBox(width: 4),
-                              Expanded(child: Text('${r.mode.name} — ${r.totalSpins} spins', style: const TextStyle(color: Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
-                              Text('${r.hooksFired} hooks', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                              Expanded(child: Text('${r.mode.name} — ${r.totalSpins} spins', style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70), overflow: TextOverflow.ellipsis)),
+                              Text('${r.hooksFired} hooks', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38)),
                               if (r.gateBlocks > 0)
-                                Padding(padding: const EdgeInsets.only(left: 4), child: Text('${r.gateBlocks}blk', style: const TextStyle(color: Color(0xFFFF4060), fontSize: 9))),
+                                Padding(padding: const EdgeInsets.only(left: 4), child: Text('${r.gateBlocks}blk', style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFFFF4060)))),
                             ],
                           ),
                         );
@@ -1280,9 +1275,9 @@ Widget _headerWithActions(String title, String subtitle, {List<Widget> actions =
     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)))),
     child: Row(
       children: [
-        Text(title, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+        Text(title, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white, weight: FontWeight.w600)),
         const SizedBox(width: 5),
-        Expanded(child: Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 9), overflow: TextOverflow.ellipsis)),
+        Expanded(child: Text(subtitle, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38), overflow: TextOverflow.ellipsis)),
         ...actions,
       ],
     ),
@@ -1315,7 +1310,7 @@ Widget _toggleChip(String label, bool value, ValueChanged<bool> onChanged) {
         borderRadius: BorderRadius.circular(3),
         border: Border.all(color: value ? const Color(0xFF40FF90).withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.1), width: 0.5),
       ),
-      child: Text(label, style: TextStyle(color: value ? const Color(0xFF40FF90) : Colors.white38, fontSize: 9, fontWeight: FontWeight.w600)),
+      child: Text(label, style: FluxForgeTheme.dockSans(size: 9, color: value ? const Color(0xFF40FF90) : Colors.white38, weight: FontWeight.w600)),
     ),
   );
 }
@@ -1369,9 +1364,9 @@ class _StateMachinePanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               child: Row(
                 children: [
-                  const Text('STATE MACHINE', style: TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                  Text('STATE MACHINE', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54, weight: FontWeight.bold, letterSpacing: 0.8)),
                   const SizedBox(width: 6),
-                  Text('${nodes.length} states — ${edges.length} transitions', style: const TextStyle(color: Colors.white30, fontSize: 9)),
+                  Text('${nodes.length} states — ${edges.length} transitions', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white30)),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -1379,7 +1374,7 @@ class _StateMachinePanel extends StatelessWidget {
                       color: const Color(0xFF4A9EFF).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(3),
                     ),
-                    child: Text(currentState.displayName, style: const TextStyle(color: Color(0xFF4A9EFF), fontSize: 9, fontWeight: FontWeight.w600)),
+                    child: Text(currentState.displayName, style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF4A9EFF), weight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -1399,7 +1394,7 @@ class _StateMachinePanel extends StatelessWidget {
 }
 
 Widget _emptyState(String message) {
-  return Center(child: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white24, fontSize: 11)));
+  return Center(child: Text(message, textAlign: TextAlign.center, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white24)));
 }
 
 SliderThemeData _compactSlider(Color color) {

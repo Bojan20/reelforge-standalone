@@ -168,23 +168,18 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
         children: [
           Text(
             'VOICE MIXER',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color: FluxForgeTheme.accentCyan,
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w700, letterSpacing: 1.2, color: FluxForgeTheme.accentCyan),
           ),
           const SizedBox(width: 12),
           Container(width: 1, height: 14, color: FluxForgeTheme.borderSubtle),
           const SizedBox(width: 12),
-          Text('Ch ', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
-          Text('${mixer.channelCount}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: FluxForgeTheme.textSecondary)),
+          Text('Ch ', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary)),
+          Text('${mixer.channelCount}', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600)),
           const SizedBox(width: 12),
           Container(width: 1, height: 14, color: FluxForgeTheme.borderSubtle),
           const SizedBox(width: 12),
-          Text('Live ', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
-          Text('${mixer.playingCount}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600,
+          Text('Live ', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary)),
+          Text('${mixer.playingCount}', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600,
             color: mixer.playingCount > 0 ? FluxForgeTheme.accentGreen : FluxForgeTheme.textSecondary)),
           const Spacer(),
           // Search filter
@@ -196,7 +191,7 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
               style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary, fontFamily: FluxForgeTheme.fontFamily),
               decoration: InputDecoration(
                 hintText: 'Filter...',
-                hintStyle: TextStyle(fontSize: 9, color: FluxForgeTheme.textDisabled),
+                hintStyle: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textDisabled),
                 prefixIcon: Icon(Icons.search, size: 12, color: FluxForgeTheme.textDisabled),
                 prefixIconConstraints: const BoxConstraints(minWidth: 24),
                 filled: true,
@@ -222,7 +217,7 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
               ),
               child: Text(
                 mixer.isCompact ? 'N' : 'R',
-                style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 0.5,
+                style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.w700, letterSpacing: 0.5,
                   color: FluxForgeTheme.textTertiary),
               ),
             ),
@@ -492,22 +487,13 @@ class _BusSeparator extends StatelessWidget {
                           const SizedBox(width: 1),
                           Text(
                             busName.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 7,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                              color: color,
-                            ),
+                            style: FluxForgeTheme.dockSans(size: 7, weight: FontWeight.w700, letterSpacing: 0.8, color: color),
                           ),
                           if (isCollapsed) ...[
                             const SizedBox(width: 3),
                             Text(
                               '$channelCount',
-                              style: TextStyle(
-                                fontSize: 7,
-                                fontWeight: FontWeight.w800,
-                                color: color,
-                              ),
+                              style: FluxForgeTheme.dockSans(size: 7, weight: FontWeight.w800, color: color),
                             ),
                           ],
                         ],
@@ -641,30 +627,30 @@ class _VoiceStripState extends State<_VoiceStrip> {
         PopupMenuItem(value: 'audition', height: 28, child: Row(children: [
           Icon(Icons.play_arrow, size: 12, color: FluxForgeTheme.accentGreen),
           const SizedBox(width: 6),
-          Text('Audition', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          Text('Audition', style: FluxForgeTheme.dockSans(size: 10)),
         ])),
         PopupMenuItem(value: 'reset_pan', height: 28, child: Row(children: [
           Icon(Icons.center_focus_strong, size: 12, color: FluxForgeTheme.textTertiary),
           const SizedBox(width: 6),
-          Text('Reset Pan', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          Text('Reset Pan', style: FluxForgeTheme.dockSans(size: 10)),
         ])),
         PopupMenuItem(value: 'reset_volume', height: 28, child: Row(children: [
           Icon(Icons.straighten, size: 12, color: FluxForgeTheme.textTertiary),
           const SizedBox(width: 6),
-          Text('Reset Volume (0 dB)', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          Text('Reset Volume (0 dB)', style: FluxForgeTheme.dockSans(size: 10)),
         ])),
         const PopupMenuDivider(height: 4),
         PopupMenuItem(value: 'phase', height: 28, child: Row(children: [
-          Text('Ø', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
+          Text('Ø', style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold,
             color: ch.phaseInvert ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary)),
           const SizedBox(width: 6),
-          Text(ch.phaseInvert ? 'Phase: Inverted' : 'Invert Phase', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          Text(ch.phaseInvert ? 'Phase: Inverted' : 'Invert Phase', style: FluxForgeTheme.dockSans(size: 10)),
         ])),
         const PopupMenuDivider(height: 4),
         PopupMenuItem(value: 'remove', height: 28, child: Row(children: [
           Icon(Icons.delete_outline, size: 12, color: FluxForgeTheme.accentRed),
           const SizedBox(width: 6),
-          Text('Remove from Event', style: TextStyle(fontSize: 10, color: FluxForgeTheme.accentRed)),
+          Text('Remove from Event', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentRed)),
         ])),
       ],
     ).then((value) {
@@ -770,12 +756,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
                   Expanded(
                     child: Text(
                       ch.displayName,
-                      style: const TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                        color: FluxForgeTheme.textPrimary,
-                        height: 1.2,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 9.5, weight: FontWeight.w700, color: FluxForgeTheme.textPrimary, height: 1.2),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -805,13 +786,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
                   Expanded(
                     child: Text(
                       ch.stageName,
-                      style: TextStyle(
-                        fontSize: 7,
-                        fontWeight: FontWeight.w500,
-                        color: FluxForgeTheme.textTertiary,
-                        fontFamily: FluxForgeTheme.monoFontFamily,
-                        letterSpacing: 0.2,
-                      ),
+                      style: FluxForgeTheme.dockMono(size: 7, weight: FontWeight.w500, color: FluxForgeTheme.textTertiary, letterSpacing: 0.2),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -827,13 +802,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
                       ),
                       child: Text(
                         'LOOP',
-                        style: TextStyle(
-                          fontSize: 6,
-                          fontWeight: FontWeight.w700,
-                          color: FluxForgeTheme.textDisabled,
-                          letterSpacing: 0.3,
-                          height: 1.5,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 6, weight: FontWeight.w700, color: FluxForgeTheme.textDisabled, letterSpacing: 0.3, height: 1.5),
                       ),
                     ),
                   Container(
@@ -846,13 +815,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
                     ),
                     child: Text(
                       busIdToName(ch.busId),
-                      style: TextStyle(
-                        fontSize: 6,
-                        fontWeight: FontWeight.w700,
-                        color: busColor,
-                        letterSpacing: 0.5,
-                        height: 1.4,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 6, weight: FontWeight.w700, color: busColor, letterSpacing: 0.5, height: 1.4),
                     ),
                   ),
                 ],
@@ -891,10 +854,8 @@ class _VoiceStripState extends State<_VoiceStrip> {
                 ),
               ),
               child: Center(
-                child: Text('Ø', style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.bold,
-                  color: ch.phaseInvert ? Colors.white : FluxForgeTheme.textTertiary,
-                )),
+                child: Text('Ø', style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold,
+                  color: ch.phaseInvert ? Colors.white : FluxForgeTheme.textTertiary)),
               ),
             ),
           ),
@@ -914,15 +875,10 @@ class _VoiceStripState extends State<_VoiceStrip> {
             child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('GAIN', style: TextStyle(fontSize: 6, fontWeight: FontWeight.w600, color: FluxForgeTheme.textDisabled, letterSpacing: 0.5)),
+              Text('GAIN', style: FluxForgeTheme.dockSans(size: 6, weight: FontWeight.w600, color: FluxForgeTheme.textDisabled, letterSpacing: 0.5)),
               Text(
                 '${ch.inputGain >= 0 ? '+' : ''}${ch.inputGain.toStringAsFixed(1)}',
-                style: TextStyle(
-                  fontSize: 8,
-                  fontFamily: FluxForgeTheme.monoFontFamily,
-                  fontWeight: FontWeight.w600,
-                  color: ch.inputGain.abs() > 0.1 ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary,
-                ),
+                style: FluxForgeTheme.dockMono(size: 8, weight: FontWeight.w600, color: ch.inputGain.abs() > 0.1 ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary),
               ),
             ],
           ),
@@ -948,12 +904,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
         children: [
           Text(
             'INSERTS',
-            style: TextStyle(
-              fontSize: 6.5,
-              fontWeight: FontWeight.w700,
-              color: FluxForgeTheme.textDisabled,
-              letterSpacing: 0.6,
-            ),
+            style: FluxForgeTheme.dockSans(size: 6.5, weight: FontWeight.w700, color: FluxForgeTheme.textDisabled, letterSpacing: 0.6),
           ),
           const SizedBox(height: 1),
           for (int i = 0; i < slotCount; i++)
@@ -987,19 +938,18 @@ class _VoiceStripState extends State<_VoiceStrip> {
         children: [
           Text(
             '${index + 1}',
-            style: TextStyle(fontSize: 6, color: FluxForgeTheme.textDisabled),
+            style: FluxForgeTheme.dockSans(size: 6, color: FluxForgeTheme.textDisabled),
           ),
           const SizedBox(width: 2),
           Expanded(
             child: Text(
               hasInsert ? insert.name : '\u2014',
-              style: TextStyle(
-                fontSize: 7,
+              style: FluxForgeTheme.dockSans(
+                size: 7,
                 color: hasInsert && !isBypassed
                     ? FluxForgeTheme.textTertiary
                     : FluxForgeTheme.textDisabled,
-                decoration: isBypassed ? TextDecoration.lineThrough : null,
-              ),
+              ).copyWith(decoration: isBypassed ? TextDecoration.lineThrough : null),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1032,10 +982,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
       ),
       child: Column(
         children: [
-          Text('SENDS', style: TextStyle(
-            fontSize: 6.5, fontWeight: FontWeight.w700,
-            color: FluxForgeTheme.textDisabled, letterSpacing: 0.6,
-          )),
+          Text('SENDS', style: FluxForgeTheme.dockSans(size: 6.5, weight: FontWeight.w700, color: FluxForgeTheme.textDisabled, letterSpacing: 0.6)),
           const SizedBox(height: 1),
           for (final aux in auxBuses)
             _buildSendSlot(aux, send?.sendLevels[aux.id] ?? 0.0,
@@ -1078,26 +1025,21 @@ class _VoiceStripState extends State<_VoiceStrip> {
             // Pre/Post badge
             Text(
               isPreFader ? 'P' : '',
-              style: TextStyle(fontSize: 6, fontWeight: FontWeight.w700,
-                color: FluxForgeTheme.accentOrange),
+              style: FluxForgeTheme.dockSans(size: 6, weight: FontWeight.w700, color: FluxForgeTheme.accentOrange),
             ),
             if (isPreFader) const SizedBox(width: 2),
             // Aux name
             Expanded(
               child: Text(
                 aux.name,
-                style: TextStyle(fontSize: 7,
-                  color: hasLevel ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled),
+                style: FluxForgeTheme.dockSans(size: 7, color: hasLevel ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             // Level display
             Text(
               hasLevel ? '${(level * 100).round()}' : '\u2014',
-              style: TextStyle(fontSize: 6.5,
-                fontFamily: FluxForgeTheme.monoFontFamily,
-                fontWeight: FontWeight.w600,
-                color: hasLevel ? FluxForgeTheme.accentPurple : FluxForgeTheme.textDisabled),
+              style: FluxForgeTheme.dockMono(size: 6.5, weight: FontWeight.w600, color: hasLevel ? FluxForgeTheme.accentPurple : FluxForgeTheme.textDisabled),
             ),
           ],
         ),
@@ -1184,7 +1126,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
         ),
         child: Row(
           children: [
-            Text('W', style: TextStyle(fontSize: 6, fontWeight: FontWeight.w700, color: color.withValues(alpha: 0.7))),
+            Text('W', style: FluxForgeTheme.dockSans(size: 6, weight: FontWeight.w700, color: color.withValues(alpha: 0.7))),
             const SizedBox(width: 3),
             Expanded(
               child: LayoutBuilder(
@@ -1213,8 +1155,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
               ),
             ),
             const SizedBox(width: 3),
-            Text(label, style: TextStyle(fontSize: 6, fontWeight: FontWeight.w600,
-              fontFamily: FluxForgeTheme.monoFontFamily, color: color)),
+            Text(label, style: FluxForgeTheme.dockMono(size: 6, weight: FontWeight.w600, color: color)),
           ],
         ),
       ),
@@ -1366,13 +1307,12 @@ class _VoiceStripState extends State<_VoiceStrip> {
         right: 2, top: y - 3,
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 6.5,
-            fontFamily: FluxForgeTheme.monoFontFamily,
+          style: FluxForgeTheme.dockMono(
+            size: 6.5,
             color: db == 0
                 ? FluxForgeTheme.accentGreen.withValues(alpha: 0.6)
                 : FluxForgeTheme.textDisabled.withValues(alpha: 0.35),
-            fontWeight: db == 0 ? FontWeight.w600 : FontWeight.normal,
+            weight: db == 0 ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ));
@@ -1457,12 +1397,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
       alignment: Alignment.center,
       child: Text(
         db,
-        style: TextStyle(
-          fontSize: 9,
-          fontFamily: FluxForgeTheme.monoFontFamily,
-          fontWeight: FontWeight.w600,
-          color: isHot ? FluxForgeTheme.accentRed : FluxForgeTheme.textSecondary,
-        ),
+        style: FluxForgeTheme.dockMono(size: 9, weight: FontWeight.w600, color: isHot ? FluxForgeTheme.accentRed : FluxForgeTheme.textSecondary),
       ),
     );
   }
@@ -1510,11 +1445,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: active ? FluxForgeTheme.bgVoid : FluxForgeTheme.textDisabled,
-          ),
+          style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w700, color: active ? FluxForgeTheme.bgVoid : FluxForgeTheme.textDisabled),
         ),
       ),
     );
@@ -1544,17 +1475,12 @@ class _VoiceStripState extends State<_VoiceStrip> {
             const SizedBox(width: 3),
             Text(
               busIdToName(ch.busId),
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.w600,
-                color: FluxForgeTheme.textTertiary,
-                letterSpacing: 0.3,
-              ),
+              style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.w600, color: FluxForgeTheme.textTertiary, letterSpacing: 0.3),
             ),
             const SizedBox(width: 2),
             Text(
               '\u25BE',
-              style: TextStyle(fontSize: 6, color: FluxForgeTheme.textDisabled),
+              style: FluxForgeTheme.dockSans(size: 6, color: FluxForgeTheme.textDisabled),
             ),
           ],
         ),
@@ -1606,11 +1532,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
               const SizedBox(width: 6),
               Text(
                 name,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  color: isActive ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
-                ),
+                style: FluxForgeTheme.dockSans(size: 10, weight: isActive ? FontWeight.w700 : FontWeight.w500, color: isActive ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary),
               ),
             ],
           ),
@@ -1695,11 +1617,7 @@ class _SlotPanKnobState extends State<_SlotPanKnob> {
         if (widget.label.isNotEmpty)
           Text(
             widget.label,
-            style: TextStyle(
-              fontSize: 8,
-              fontWeight: FontWeight.w600,
-              color: FluxForgeTheme.accentCyan,
-            ),
+            style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.w600, color: FluxForgeTheme.accentCyan),
           ),
         if (widget.label.isNotEmpty) const SizedBox(height: 2),
         GestureDetector(
@@ -1762,11 +1680,7 @@ class _SlotPanKnobState extends State<_SlotPanKnob> {
         // Value readout
         Text(
           _formatPan(_displayValue),
-          style: TextStyle(
-            fontSize: 7,
-            fontFamily: FluxForgeTheme.monoFontFamily,
-            color: FluxForgeTheme.textSecondary,
-          ),
+          style: FluxForgeTheme.dockMono(size: 7),
         ),
       ],
     );
@@ -1998,13 +1912,10 @@ class _MasterStripState extends State<_MasterStrip>
                   padding: const EdgeInsets.fromLTRB(5, 3, 5, 1),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Master',
-                          style: TextStyle(
-                            fontSize: 9.5, fontWeight: FontWeight.w700,
-                            color: FluxForgeTheme.textPrimary, height: 1.2,
-                          ),
+                          style: FluxForgeTheme.dockSans(size: 9.5, weight: FontWeight.w700, color: FluxForgeTheme.textPrimary, height: 1.2),
                           maxLines: 1, overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -2028,11 +1939,7 @@ class _MasterStripState extends State<_MasterStrip>
                   padding: const EdgeInsets.fromLTRB(5, 0, 5, 3),
                   child: Text(
                     'STEREO OUT',
-                    style: TextStyle(
-                      fontSize: 7, fontWeight: FontWeight.w500,
-                      color: FluxForgeTheme.textTertiary,
-                      fontFamily: FluxForgeTheme.monoFontFamily,
-                    ),
+                    style: FluxForgeTheme.dockMono(size: 7, weight: FontWeight.w500, color: FluxForgeTheme.textTertiary),
                   ),
                 ),
               ],
@@ -2046,10 +1953,7 @@ class _MasterStripState extends State<_MasterStrip>
             ),
             child: Column(
               children: [
-                Text('INSERTS', style: TextStyle(
-                  fontSize: 6.5, fontWeight: FontWeight.w700,
-                  color: FluxForgeTheme.textDisabled, letterSpacing: 0.6,
-                )),
+                Text('INSERTS', style: FluxForgeTheme.dockSans(size: 6.5, weight: FontWeight.w700, color: FluxForgeTheme.textDisabled, letterSpacing: 0.6)),
                 const SizedBox(height: 1),
                 for (final name in ['Limiter', 'True Peak'])
                   Container(
@@ -2064,9 +1968,9 @@ class _MasterStripState extends State<_MasterStrip>
                     ),
                     child: Row(children: [
                       Text('${name == 'Limiter' ? '1' : '2'}',
-                        style: TextStyle(fontSize: 6, color: FluxForgeTheme.textDisabled)),
+                        style: FluxForgeTheme.dockSans(size: 6, color: FluxForgeTheme.textDisabled)),
                       const SizedBox(width: 2),
-                      Text(name, style: TextStyle(fontSize: 7, color: FluxForgeTheme.textTertiary)),
+                      Text(name, style: FluxForgeTheme.dockSans(size: 7, color: FluxForgeTheme.textTertiary)),
                     ]),
                   ),
               ],
@@ -2129,10 +2033,7 @@ class _MasterStripState extends State<_MasterStrip>
             alignment: Alignment.center,
             child: Text(
               FaderCurve.linearToDbString(bus.volume),
-              style: TextStyle(
-                fontSize: 9, fontFamily: FluxForgeTheme.monoFontFamily,
-                fontWeight: FontWeight.w600, color: FluxForgeTheme.textSecondary,
-              ),
+              style: FluxForgeTheme.dockMono(size: 9, weight: FontWeight.w600),
             ),
           ),
           // M/S
@@ -2150,7 +2051,7 @@ class _MasterStripState extends State<_MasterStrip>
                       border: Border.all(color: bus.muted ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle),
                     ),
                     alignment: Alignment.center,
-                    child: Text('M', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                    child: Text('M', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w700,
                       color: bus.muted ? FluxForgeTheme.bgVoid : FluxForgeTheme.textDisabled)),
                   ),
                 )),
@@ -2164,7 +2065,7 @@ class _MasterStripState extends State<_MasterStrip>
                       border: Border.all(color: bus.solo ? FluxForgeTheme.accentYellow : FluxForgeTheme.borderSubtle),
                     ),
                     alignment: Alignment.center,
-                    child: Text('S', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                    child: Text('S', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w700,
                       color: bus.solo ? FluxForgeTheme.bgVoid : FluxForgeTheme.textDisabled)),
                   ),
                 )),
@@ -2181,9 +2082,7 @@ class _MasterStripState extends State<_MasterStrip>
               borderRadius: BorderRadius.circular(3),
             ),
             alignment: Alignment.center,
-            child: Text('OUT 1-2', style: TextStyle(
-              fontSize: 8, fontWeight: FontWeight.w600,
-              color: FluxForgeTheme.textTertiary, letterSpacing: 0.3)),
+            child: Text('OUT 1-2', style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.w600, color: FluxForgeTheme.textTertiary, letterSpacing: 0.3)),
           ),
         ],
       ),
@@ -2349,16 +2248,11 @@ class _VoiceDetailEditor extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(ch.displayName,
-                  style: const TextStyle(
-                    color: FluxForgeTheme.textPrimary,
-                    fontSize: 14, fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3)),
+                  style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.w600, color: FluxForgeTheme.textPrimary, letterSpacing: 0.3)),
                 Text('Bus ${ch.busId} • ${ch.audioPath.split('/').last}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: FluxForgeTheme.textTertiary,
-                    fontSize: 10, letterSpacing: 0.2)),
+                  style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary, letterSpacing: 0.2)),
               ],
             ),
           ),
@@ -2418,10 +2312,7 @@ class _VoiceDetailEditor extends StatelessWidget {
           SizedBox(
             width: 72,
             child: Text(label,
-              style: const TextStyle(
-                color: FluxForgeTheme.textTertiary,
-                fontSize: 9, fontWeight: FontWeight.w700,
-                letterSpacing: 1.2)),
+              style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w700, color: FluxForgeTheme.textTertiary, letterSpacing: 1.2)),
           ),
           Expanded(
             child: SliderTheme(
@@ -2446,9 +2337,7 @@ class _VoiceDetailEditor extends StatelessWidget {
             width: 72,
             child: Text(format(value),
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: FluxForgeTheme.textSecondary,
-                fontSize: 10, fontFamily: 'JetBrainsMono')),
+              style: FluxForgeTheme.dockMono(size: 10)),
           ),
         ],
       ),
@@ -2511,10 +2400,7 @@ class _VoiceDetailEditor extends StatelessWidget {
               Icon(icon, size: 13, color: color),
               const SizedBox(width: 4),
               Text(label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 9, fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8)),
+                style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w700, color: color, letterSpacing: 0.8)),
             ],
           ),
         ),
@@ -2617,10 +2503,7 @@ class _RadialActionMenu extends StatelessWidget {
               child: Text(channelName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: FluxForgeTheme.textPrimary,
-                  fontSize: 10, fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8)),
+                style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w700, color: FluxForgeTheme.textPrimary, letterSpacing: 0.8)),
             ),
           ),
         ),

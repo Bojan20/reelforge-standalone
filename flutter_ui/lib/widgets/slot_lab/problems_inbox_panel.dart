@@ -22,6 +22,7 @@ import '../../models/mix_problem.dart';
 import '../../providers/orb_mixer_provider.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/problems_inbox_service.dart';
+import '../../theme/flux_motion.dart';
 import '../../theme/fluxforge_theme.dart';
 
 /// Convenience: show the panel as a modal bottom sheet from anywhere.
@@ -554,7 +555,7 @@ class _AnimatedBarsState extends State<_AnimatedBars>
     });
     _anims = _ctls
         .map((c) => Tween<double>(begin: _baseH, end: _maxH)
-            .animate(CurvedAnimation(parent: c, curve: Curves.easeInOut)))
+            .animate(CurvedAnimation(parent: c, curve: FluxMotion.glassSpring)))
         .toList();
   }
 

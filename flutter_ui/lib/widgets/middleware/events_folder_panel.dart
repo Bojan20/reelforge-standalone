@@ -152,9 +152,9 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           const SizedBox(width: 8),
           Text(
             'EVENTS BROWSER',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: Colors.white.withValues(alpha: 0.7),
               letterSpacing: 0.5,
             ),
@@ -168,8 +168,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             ),
             child: Text(
               '${events.length}',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: events.isEmpty ? Colors.orange : FluxforgeColors.accent,
               ),
             ),
@@ -190,7 +190,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                   const SizedBox(width: 2),
                   Text(
                     '${events.where((e) => e.triggerConditions.isNotEmpty).length}',
-                    style: const TextStyle(fontSize: 9, color: Color(0xFFFF9040)),
+                    style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFFFF9040)),
                   ),
                 ],
               ),
@@ -203,7 +203,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             child: TextButton.icon(
               onPressed: () => _showCreateEventDialog(context),
               icon: const Icon(Icons.add, size: 14),
-              label: const Text('New Event', style: TextStyle(fontSize: 10)),
+              label: Text('New Event', style: FluxForgeTheme.dockSans()),
               style: TextButton.styleFrom(
                 foregroundColor: FluxforgeColors.accent,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -356,8 +356,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             child: FilterChip(
               label: Text(
                 cat,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
                   color: isSelected ? Colors.white : Colors.white70,
                 ),
               ),
@@ -405,9 +404,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             const SizedBox(width: 8),
             Text(
               category.toUpperCase(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                weight: FontWeight.bold,
                 color: Colors.white.withValues(alpha: 0.7),
                 letterSpacing: 0.5,
               ),
@@ -421,10 +419,9 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               ),
               child: Text(
                 '${events.length}',
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                 ),
               ),
             ),
@@ -483,7 +480,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                           child: TextField(
                             controller: _renameController,
                             autofocus: true,
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
+                            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                             decoration: InputDecoration(
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -520,9 +517,9 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                       else
                         Text(
                           event.name,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          style: FluxForgeTheme.dockSans(
+                            size: 12,
+                            weight: isSelected ? FontWeight.bold : FontWeight.normal,
                             color: Colors.white,
                           ),
                         ),
@@ -532,8 +529,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                           Text(
                             '${event.layers.length} layer${event.layers.length != 1 ? 's' : ''}'
                             ' • ${event.totalDurationSeconds.toStringAsFixed(1)}s',
-                            style: TextStyle(
-                              fontSize: 10,
+                            style: FluxForgeTheme.dockSans(
                               color: Colors.white.withValues(alpha: 0.5),
                             ),
                           ),
@@ -547,9 +543,9 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                               ),
                               child: Text(
                                 event.containerType.name.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
+                                style: FluxForgeTheme.dockSans(
+                                  size: 8,
+                                  weight: FontWeight.bold,
                                   color: _containerColor(event.containerType),
                                 ),
                               ),
@@ -598,10 +594,10 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                           const SizedBox(width: 2),
                           Text(
                             name,
-                            style: TextStyle(
-                              fontSize: 8,
+                            style: FluxForgeTheme.dockSans(
+                              size: 8,
                               color: color,
-                              fontWeight: FontWeight.w500,
+                              weight: FontWeight.w500,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -640,9 +636,9 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                             const SizedBox(width: 3),
                             Text(
                               stage,
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
+                              style: FluxForgeTheme.dockSans(
+                                size: 9,
+                                weight: FontWeight.bold,
                                 color: FluxforgeColors.accent,
                               ),
                             ),
@@ -678,8 +674,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                         ),
                         child: Text(
                           '${entry.key} ${entry.value}',
-                          style: const TextStyle(
-                            fontSize: 8,
+                          style: FluxForgeTheme.dockSans(
+                            size: 8,
                             color: Color(0xFFFF9040),
                           ),
                         ),
@@ -718,7 +714,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                 Expanded(
                   child: Text(
                     event.name,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: FluxForgeTheme.dockSans(size: 13, weight: FontWeight.bold, color: Colors.white),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -730,7 +726,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                 TextButton.icon(
                   onPressed: () => _showAddLayerDialog(context, event),
                   icon: const Icon(Icons.add, size: 14),
-                  label: const Text('Add Layer', style: TextStyle(fontSize: 11)),
+                  label: Text('Add Layer', style: FluxForgeTheme.dockSans()),
                   style: TextButton.styleFrom(
                     foregroundColor: FluxforgeColors.accent,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -784,9 +780,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             ),
             child: Text(
               event.category.toUpperCase(),
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                weight: FontWeight.bold,
                 color: _colorForCategory(event.category),
               ),
             ),
@@ -797,7 +792,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           const SizedBox(width: 4),
           Text(
             '${event.totalDurationSeconds.toStringAsFixed(2)}s',
-            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7)),
+            style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7)),
           ),
           const SizedBox(width: 12),
           // Layers count
@@ -805,7 +800,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           const SizedBox(width: 4),
           Text(
             '${event.layers.length}',
-            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7)),
+            style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7)),
           ),
           // Container type
           if (event.containerType != ContainerType.none) ...[
@@ -818,9 +813,9 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               ),
               child: Text(
                 event.containerType.name.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.bold,
                   color: _containerColor(event.containerType),
                 ),
               ),
@@ -831,7 +826,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             const SizedBox(width: 12),
             Icon(Icons.loop, size: 14, color: Colors.green.withValues(alpha: 0.7)),
             const SizedBox(width: 4),
-            Text('Loop', style: TextStyle(fontSize: 10, color: Colors.green.withValues(alpha: 0.7))),
+            Text('Loop', style: FluxForgeTheme.dockSans(color: Colors.green.withValues(alpha: 0.7))),
           ],
         ],
       ),
@@ -856,9 +851,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               const SizedBox(width: 6),
               Text(
                 'TRIGGER STAGES',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  weight: FontWeight.bold,
                   color: Colors.white.withValues(alpha: 0.6),
                   letterSpacing: 0.5,
                 ),
@@ -874,7 +868,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                     children: [
                       Icon(Icons.add, size: 12, color: FluxforgeColors.accent),
                       const SizedBox(width: 2),
-                      Text('Add', style: TextStyle(fontSize: 10, color: FluxforgeColors.accent)),
+                      Text('Add', style: FluxForgeTheme.dockSans(color: FluxforgeColors.accent)),
                     ],
                   ),
                 ),
@@ -886,7 +880,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 'No trigger stages assigned',
-                style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.3), fontStyle: FontStyle.italic),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3)).copyWith(fontStyle: FontStyle.italic),
               ),
             )
           else ...[
@@ -909,7 +903,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                       const SizedBox(width: 4),
                       Text(
                         stage,
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: FluxforgeColors.accent),
+                        style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: FluxforgeColors.accent),
                       ),
                       const SizedBox(width: 6),
                       InkWell(
@@ -950,9 +944,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               const SizedBox(width: 6),
               Text(
                 'CONDITIONS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  weight: FontWeight.bold,
                   color: Colors.white.withValues(alpha: 0.6),
                   letterSpacing: 0.5,
                 ),
@@ -968,7 +961,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                     children: [
                       const Icon(Icons.add, size: 12, color: Color(0xFFFF9040)),
                       const SizedBox(width: 2),
-                      const Text('Add', style: TextStyle(fontSize: 10, color: Color(0xFFFF9040))),
+                      Text('Add', style: FluxForgeTheme.dockSans(color: Color(0xFFFF9040))),
                     ],
                   ),
                 ),
@@ -980,7 +973,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 'No conditions',
-                style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.3), fontStyle: FontStyle.italic),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3)).copyWith(fontStyle: FontStyle.italic),
               ),
             )
           else ...[
@@ -1001,7 +994,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                     children: [
                       Text(
                         '${entry.key} ${entry.value}',
-                        style: const TextStyle(fontSize: 10, color: Color(0xFFFF9040)),
+                        style: FluxForgeTheme.dockSans(color: Color(0xFFFF9040)),
                       ),
                       const SizedBox(width: 6),
                       InkWell(
@@ -1039,9 +1032,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             const SizedBox(width: 6),
             Text(
               'LAYERS',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                weight: FontWeight.bold,
                 color: Colors.white.withValues(alpha: 0.6),
                 letterSpacing: 0.5,
               ),
@@ -1049,7 +1041,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             const SizedBox(width: 8),
             Text(
               '${event.layers.length}',
-              style: TextStyle(fontSize: 10, color: event.color),
+              style: FluxForgeTheme.dockSans(color: event.color),
             ),
           ],
         ),
@@ -1147,9 +1139,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                 children: [
                   Text(
                     layer.name,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    style: FluxForgeTheme.dockSans(
+                      weight: isSelected ? FontWeight.bold : FontWeight.normal,
                       color: layer.muted ? Colors.white38 : Colors.white,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -1160,7 +1151,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                       Flexible(
                         child: Text(
                           filename,
-                          style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.4)),
+                          style: FluxForgeTheme.dockSans(size: 9, color: Colors.white.withValues(alpha: 0.4)),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1169,14 +1160,14 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                       if (layer.durationSeconds != null)
                         Text(
                           '${layer.durationSeconds!.toStringAsFixed(2)}s',
-                          style: TextStyle(fontSize: 9, color: event.color.withValues(alpha: 0.7)),
+                          style: FluxForgeTheme.dockSans(size: 9, color: event.color.withValues(alpha: 0.7)),
                         ),
                       // Offset
                       if (layer.offsetMs > 0) ...[
                         const SizedBox(width: 6),
                         Text(
                           '+${layer.offsetMs.round()}ms',
-                          style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.4)),
+                          style: FluxForgeTheme.dockSans(size: 9, color: Colors.white.withValues(alpha: 0.4)),
                         ),
                       ],
                     ],
@@ -1193,7 +1184,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               ),
               child: Text(
                 '${(layer.volume * 100).round()}%',
-                style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.5)),
+                style: FluxForgeTheme.dockSans(size: 9, color: Colors.white.withValues(alpha: 0.5)),
               ),
             ),
             const SizedBox(width: 4),
@@ -1206,7 +1197,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               ),
               child: Text(
                 _busName(layer.busId ?? 0),
-                style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.5)),
+                style: FluxForgeTheme.dockSans(size: 9, color: Colors.white.withValues(alpha: 0.5)),
               ),
             ),
             const SizedBox(width: 4),
@@ -1259,7 +1250,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               const SizedBox(width: 10),
               Text(
                 'Add audio layer',
-                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6)),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white.withValues(alpha: 0.6)),
               ),
             ],
           ),
@@ -1281,12 +1272,12 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           const SizedBox(height: 16),
           Text(
             'Select an event to view details',
-            style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.5)),
+            style: FluxForgeTheme.dockSans(size: 14, color: Colors.white.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 8),
           Text(
             'Use the Editor tab for timeline editing',
-            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.3)),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white.withValues(alpha: 0.3)),
           ),
         ],
       ),
@@ -1419,11 +1410,11 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF1a1a24),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.add_circle, color: FluxforgeColors.accent, size: 20),
-              SizedBox(width: 10),
-              Text('Create Event', style: TextStyle(fontSize: 12, color: Colors.white)),
+              const Icon(Icons.add_circle, color: FluxforgeColors.accent, size: 20),
+              const SizedBox(width: 10),
+              Text('Create Event', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white)),
             ],
           ),
           content: SizedBox(
@@ -1435,10 +1426,10 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                 TextField(
                   controller: nameController,
                   autofocus: true,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  style: FluxForgeTheme.dockSans(size: 13, color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'Event Name',
-                    labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                    labelStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6), size: 12),
                     filled: true,
                     fillColor: const Color(0xFF0a0a0c),
                     border: OutlineInputBorder(
@@ -1452,7 +1443,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                 const SizedBox(height: 14),
                 Text(
                   'Category',
-                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
+                  style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6)),
                 ),
                 const SizedBox(height: 6),
                 Wrap(
@@ -1475,9 +1466,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                         ),
                         child: Text(
                           cat.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                          style: FluxForgeTheme.dockSans(
+                            weight: FontWeight.bold,
                             color: isActive ? _colorForCategory(cat) : Colors.white54,
                           ),
                         ),
@@ -1541,11 +1531,11 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a24),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.bolt, color: FluxforgeColors.accent, size: 18),
-            SizedBox(width: 8),
-            Text('Add Trigger Stage', style: TextStyle(fontSize: 14, color: Colors.white)),
+            const Icon(Icons.bolt, color: FluxforgeColors.accent, size: 18),
+            const SizedBox(width: 8),
+            Text('Add Trigger Stage', style: FluxForgeTheme.dockSans(size: 14, color: Colors.white)),
           ],
         ),
         content: SizedBox(
@@ -1557,10 +1547,10 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               TextField(
                 controller: stageController,
                 autofocus: true,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Type stage name or select below...',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+                  hintStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 12),
                   filled: true,
                   fillColor: const Color(0xFF0a0a0c),
                   border: OutlineInputBorder(
@@ -1574,7 +1564,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               const SizedBox(height: 10),
               Text(
                 'Common stages',
-                style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5)),
               ),
               const SizedBox(height: 6),
               SizedBox(
@@ -1591,7 +1581,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                           children: [
                             Icon(Icons.bolt, size: 12, color: FluxforgeColors.accent.withValues(alpha: 0.6)),
                             const SizedBox(width: 6),
-                            Text(stage, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                            Text(stage, style: FluxForgeTheme.dockSans(color: Colors.white70)),
                           ],
                         ),
                       ),
@@ -1644,11 +1634,11 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a24),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.tune, color: Color(0xFFFF9040), size: 18),
-            SizedBox(width: 8),
-            Text('Add Trigger Condition', style: TextStyle(fontSize: 14, color: Colors.white)),
+            const Icon(Icons.tune, color: Color(0xFFFF9040), size: 18),
+            const SizedBox(width: 8),
+            Text('Add Trigger Condition', style: FluxForgeTheme.dockSans(size: 14, color: Colors.white)),
           ],
         ),
         content: SizedBox(
@@ -1659,12 +1649,12 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             children: [
               TextField(
                 controller: paramController,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Parameter',
-                  labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                  labelStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5)),
                   hintText: 'e.g. winXbet',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+                  hintStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 12),
                   filled: true,
                   fillColor: const Color(0xFF0a0a0c),
                   border: OutlineInputBorder(
@@ -1678,12 +1668,12 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               const SizedBox(height: 10),
               TextField(
                 controller: valueController,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Condition',
-                  labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                  labelStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5)),
                   hintText: 'e.g. >= 5.0',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+                  hintStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 12),
                   filled: true,
                   fillColor: const Color(0xFF0a0a0c),
                   border: OutlineInputBorder(
@@ -1697,7 +1687,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               const SizedBox(height: 10),
               Text(
                 'Quick presets',
-                style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5)),
               ),
               const SizedBox(height: 4),
               Wrap(
@@ -1719,7 +1709,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                       ),
                       child: Text(
                         preset.trim(),
-                        style: const TextStyle(fontSize: 9, color: Colors.white54),
+                        style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54),
                       ),
                     ),
                   );
@@ -1797,7 +1787,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           TextButton.icon(
             onPressed: () => _previewEvent(selectedEvent),
             icon: const Icon(Icons.play_arrow, size: 16),
-            label: const Text('PREVIEW', style: TextStyle(fontSize: 11)),
+            label: Text('PREVIEW', style: FluxForgeTheme.dockSans()),
             style: TextButton.styleFrom(
               foregroundColor: FluxforgeColors.accent,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -1807,7 +1797,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           TextButton.icon(
             onPressed: () => _deleteEvent(context, middleware, selectedEvent),
             icon: const Icon(Icons.delete_outline, size: 16),
-            label: const Text('REMOVE', style: TextStyle(fontSize: 11)),
+            label: Text('REMOVE', style: FluxForgeTheme.dockSans()),
             style: TextButton.styleFrom(
               foregroundColor: Colors.red.withValues(alpha: 0.8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -1817,7 +1807,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           TextButton.icon(
             onPressed: () => middleware.duplicateCompositeEvent(selectedEvent.id),
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('DUPLICATE', style: TextStyle(fontSize: 11)),
+            label: Text('DUPLICATE', style: FluxForgeTheme.dockSans()),
             style: TextButton.styleFrom(
               foregroundColor: Colors.white70,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -1833,7 +1823,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               ),
               child: Text(
                 '${data.selectedLayerCount} selected',
-                style: const TextStyle(fontSize: 10, color: FluxforgeColors.accent),
+                style: FluxForgeTheme.dockSans(color: FluxforgeColors.accent),
               ),
             ),
         ],
@@ -2140,7 +2130,7 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
           Expanded(
             child: Text(
               'Add Layer to "${widget.event.name}"',
-              style: const TextStyle(fontSize: 12, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -2171,7 +2161,7 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
               children: [
                 Text(
                   'Audio File',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.7)),
+                  style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.7)),
                 ),
                 const SizedBox(width: 8),
                 if (_selectedAudioPath != null && _audioDuration != null)
@@ -2183,7 +2173,7 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
                     ),
                     child: Text(
                       '${_audioDuration!.toStringAsFixed(2)}s',
-                      style: TextStyle(fontSize: 10, color: widget.event.color, fontWeight: FontWeight.bold),
+                      style: FluxForgeTheme.dockSans(color: widget.event.color, weight: FontWeight.bold),
                     ),
                   ),
               ],
@@ -2219,8 +2209,8 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
                               _selectedAudioPath != null
                                   ? _selectedAudioPath!.split('/').last
                                   : 'Click to select audio file...',
-                              style: TextStyle(
-                                fontSize: 12,
+                              style: FluxForgeTheme.dockSans(
+                                size: 12,
                                 color: _selectedAudioPath != null ? Colors.white : Colors.white54,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -2289,7 +2279,7 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
               const SizedBox(height: 8),
               Text(
                 _selectedAudioPath!,
-                style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.4)),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4)),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -2560,8 +2550,7 @@ class _EventPreviewButtonState extends State<_EventPreviewButton> {
       ),
       label: Text(
         _isPlaying ? 'Stop' : 'Preview',
-        style: TextStyle(
-          fontSize: 11,
+        style: FluxForgeTheme.dockSans(
           color: _isPlaying ? Colors.white : widget.event.color,
         ),
       ),

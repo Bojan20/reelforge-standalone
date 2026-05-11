@@ -44,8 +44,7 @@ class _MeterRow extends StatelessWidget {
             width: 60,
             child: Text(
               label,
-              style: TextStyle(
-                  color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11),
             ),
           ),
           SizedBox(
@@ -53,18 +52,13 @@ class _MeterRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: TextStyle(
-                color: FluxForgeTheme.textPrimary,
-                fontSize: 11,
-                fontFamily: 'monospace',
-              ),
+              style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textPrimary),
             ),
           ),
           const SizedBox(width: 4),
           Text(
             unit,
-            style: TextStyle(
-                color: FluxForgeTheme.textTertiary, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
           ),
         ],
       ),
@@ -100,10 +94,7 @@ class _StatusIndicator extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: TextStyle(
-            color: active ? color : FluxForgeTheme.textTertiary,
-            fontSize: 12,
-          ),
+          style: FluxForgeTheme.dockSans(size: 12, color: active ? color : FluxForgeTheme.textTertiary),
         ),
       ],
     );
@@ -128,7 +119,7 @@ class _InspectorField extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11),
             ),
           ),
           Expanded(
@@ -141,7 +132,7 @@ class _InspectorField extends StatelessWidget {
               ),
               child: Text(
                 value,
-                style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary),
               ),
             ),
           ),
@@ -193,12 +184,12 @@ class _InspectorEditableFieldState extends State<_InspectorEditableField> {
         children: [
           SizedBox(
             width: 100,
-            child: Text(widget.label, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+            child: Text(widget.label, style: FluxForgeTheme.dockSans(size: 11)),
           ),
           Expanded(
             child: TextField(
               controller: _controller,
-              style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary),
               decoration: InputDecoration(
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -244,7 +235,7 @@ class _InspectorDropdown extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11),
             ),
           ),
           Expanded(
@@ -260,7 +251,7 @@ class _InspectorDropdown extends StatelessWidget {
                 children: [
                   Text(
                     value,
-                    style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary),
                   ),
                   Icon(Icons.arrow_drop_down, size: 14, color: FluxForgeTheme.textSecondary),
                 ],
@@ -294,7 +285,7 @@ class _InspectorSlider extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11),
             ),
           ),
           Expanded(
@@ -319,7 +310,7 @@ class _InspectorSlider extends StatelessWidget {
                   Center(
                     child: Text(
                       suffix,
-                      style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 10),
+                      style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
                     ),
                   ),
                 ],
@@ -348,7 +339,7 @@ class _InspectorCheckbox extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11),
             ),
           ),
           Container(
@@ -399,10 +390,7 @@ class _InspectorDropdownInteractive extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(
-                color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
-                fontSize: 11,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary),
             ),
           ),
           Expanded(
@@ -430,10 +418,10 @@ class _InspectorDropdownInteractive extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         option,
-                        style: TextStyle(
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.textPrimary,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -455,10 +443,10 @@ class _InspectorDropdownInteractive extends StatelessWidget {
                     Expanded(
                       child: Text(
                         value,
-                        style: TextStyle(
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: enabled ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
-                          fontWeight: FontWeight.w500,
+                          weight: FontWeight.w500,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -521,10 +509,7 @@ class _InspectorSliderInteractiveState extends State<_InspectorSliderInteractive
             width: 100,
             child: Text(
               widget.label,
-              style: TextStyle(
-                color: widget.enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
-                fontSize: 11,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: widget.enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary),
             ),
           ),
           Expanded(
@@ -570,10 +555,10 @@ class _InspectorSliderInteractiveState extends State<_InspectorSliderInteractive
             width: 50,
             child: Text(
               widget.formatValue(_displayValue),
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: widget.enabled ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
-                fontWeight: FontWeight.w500,
+                weight: FontWeight.w500,
               ),
               textAlign: TextAlign.right,
             ),
@@ -608,10 +593,7 @@ class _InspectorCheckboxInteractive extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(
-                color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
-                fontSize: 11,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary),
             ),
           ),
           GestureDetector(
@@ -693,10 +675,7 @@ class _InspectorTextFieldInteractiveState extends State<_InspectorTextFieldInter
             width: 100,
             child: Text(
               widget.label,
-              style: TextStyle(
-                color: widget.enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
-                fontSize: 11,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: widget.enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary),
             ),
           ),
           Expanded(
@@ -710,10 +689,7 @@ class _InspectorTextFieldInteractiveState extends State<_InspectorTextFieldInter
               child: TextField(
                 controller: _controller,
                 enabled: widget.enabled,
-                style: TextStyle(
-                  color: widget.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                  fontSize: 11,
-                ),
+                style: FluxForgeTheme.dockSans(size: 11, color: widget.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary),
                 decoration: InputDecoration(
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -774,7 +750,7 @@ class _ToolbarButton extends StatelessWidget {
             Icon(icon, size: 12, color: FluxForgeTheme.textPrimary),
             if (label.isNotEmpty) ...[
               const SizedBox(width: 4),
-              Text(label, style: TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.w600)),
+              Text(label, style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary, weight: FontWeight.w600)),
             ],
           ],
         ),
@@ -851,10 +827,10 @@ class _ToolbarDropdown extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 option,
-                style: TextStyle(
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: isSelected ? accentColor : FluxForgeTheme.textPrimary,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],
@@ -874,10 +850,10 @@ class _ToolbarDropdown extends StatelessWidget {
             Icon(icon, size: 12, color: accentColor),
             if (label.isNotEmpty) ...[
               const SizedBox(width: 4),
-              Text(label, style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+              Text(label, style: FluxForgeTheme.dockSans(size: 10)),
               const SizedBox(width: 4),
             ],
-            Text(value, style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.w600)),
+            Text(value, style: FluxForgeTheme.dockSans(size: 10, color: accentColor, weight: FontWeight.w600)),
             const SizedBox(width: 4),
             Icon(Icons.arrow_drop_down, size: 14, color: accentColor),
           ],
@@ -918,10 +894,10 @@ class _MiniDropdown extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             option,
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textPrimary,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              weight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         );
@@ -936,9 +912,9 @@ class _MiniDropdown extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary)),
             const SizedBox(width: 6),
-            Text(value, style: TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary)),
+            Text(value, style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary)),
             const SizedBox(width: 4),
             Icon(Icons.arrow_drop_down, size: 12, color: FluxForgeTheme.textSecondary),
           ],
@@ -973,9 +949,9 @@ class _MiniInput extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary)),
             const SizedBox(width: 6),
-            Text(value, style: TextStyle(fontSize: 10, color: FluxForgeTheme.accentCyan, fontFamily: 'monospace')),
+            Text(value, style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.accentCyan)),
           ],
         ),
       ),
@@ -1012,7 +988,7 @@ class _MiniSlider extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(label, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary)),
           const SizedBox(width: 4),
           Expanded(
             child: SliderTheme(
@@ -1037,7 +1013,7 @@ class _MiniSlider extends StatelessWidget {
             width: 30,
             child: Text(
               formatValue(value),
-              style: TextStyle(fontSize: 9, color: FluxForgeTheme.accentCyan, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.accentCyan),
               textAlign: TextAlign.right,
             ),
           ),
@@ -1078,7 +1054,7 @@ class _MiniToggle extends StatelessWidget {
               color: value ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary,
             ),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 10, color: value ? FluxForgeTheme.accentGreen : FluxForgeTheme.textSecondary)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 10, color: value ? FluxForgeTheme.accentGreen : FluxForgeTheme.textSecondary)),
           ],
         ),
       ),
@@ -1131,7 +1107,7 @@ class _CommandChip extends StatelessWidget {
             Icon(icon, size: 11, color: c),
             const SizedBox(width: 3),
           ],
-          Text(label, style: TextStyle(fontSize: 10, color: c)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 10, color: c)),
         ],
       ),
     );
@@ -1213,9 +1189,9 @@ class _CommandToggleState extends State<_CommandToggle> {
           ),
           child: Text(
             widget.label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w700,
               color: widget.value ? widget.activeColor : (_hovered ? widget.activeColor : FluxForgeTheme.textTertiary),
             ),
           ),
@@ -1341,8 +1317,8 @@ class _ParamBoxState extends State<_ParamBox> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(widget.label, style: TextStyle(fontSize: 11, color: widget.color, fontWeight: FontWeight.w700)),
-                          Text(widget.format(current), style: TextStyle(fontSize: 12, color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w600)),
+                          Text(widget.label, style: FluxForgeTheme.dockSans(size: 11, color: widget.color, weight: FontWeight.w700)),
+                          Text(widget.format(current), style: FluxForgeTheme.dockMono(size: 12, color: widget.color, weight: FontWeight.w600)),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -1398,7 +1374,7 @@ class _ParamBoxState extends State<_ParamBox> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(widget.label, textAlign: TextAlign.center, style: TextStyle(fontSize: 9, color: _hovered ? widget.color : FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
+          Text(widget.label, textAlign: TextAlign.center, style: FluxForgeTheme.dockSans(size: 9, color: _hovered ? widget.color : FluxForgeTheme.textTertiary, weight: FontWeight.w600, height: 1)),
           const SizedBox(height: 2),
           GestureDetector(
             onTap: () {
@@ -1424,7 +1400,7 @@ class _ParamBoxState extends State<_ParamBox> {
                 ? EditableText(
                     controller: _textController,
                     focusNode: _focusNode,
-                    style: TextStyle(fontSize: 10, color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                    style: FluxForgeTheme.dockMono(size: 10, color: widget.color, weight: FontWeight.w600),
                     textAlign: TextAlign.center,
                     cursorColor: widget.color,
                     backgroundCursorColor: Colors.transparent,
@@ -1434,7 +1410,7 @@ class _ParamBoxState extends State<_ParamBox> {
                   )
                 : Text(
                     widget.format(widget.value),
-                    style: TextStyle(fontSize: 10, color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                    style: FluxForgeTheme.dockMono(size: 10, color: widget.color, weight: FontWeight.w600),
                     overflow: TextOverflow.clip,
                     maxLines: 1,
                   ),
@@ -1481,9 +1457,9 @@ class _LayerToggleState extends State<_LayerToggle> {
           ),
           child: Text(
             widget.label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w700,
               color: widget.value ? widget.activeColor : (_hovered ? hoverColor : FluxForgeTheme.textTertiary),
             ),
           ),
@@ -1552,14 +1528,13 @@ class _CellDropdownState extends State<_CellDropdown> {
                     const SizedBox(width: 18),
                   Flexible(child: Text(
                     displayText,
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: isSelected
                           ? accentColor
                           : (option.isEmpty ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary),
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      fontStyle: option.isEmpty ? FontStyle.italic : FontStyle.normal,
-                    ),
+                      weight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ).copyWith(fontStyle: option.isEmpty ? FontStyle.italic : FontStyle.normal),
                     overflow: TextOverflow.ellipsis,
                   )),
                 ],
@@ -1581,13 +1556,12 @@ class _CellDropdownState extends State<_CellDropdown> {
               Flexible(
                 child: Text(
                   widget.value.isEmpty ? '(select)' : widget.value,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: widget.value.isEmpty
                         ? FluxForgeTheme.textTertiary
                         : (_hovered ? accentColor : (widget.color ?? FluxForgeTheme.textPrimary)),
-                    fontStyle: widget.value.isEmpty ? FontStyle.italic : FontStyle.normal,
-                  ),
+                  ).copyWith(fontStyle: widget.value.isEmpty ? FontStyle.italic : FontStyle.normal),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1665,13 +1639,13 @@ class _CellTextFieldState extends State<_CellTextField> {
       child: TextField(
         controller: _controller,
         focusNode: _focusNode,
-        style: const TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary),
+        style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary),
         decoration: InputDecoration(
           isDense: true,
           contentPadding: EdgeInsets.zero,
           border: InputBorder.none,
           hintText: widget.hint,
-          hintStyle: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5)),
+          hintStyle: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5)),
         ),
         onSubmitted: (val) => widget.onChanged(val),
       ),
@@ -1771,7 +1745,7 @@ class _CellNumberFieldState extends State<_CellNumberField> {
               controller: _controller,
               focusNode: _focusNode,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary),
               decoration: const InputDecoration(
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
@@ -1783,7 +1757,7 @@ class _CellNumberFieldState extends State<_CellNumberField> {
           if (widget.suffix != null)
             Text(
               widget.suffix!,
-              style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7)),
+              style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7)),
             ),
         ],
       ),
@@ -1876,12 +1850,7 @@ class _CellSliderState extends State<_CellSlider> {
             // Value text
             Text(
               widget.formatValue(_currentValue),
-              style: TextStyle(
-                fontSize: 9,
-                color: effectiveColor,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w500,
-              ),
+              style: FluxForgeTheme.dockMono(size: 9, color: effectiveColor, weight: FontWeight.w500),
             ),
           ],
         ),
@@ -1925,12 +1894,7 @@ class _CellSliderState extends State<_CellSlider> {
                       children: [
                         Text(
                           widget.formatValue(_currentValue),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: color,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'monospace',
-                          ),
+                          style: FluxForgeTheme.dockMono(size: 12, color: color, weight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         SliderTheme(
@@ -1982,8 +1946,8 @@ class _SettingsRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13)),
-          Text(value, style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 13)),
+          Text(value, style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textPrimary, weight: FontWeight.w500)),
         ],
       ),
     );
@@ -2019,10 +1983,7 @@ class _InsertMenuOption extends StatelessWidget {
             const SizedBox(width: 10),
             Text(
               label,
-              style: TextStyle(
-                color: color ?? FluxForgeTheme.textPrimary,
-                fontSize: 12,
-              ),
+              style: FluxForgeTheme.dockSans(size: 12, color: color ?? FluxForgeTheme.textPrimary),
             ),
           ],
         ),
@@ -2168,7 +2129,7 @@ class _DialogDropdownRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 11)),
         const SizedBox(height: 4),
         Container(
           width: double.infinity,
@@ -2183,15 +2144,14 @@ class _DialogDropdownRow extends StatelessWidget {
             isExpanded: true,
             underline: const SizedBox(),
             dropdownColor: FluxForgeTheme.bgElevated,
-            style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
             items: options.map((o) => DropdownMenuItem(
               value: o,
               child: Text(
                 o.isEmpty ? '(none)' : o,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: o.isEmpty ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary,
-                  fontStyle: o.isEmpty ? FontStyle.italic : FontStyle.normal,
-                ),
+                ).copyWith(fontStyle: o.isEmpty ? FontStyle.italic : FontStyle.normal),
               ),
             )).toList(),
             onChanged: (v) {
@@ -2226,10 +2186,7 @@ class _MiddlewareTimeRulerPainter extends CustomPainter {
       ..color = FluxForgeTheme.borderSubtle
       ..strokeWidth = 1;
 
-    final textStyle = TextStyle(
-      fontSize: 9,
-      color: FluxForgeTheme.textSecondary,
-    );
+    final textStyle = FluxForgeTheme.dockSans(size: 9);
 
     final scaledPixelsPerSecond = pixelsPerSecond * zoom;
 

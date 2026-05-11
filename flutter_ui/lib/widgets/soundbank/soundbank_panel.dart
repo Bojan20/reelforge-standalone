@@ -112,18 +112,12 @@ class _SoundbankPanelState extends State<SoundbankPanel>
           const SizedBox(height: 16),
           Text(
             'No soundbank selected',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
+            style: FluxForgeTheme.dockSans(size: 16, color: Colors.white.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 8),
           Text(
             'Create a new soundbank or select one from the list',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.3),
-            ),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white.withValues(alpha: 0.3)),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -305,12 +299,7 @@ class _BankListPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   'SOUNDBANKS',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white.withValues(alpha: 0.7),
-                    letterSpacing: 0.5,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5),
                 ),
                 const Spacer(),
                 Container(
@@ -321,10 +310,7 @@ class _BankListPanel extends StatelessWidget {
                   ),
                   child: Text(
                     '${banks.length}',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: FluxForgeTheme.accentBlue,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentBlue),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -365,10 +351,7 @@ class _BankListPanel extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             'No soundbanks',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 16),
           TextButton.icon(
@@ -433,11 +416,7 @@ class _BankListPanel extends StatelessWidget {
                 children: [
                   Text(
                     bank.manifest.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: Colors.white,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 12, weight: isSelected ? FontWeight.bold : FontWeight.normal, color: Colors.white),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
@@ -445,18 +424,12 @@ class _BankListPanel extends StatelessWidget {
                     children: [
                       Text(
                         '${bank.assets.length} assets',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.white.withValues(alpha: 0.5),
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         bank.formattedTotalSize,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.white.withValues(alpha: 0.5),
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
                       ),
                     ],
                   ),
@@ -536,8 +509,8 @@ class _BankEditorPanel extends StatelessWidget {
             unselectedLabelColor: Colors.white54,
             indicatorColor: FluxForgeTheme.accentBlue,
             indicatorWeight: 2,
-            labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            unselectedLabelStyle: const TextStyle(fontSize: 12),
+            labelStyle: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold),
+            unselectedLabelStyle: FluxForgeTheme.dockSans(size: 12),
             tabs: const [
               Tab(text: 'ASSETS'),
               Tab(text: 'EVENTS'),
@@ -591,18 +564,11 @@ class _BankEditorPanel extends StatelessWidget {
               children: [
                 Text(
                   bank.manifest.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.bold, color: Colors.white),
                 ),
                 Text(
                   'v${bank.manifest.version} • ${bank.assets.length} assets • ${bank.eventIds.length} events',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.6)),
                 ),
               ],
             ),
@@ -621,7 +587,7 @@ class _BankEditorPanel extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   bank.formattedTotalSize,
-                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
                 ),
               ],
             ),
@@ -641,7 +607,7 @@ class _BankEditorPanel extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   bank.formattedTotalDuration,
-                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
                 ),
               ],
             ),
@@ -694,7 +660,7 @@ class _AssetsTab extends StatelessWidget {
                 width: 200,
                 child: TextField(
                   controller: searchController,
-                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                   decoration: InputDecoration(
                     hintText: 'Search assets...',
                     hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
@@ -715,7 +681,7 @@ class _AssetsTab extends StatelessWidget {
               TextButton.icon(
                 onPressed: () => _addAssets(context),
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add Assets', style: TextStyle(fontSize: 11)),
+                label: Text('Add Assets', style: FluxForgeTheme.dockSans(size: 11)),
                 style: TextButton.styleFrom(
                   foregroundColor: FluxForgeTheme.accentBlue,
                 ),
@@ -749,10 +715,7 @@ class _AssetsTab extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             searchQuery.isEmpty ? 'No assets in this bank' : 'No matching assets',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white.withValues(alpha: 0.5)),
           ),
           if (searchQuery.isEmpty) ...[
             const SizedBox(height: 16),
@@ -804,36 +767,24 @@ class _AssetsTab extends StatelessWidget {
               children: [
                 Text(
                   asset.name,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.white,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Row(
                   children: [
                     Text(
                       asset.formattedDuration,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white.withValues(alpha: 0.5),
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '${asset.sampleRate}Hz ${asset.channels}ch',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white.withValues(alpha: 0.5),
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       asset.formattedSize,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white.withValues(alpha: 0.5),
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
                     ),
                   ],
                 ),
@@ -866,10 +817,7 @@ class _AssetsTab extends StatelessWidget {
                 ),
                 child: Text(
                   tag,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: FluxForgeTheme.accentOrange,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentOrange),
                 ),
               )).toList(),
             ),
@@ -937,20 +885,17 @@ class _EventsTab extends StatelessWidget {
                 children: [
                   Text(
                     '${bank.eventIds.length} events included',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.7)),
                   ),
                   const Spacer(),
                   TextButton(
                     onPressed: () => _selectAllEvents(context, availableEvents),
-                    child: const Text('Include All', style: TextStyle(fontSize: 11)),
+                    child: Text('Include All', style: FluxForgeTheme.dockSans(size: 11)),
                   ),
                   const SizedBox(width: 8),
                   TextButton(
                     onPressed: () => _clearAllEvents(context),
-                    child: const Text('Clear All', style: TextStyle(fontSize: 11)),
+                    child: Text('Clear All', style: FluxForgeTheme.dockSans(size: 11)),
                   ),
                 ],
               ),
@@ -987,18 +932,12 @@ class _EventsTab extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             'No events available',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 4),
           Text(
             'Create events in Slot Lab or Middleware',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.white.withValues(alpha: 0.3),
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.3)),
           ),
         ],
       ),
@@ -1018,14 +957,11 @@ class _EventsTab extends StatelessWidget {
       },
       title: Text(
         event.name,
-        style: const TextStyle(fontSize: 12, color: Colors.white),
+        style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
       ),
       subtitle: Text(
         '${event.layers.length} layers • ${event.triggerStages.isNotEmpty ? event.triggerStages.first : 'No stage'}',
-        style: TextStyle(
-          fontSize: 10,
-          color: Colors.white.withValues(alpha: 0.5),
-        ),
+        style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
       ),
       secondary: Container(
         width: 8,
@@ -1164,10 +1100,7 @@ class _ConfigTab extends StatelessWidget {
               return FilterChip(
                 label: Text(
                   platform.label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isSelected ? Colors.white : Colors.white70,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 11, color: isSelected ? Colors.white : Colors.white70),
                 ),
                 selected: isSelected,
                 onSelected: (selected) {
@@ -1218,12 +1151,7 @@ class _ConfigTab extends StatelessWidget {
   Widget _buildSectionHeader(String title) {
     return Text(
       title.toUpperCase(),
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.bold,
-        color: Colors.white.withValues(alpha: 0.5),
-        letterSpacing: 1,
-      ),
+      style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.5), letterSpacing: 1),
     );
   }
 
@@ -1258,10 +1186,7 @@ class _ConfigTab extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.7)),
             ),
           ),
           Expanded(
@@ -1277,7 +1202,7 @@ class _ConfigTab extends StatelessWidget {
                   value: o,
                   child: Text(
                     labelBuilder(o),
-                    style: const TextStyle(fontSize: 12, color: Colors.white),
+                    style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                   ),
                 )).toList(),
                 onChanged: onChanged,
@@ -1301,20 +1226,13 @@ class _ConfigTab extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.white.withValues(alpha: 0.5),
-              ),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 10,
-                color: Colors.white70,
-                fontFamily: 'monospace',
-              ),
+              style: FluxForgeTheme.dockMono(size: 10, color: Colors.white70),
             ),
           ),
         ],
@@ -1383,10 +1301,7 @@ class _ExportTabState extends State<_ExportTab> {
               return ChoiceChip(
                 label: Text(
                   platform.label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isSelected ? Colors.white : Colors.white70,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 11, color: isSelected ? Colors.white : Colors.white70),
                 ),
                 selected: isSelected,
                 onSelected: (_) => setState(() => _platform = platform),
@@ -1437,13 +1352,13 @@ class _ExportTabState extends State<_ExportTab> {
           CheckboxListTile(
             value: _compressArchive,
             onChanged: (v) => setState(() => _compressArchive = v ?? true),
-            title: const Text(
+            title: Text(
               'Compress archive',
-              style: TextStyle(fontSize: 12, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
             ),
             subtitle: Text(
               'Create a compressed ZIP archive',
-              style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
             ),
             activeColor: FluxForgeTheme.accentBlue,
             dense: true,
@@ -1452,13 +1367,13 @@ class _ExportTabState extends State<_ExportTab> {
           CheckboxListTile(
             value: _generateManifest,
             onChanged: (v) => setState(() => _generateManifest = v ?? true),
-            title: const Text(
+            title: Text(
               'Generate manifest',
-              style: TextStyle(fontSize: 12, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
             ),
             subtitle: Text(
               'Include JSON manifest with bank metadata',
-              style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
             ),
             activeColor: FluxForgeTheme.accentBlue,
             dense: true,
@@ -1494,10 +1409,7 @@ class _ExportTabState extends State<_ExportTab> {
                   Expanded(
                     child: Text(
                       _outputPath ?? 'Select output folder...',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _outputPath != null ? Colors.white : Colors.white54,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 12, color: _outputPath != null ? Colors.white : Colors.white54),
                     ),
                   ),
                 ],
@@ -1546,12 +1458,7 @@ class _ExportTabState extends State<_ExportTab> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title.toUpperCase(),
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.bold,
-        color: Colors.white.withValues(alpha: 0.5),
-        letterSpacing: 1,
-      ),
+      style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.5), letterSpacing: 1),
     );
   }
 
@@ -1567,10 +1474,7 @@ class _ExportTabState extends State<_ExportTab> {
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
-            color: Colors.white.withValues(alpha: 0.5),
-          ),
+          style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
         ),
         const SizedBox(height: 4),
         Container(
@@ -1585,7 +1489,7 @@ class _ExportTabState extends State<_ExportTab> {
               value: o,
               child: Text(
                 labelBuilder(o),
-                style: const TextStyle(fontSize: 12, color: Colors.white),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
               ),
             )).toList(),
             onChanged: onChanged,
@@ -1625,11 +1529,7 @@ class _ExportTabState extends State<_ExportTab> {
               const SizedBox(width: 8),
               Text(
                 result.success ? 'Export Successful' : 'Export Failed',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: result.success ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed,
-                ),
+                style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.bold, color: result.success ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed),
               ),
             ],
           ),
@@ -1637,27 +1537,18 @@ class _ExportTabState extends State<_ExportTab> {
             const SizedBox(height: 8),
             Text(
               '${result.exportedAssets} assets exported (${(result.totalSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB)',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.7)),
             ),
             Text(
               'Duration: ${result.exportDuration.inMilliseconds}ms',
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.white.withValues(alpha: 0.5),
-              ),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
             ),
           ],
           if (result.errors.isNotEmpty) ...[
             const SizedBox(height: 8),
             ...result.errors.map((e) => Text(
               e,
-              style: const TextStyle(
-                fontSize: 11,
-                color: FluxForgeTheme.accentRed,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.accentRed),
             )),
           ],
         ],
@@ -1742,10 +1633,7 @@ class _ValidationBadge extends StatelessWidget {
                 const SizedBox(width: 2),
                 Text(
                   '${validation.errorCount}',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: FluxForgeTheme.accentRed,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentRed),
                 ),
               ],
             ),
@@ -1765,10 +1653,7 @@ class _ValidationBadge extends StatelessWidget {
                 const SizedBox(width: 2),
                 Text(
                   '${validation.warningCount}',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: FluxForgeTheme.accentOrange,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentOrange),
                 ),
               ],
             ),
@@ -1810,11 +1695,7 @@ class _ValidationCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 validation.isValid ? 'Bank is valid' : 'Validation issues found',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
+                style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold, color: color),
               ),
               const Spacer(),
               if (validation.errorCount > 0)
@@ -1841,10 +1722,7 @@ class _ValidationCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       issue.message,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white.withValues(alpha: 0.7),
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.7)),
                     ),
                   ),
                 ],
@@ -1855,10 +1733,7 @@ class _ValidationCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   '+${validation.issues.length - 5} more issues',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5)),
                 ),
               ),
           ],
@@ -1877,7 +1752,7 @@ class _ValidationCard extends StatelessWidget {
       ),
       child: Text(
         '$count $label',
-        style: TextStyle(fontSize: 9, color: color),
+        style: FluxForgeTheme.dockSans(size: 9, color: color),
       ),
     );
   }
@@ -1922,10 +1797,7 @@ class _PriorityDropdown extends StatelessWidget {
           value: p,
           child: Text(
             p.name,
-            style: TextStyle(
-              fontSize: 10,
-              color: _colorForPriority(p),
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: _colorForPriority(p)),
           ),
         )).toList(),
         onChanged: onChanged,
@@ -2005,16 +1877,13 @@ class _ConfigRowFieldState extends State<_ConfigRowField> {
             width: 100,
             child: Text(
               widget.label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.7)),
             ),
           ),
           Expanded(
             child: TextField(
               controller: _controller,
-              style: const TextStyle(fontSize: 12, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
               maxLines: widget.multiline ? 3 : 1,
               decoration: InputDecoration(
                 filled: true,

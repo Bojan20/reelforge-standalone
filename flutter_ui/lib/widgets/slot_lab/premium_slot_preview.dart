@@ -676,10 +676,10 @@ class _HeaderZone extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           'FLUXFORGE',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 16,
             color: theme.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            weight: FontWeight.bold,
             letterSpacing: 2,
           ),
         ),
@@ -780,7 +780,7 @@ class _DeviceSimulationDropdown extends StatelessWidget {
           isDense: true,
           icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary, size: 18),
           dropdownColor: theme.bgDark,
-          style: TextStyle(color: theme.textPrimary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: theme.textPrimary),
           items: DeviceSimulation.values.map((device) {
             return DropdownMenuItem(
               value: device,
@@ -832,7 +832,7 @@ class _ThemeDropdown extends StatelessWidget {
           isDense: true,
           icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary, size: 18),
           dropdownColor: theme.bgDark,
-          style: TextStyle(color: theme.textPrimary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: theme.textPrimary),
           items: SlotThemePreset.values.map((preset) {
             return DropdownMenuItem(
               value: preset,
@@ -901,17 +901,17 @@ class _DebugToolbar extends StatelessWidget {
               color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.bug_report, size: 14, color: FluxForgeTheme.accentOrange),
-                SizedBox(width: 4),
+                const Icon(Icons.bug_report, size: 14, color: FluxForgeTheme.accentOrange),
+                const SizedBox(width: 4),
                 Text(
                   'DEBUG',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: FluxForgeTheme.accentOrange,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -970,11 +970,10 @@ class _DebugToolbar extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Stages',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: showStageTrace
                           ? FluxForgeTheme.accentBlue
                           : theme.textSecondary,
-                      fontSize: 11,
                     ),
                   ),
                 ],
@@ -1020,19 +1019,19 @@ class _DebugOutcomeButton extends StatelessWidget {
             children: [
               Text(
                 '$index',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: btnColor.withValues(alpha: 0.6),
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                 ),
               ),
               const SizedBox(width: 3),
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: btnColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -1062,17 +1061,15 @@ class _DebugStat extends StatelessWidget {
       children: [
         Text(
           '$label: ',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: theme.textSecondary,
-            fontSize: 11,
           ),
         ),
         Text(
           value,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            weight: FontWeight.w600,
           ),
         ),
       ],
@@ -1188,11 +1185,10 @@ class _BalanceDisplayState extends State<_BalanceDisplay>
               const SizedBox(width: 8),
               Text(
                 '\$${_displayedBalance.toStringAsFixed(2)}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 18,
                   color: theme.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -1401,10 +1397,10 @@ class _JackpotTickerState extends State<_JackpotTicker>
               // Label
               Text(
                 widget.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: dimensions.labelSize,
                   color: widget.color,
-                  fontSize: dimensions.labelSize,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                   letterSpacing: 1.5,
                 ),
               ),
@@ -1413,20 +1409,19 @@ class _JackpotTickerState extends State<_JackpotTicker>
               widget.isMystery
                   ? Text(
                       '???',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: dimensions.amountSize,
                         color: widget.color,
-                        fontSize: dimensions.amountSize,
-                        fontWeight: FontWeight.bold,
+                        weight: FontWeight.bold,
                       ),
                     )
                   : Text(
                       '\$${_formatAmount(_displayedAmount)}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: dimensions.amountSize,
                         color: theme.textPrimary,
-                        fontSize: dimensions.amountSize,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'monospace',
-                        shadows: [
+                        weight: FontWeight.bold,
+                      ).copyWith(shadows: [
                           Shadow(
                             color: widget.color.withValues(alpha: 0.5),
                             blurRadius: 4,
@@ -1536,18 +1531,18 @@ class _ProgressiveMeter extends StatelessWidget {
             children: [
               Text(
                 'CONTRIBUTION',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: theme.textMuted,
-                  fontSize: 8,
                   letterSpacing: 0.5,
                 ),
               ),
               Text(
                 '\$${(contribution * 100).toStringAsFixed(2)}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: theme.gold,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -1769,19 +1764,18 @@ class _MainGameZone extends StatelessWidget {
                               const SizedBox(height: 12),
                               Text(
                                 'NO CONFIGURATION',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
+                                  size: 14,
                                   color: context.slotTheme.textMuted,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
+                                  weight: FontWeight.bold,
                                   letterSpacing: 2,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 'Configure your slot machine to start',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
                                   color: context.slotTheme.textMuted.withValues(alpha: 0.6),
-                                  fontSize: 11,
                                 ),
                               ),
                             ],
@@ -2148,8 +2142,8 @@ class _CascadeSymbolPainter extends CustomPainter {
       final textPainter = TextPainter(
         text: TextSpan(
           text: _symbolChars[s.symbolIndex % _symbolChars.length],
-          style: TextStyle(
-            fontSize: s.size * 0.5,
+          style: FluxForgeTheme.dockSans(
+            size: s.size * 0.5,
             color: FluxForgeTheme.accentCyan,
           ),
         ),
@@ -2302,16 +2296,15 @@ class _WildExpansionOverlayState extends State<_WildExpansionOverlay>
                     ),
                   ],
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
                     '★',
-                    style: TextStyle(
-                      fontSize: 60,
+                    style: FluxForgeTheme.dockSans(
+                      size: 60,
                       color: Colors.white,
-                      shadows: [
-                        Shadow(color: Colors.black54, blurRadius: 8),
-                      ],
-                    ),
+                    ).copyWith(shadows: const [
+                      Shadow(color: Colors.black54, blurRadius: 8),
+                    ]),
                   ),
                 ),
               ),
@@ -2496,18 +2489,18 @@ class _ScatterWinOverlayState extends State<_ScatterWinOverlay>
                     children: [
                       Text(
                         '◆',
-                        style: TextStyle(
-                          fontSize: 24,
+                        style: FluxForgeTheme.dockSans(
+                          size: 24,
                           color: theme.jackpotMinor,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'SCATTER',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 14,
                           color: theme.jackpotMinor,
+                          weight: FontWeight.bold,
                           letterSpacing: 2,
                         ),
                       ),
@@ -2586,8 +2579,8 @@ class _ScatterPainter extends CustomPainter {
       final textPainter = TextPainter(
         text: TextSpan(
           text: '◆',
-          style: TextStyle(
-            fontSize: symbolSize * 0.8,
+          style: FluxForgeTheme.dockSans(
+            size: symbolSize * 0.8,
             color: Colors.white.withValues(alpha: s.opacity),
           ),
         ),
@@ -2667,12 +2660,12 @@ class _GambleOverlay extends StatelessWidget {
                 shaderCallback: (bounds) => LinearGradient(
                   colors: [theme.gold, theme.jackpotMajor],
                 ).createShader(bounds),
-                child: const Text(
+                child: Text(
                   'GAMBLE',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 36,
                     color: Colors.white,
+                    weight: FontWeight.bold,
                     letterSpacing: 4,
                   ),
                 ),
@@ -2680,9 +2673,9 @@ class _GambleOverlay extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'Double or Nothing!',
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 14,
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
+                  color: Colors.grey[400]!,
                 ),
               ),
               const SizedBox(height: 24),
@@ -2699,28 +2692,28 @@ class _GambleOverlay extends StatelessWidget {
                   children: [
                     Text(
                       'STAKE',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 12,
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
+                        color: Colors.grey[500]!,
                         letterSpacing: 2,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '\$${stakeAmount.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockSans(
+                        size: 32,
                         color: theme.gold,
+                        weight: FontWeight.bold,
                       ),
                     ),
                     if (!isRevealed) ...[
                       const SizedBox(height: 4),
                       Text(
                         'Win: \$${(stakeAmount * 2).toStringAsFixed(2)}',
-                        style: TextStyle(
-                          color: Colors.green[400],
-                          fontSize: 14,
+                        style: FluxForgeTheme.dockSans(
+                          size: 14,
+                          color: Colors.green[400]!,
                         ),
                       ),
                     ],
@@ -2762,10 +2755,10 @@ class _GambleOverlay extends StatelessWidget {
               if (isRevealed && won != null) ...[
                 Text(
                   won! ? 'YOU WIN!' : 'YOU LOSE',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: won! ? Colors.green[400] : Colors.red[400],
+                  style: FluxForgeTheme.dockSans(
+                    size: 28,
+                    color: won! ? Colors.green[400]! : Colors.red[400]!,
+                    weight: FontWeight.bold,
                     letterSpacing: 2,
                   ),
                 ),
@@ -2779,9 +2772,9 @@ class _GambleOverlay extends StatelessWidget {
                   icon: const Icon(Icons.account_balance_wallet, size: 20),
                   label: Text(
                     won == true ? 'COLLECT \$${(stakeAmount).toStringAsFixed(2)}' : 'COLLECT',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 16,
+                      weight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
                   ),
@@ -2831,10 +2824,10 @@ class _GambleOverlay extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               label,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 18,
                 color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                weight: FontWeight.bold,
                 letterSpacing: 2,
               ),
             ),
@@ -2885,10 +2878,10 @@ class _GambleOverlay extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         isRed ? 'RED' : 'BLACK',
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 16,
                           color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          weight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -2907,10 +2900,10 @@ class _GambleOverlay extends StatelessWidget {
                   child: Center(
                     child: Text(
                       '?',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 48,
                         color: theme.gold,
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
+                        weight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -3076,18 +3069,18 @@ class _FeatureBadge extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: Colors.white70,
-                  fontSize: 8,
                   letterSpacing: 0.5,
                 ),
               ),
               Text(
                 value,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -3125,10 +3118,10 @@ class _FeatureMeter extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+              weight: FontWeight.bold,
               letterSpacing: 1,
             ),
           ),
@@ -3153,9 +3146,9 @@ class _FeatureMeter extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             '${(value * 100).toInt()}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: theme.textSecondary,
-              fontSize: 10,
             ),
           ),
         ],
@@ -3453,10 +3446,9 @@ class _QuickBetChip extends StatelessWidget {
         ),
         child: Text(
           _formatAmount(amount),
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: isSelected ? theme.bgDark : theme.textSecondary,
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            weight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ),
@@ -3520,21 +3512,20 @@ class _ModernBetControl extends StatelessWidget {
             children: [
               Text(
                 'TOTAL BET',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: theme.gold,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 '\$${totalBet.toStringAsFixed(2)}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 18,
                   color: theme.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -3607,20 +3598,20 @@ class _InfoBadge extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: theme.textSecondary,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+              weight: FontWeight.bold,
               letterSpacing: 1,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
               color: theme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -3717,12 +3708,12 @@ class _ControlButtonState extends State<_ControlButton> {
                   Text(
                     widget.label,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: hasGradient || widget.isActive
                           ? Colors.white
                           : theme.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      weight: FontWeight.bold,
                       letterSpacing: 0.5,
                       height: 1.1,
                     ),
@@ -3919,17 +3910,17 @@ class _SpinButtonState extends State<_SpinButton>
   Widget _buildButtonContent(SpinButtonPhase phase, bool isEnabled, SlotThemeData theme) {
     switch (phase) {
       case SpinButtonPhase.stop:
-        return const Column(
+        return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.flash_on_rounded, color: Colors.white, size: 32),
-            SizedBox(height: 4),
+            const Icon(Icons.flash_on_rounded, color: Colors.white, size: 32),
+            const SizedBox(height: 4),
             Text(
               'SLAM',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 14,
                 color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+                weight: FontWeight.bold,
                 letterSpacing: 2,
               ),
             ),
@@ -3938,17 +3929,17 @@ class _SpinButtonState extends State<_SpinButton>
 
       case SpinButtonPhase.skip:
         // Gold SKIP button - ready to skip
-        return const Column(
+        return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.skip_next, color: Color(0xFF1a1a24), size: 32),
-            SizedBox(height: 4),
+            const Icon(Icons.skip_next, color: Color(0xFF1a1a24), size: 32),
+            const SizedBox(height: 4),
             Text(
               'SKIP',
-              style: TextStyle(
-                color: Color(0xFF1a1a24), // Dark text on gold
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 14,
+                color: const Color(0xFF1a1a24), // Dark text on gold
+                weight: FontWeight.bold,
                 letterSpacing: 2,
               ),
             ),
@@ -3978,21 +3969,21 @@ class _SpinButtonState extends State<_SpinButton>
                 ),
                 Text(
                   '$remainingSeconds',
-                  style: const TextStyle(
-                    color: Color(0xFF1a1a24),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 16,
+                    color: const Color(0xFF1a1a24),
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'SKIP',
-              style: TextStyle(
-                color: Color(0xFF1a1a24),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                color: const Color(0xFF1a1a24),
+                weight: FontWeight.bold,
                 letterSpacing: 1,
               ),
             ),
@@ -4010,10 +4001,10 @@ class _SpinButtonState extends State<_SpinButton>
             ),
             Text(
               'SPIN',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 16,
                 color: isEnabled ? Colors.white : theme.textMuted,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                weight: FontWeight.bold,
                 letterSpacing: 3,
               ),
             ),
@@ -4079,10 +4070,10 @@ class _MenuPanel extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     'MENU',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 14,
                       color: theme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                      weight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
                   ),
@@ -4175,19 +4166,19 @@ class _MenuItemState extends State<_MenuItem> {
                   children: [
                     Text(
                       widget.label,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
                         color: _isHovered || widget.highlight ? highlightColor : theme.textPrimary,
-                        fontSize: 13,
-                        fontWeight: widget.highlight ? FontWeight.bold : FontWeight.normal,
+                        weight: widget.highlight ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                     if (widget.subtitle != null) ...[
                       const SizedBox(height: 2),
                       Text(
                         widget.subtitle!,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: theme.textMuted,
-                          fontSize: 10,
                         ),
                       ),
                     ],
@@ -4301,10 +4292,10 @@ class _AudioVisualPanel extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     'SETTINGS',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 14,
                       color: theme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                      weight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
                   ),
@@ -4323,9 +4314,9 @@ class _AudioVisualPanel extends StatelessWidget {
           // Volume slider
           Text(
             'MASTER VOLUME',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: theme.textMuted,
-              fontSize: 10,
               letterSpacing: 1,
             ),
           ),
@@ -4347,9 +4338,9 @@ class _AudioVisualPanel extends StatelessWidget {
               ),
               Text(
                 '${(volume * 100).toInt()}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: theme.textSecondary,
-                  fontSize: 12,
                 ),
               ),
             ],
@@ -4383,9 +4374,9 @@ class _AudioVisualPanel extends StatelessWidget {
           // Quality selector
           Text(
             'GRAPHICS QUALITY',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: theme.textMuted,
-              fontSize: 10,
               letterSpacing: 1,
             ),
           ),
@@ -4426,9 +4417,9 @@ class _AudioVisualPanel extends StatelessWidget {
           // P6: Device Section
           Text(
             '📱 DEVICE',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: theme.textMuted,
-              fontSize: 10,
               letterSpacing: 1,
             ),
           ),
@@ -4461,9 +4452,8 @@ class _AudioVisualPanel extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         device.label,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isSelected ? FluxForgeTheme.accentBlue : theme.textSecondary,
-                          fontSize: 11,
                         ),
                       ),
                     ],
@@ -4478,9 +4468,9 @@ class _AudioVisualPanel extends StatelessWidget {
           // P6: Theme Section
           Text(
             '🎨 THEME',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: theme.textMuted,
-              fontSize: 10,
               letterSpacing: 1,
             ),
           ),
@@ -4507,10 +4497,10 @@ class _AudioVisualPanel extends StatelessWidget {
                     child: DropdownButton<SlotThemePreset?>(
                       value: comparisonTheme,
                       isDense: true,
-                      hint: Text('Compare', style: TextStyle(color: theme.textMuted, fontSize: 12)),
+                      hint: Text('Compare', style: FluxForgeTheme.dockSans(size: 12, color: theme.textMuted)),
                       icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary, size: 18),
                       dropdownColor: theme.bgDark,
-                      style: TextStyle(color: theme.textPrimary, fontSize: 12),
+                      style: FluxForgeTheme.dockSans(size: 12, color: theme.textPrimary),
                       items: [
                         const DropdownMenuItem<SlotThemePreset?>(
                           value: null,
@@ -4536,9 +4526,9 @@ class _AudioVisualPanel extends StatelessWidget {
             Divider(color: theme.border, height: 24),
             Text(
               '🔧 DEBUG',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: theme.textMuted,
-                fontSize: 10,
                 letterSpacing: 1,
               ),
             ),
@@ -4649,11 +4639,10 @@ class _SettingToggleState extends State<_SettingToggle> {
               Expanded(
                 child: Text(
                   widget.label,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: widget.isOn
                         ? theme.textPrimary
                         : theme.textSecondary,
-                    fontSize: 11,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -4737,12 +4726,11 @@ class _QualityButtonState extends State<_QualityButton> {
             child: Center(
               child: Text(
                 widget.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: widget.isSelected
                       ? Colors.white
                       : theme.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                 ),
               ),
             ),
@@ -7026,29 +7014,26 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                               const SizedBox(width: 6),
                               Text(
                                 'State: ${state.displayName}',
-                                style: const TextStyle(
+                                style: FluxForgeTheme.dockSans(
                                   color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
+                                  weight: FontWeight.bold,
                                 ),
                               ),
                               if (fsState != null) ...[
                                 const SizedBox(width: 12),
                                 Text(
                                   'Spins: ${fsState.spinsRemaining}/${fsState.totalSpins}',
-                                  style: const TextStyle(
+                                  style: FluxForgeTheme.dockSans(
                                     color: Colors.white70,
-                                    fontSize: 11,
                                   ),
                                 ),
                                 if (fsState.currentMultiplier > 1.0) ...[
                                   const SizedBox(width: 8),
                                   Text(
                                     '${fsState.currentMultiplier.toStringAsFixed(1)}x',
-                                    style: const TextStyle(
-                                      color: Color(0xFFFFD700),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                                    style: FluxForgeTheme.dockSans(
+                                      color: const Color(0xFFFFD700),
+                                      weight: FontWeight.bold,
                                     ),
                                   ),
                                 ],
@@ -7056,9 +7041,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                               const Spacer(),
                               Text(
                                 'D to close',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
+                                  size: 10,
                                   color: Colors.white.withValues(alpha: 0.4),
-                                  fontSize: 10,
                                 ),
                               ),
                             ],
@@ -7153,11 +7138,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                               ).createShader(bounds),
                               child: Text(
                                 _getIntroTitle(),
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 6,
+                                style: FluxForgeTheme.dockSans(
+                                  size: 32,
                                   color: Colors.white,
+                                  weight: FontWeight.w900,
+                                  letterSpacing: 6,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -7165,11 +7150,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                             const SizedBox(height: 16),
                             Text(
                               'LOADING GAME...',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 3,
+                              style: FluxForgeTheme.dockSans(
+                                size: 12,
                                 color: Colors.white.withValues(alpha: 0.5),
+                                weight: FontWeight.w500,
+                                letterSpacing: 3,
                               ),
                             ),
                           ],
@@ -7227,10 +7212,10 @@ class _ForceButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+            weight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
         ),
@@ -7325,24 +7310,24 @@ class _SlotSplashScreenState extends State<_SlotSplashScreen>
                 shaderCallback: (bounds) => const LinearGradient(
                   colors: [Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFFFD700)],
                 ).createShader(bounds),
-                child: const Text(
+                child: Text(
                   'FLUXFORGE',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 8,
+                  style: FluxForgeTheme.dockSans(
+                    size: 36,
                     color: Colors.white,
+                    weight: FontWeight.w900,
+                    letterSpacing: 8,
                   ),
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'S L O T   L A B',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w300,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  color: const Color(0xFF888888),
+                  weight: FontWeight.w300,
                   letterSpacing: 6,
-                  color: Color(0xFF888888),
                 ),
               ),
               const SizedBox(height: 48),
@@ -7363,10 +7348,8 @@ class _SlotSplashScreenState extends State<_SlotSplashScreen>
                           child: Text(
                             _phases[_currentPhase].label,
                             key: ValueKey(_currentPhase),
-                            style: const TextStyle(
-                              color: Color(0xFFAAAAAA),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
+                            style: FluxForgeTheme.dockSans(
+                              color: const Color(0xFFAAAAAA),
                             ),
                           ),
                         ),
@@ -7412,13 +7395,12 @@ class _SlotSplashScreenState extends State<_SlotSplashScreen>
                       // Percentage
                       Text(
                         '$percent%',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
+                          size: 12,
                           color: _loadingComplete
                               ? const Color(0xFFFFD700)
                               : const Color(0xFF666666),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'monospace',
+                          weight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -7453,12 +7435,12 @@ class _SlotSplashScreenState extends State<_SlotSplashScreen>
                           ),
                         ],
                       ),
-                      child: const Text(
+                      child: Text(
                         'CONTINUE',
-                        style: TextStyle(
-                          color: Color(0xFF1A1000),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                        style: FluxForgeTheme.dockSans(
+                          size: 16,
+                          color: const Color(0xFF1A1000),
+                          weight: FontWeight.w800,
                           letterSpacing: 3,
                         ),
                       ),
@@ -7567,12 +7549,12 @@ class _FsSummaryOverlayState extends State<_FsSummaryOverlay>
                       colors: [Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFFFD700)],
                       stops: [0.0, 0.5, 1.0],
                     ).createShader(bounds),
-                    child: const Text(
+                    child: Text(
                       'FREE SPINS COMPLETE',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 18,
                         color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
+                        weight: FontWeight.w900,
                         letterSpacing: 4,
                       ),
                     ),
@@ -7594,10 +7576,9 @@ class _FsSummaryOverlayState extends State<_FsSummaryOverlay>
                       children: [
                         Text(
                           'TOTAL WIN',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: const Color(0xFFFFD700).withValues(alpha: 0.6),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            weight: FontWeight.w700,
                             letterSpacing: 3,
                           ),
                         ),
@@ -7610,10 +7591,10 @@ class _FsSummaryOverlayState extends State<_FsSummaryOverlay>
                           ).createShader(bounds),
                           child: Text(
                             _formatWin(widget.totalWin),
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 52,
                               color: Colors.white,
-                              fontSize: 52,
-                              fontWeight: FontWeight.w900,
+                              weight: FontWeight.w900,
                               letterSpacing: -1,
                               height: 1.0,
                             ),
@@ -7650,10 +7631,9 @@ class _FsSummaryOverlayState extends State<_FsSummaryOverlay>
                     duration: const Duration(milliseconds: 800),
                     child: Text(
                       'TAP TO CONTINUE',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.white.withValues(alpha: 0.35),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        weight: FontWeight.w600,
                         letterSpacing: 3,
                       ),
                     ),
@@ -7693,20 +7673,20 @@ class _StatBadge extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: color.withValues(alpha: 0.6),
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
+              weight: FontWeight.w700,
               letterSpacing: 2,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 24,
               color: color,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
+              weight: FontWeight.w800,
             ),
           ),
         ],

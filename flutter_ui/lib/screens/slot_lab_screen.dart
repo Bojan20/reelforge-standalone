@@ -3558,7 +3558,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               const SizedBox(height: 16),
               Text(
                 'Initializing Slot Lab Engine...',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54),
               ),
             ],
           ),
@@ -3773,18 +3773,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                                 color: FluxForgeTheme.accentBlue.withValues(alpha: 0.9),
                                                 borderRadius: BorderRadius.circular(6),
                                               ),
-                                              child: const Row(
+                                              child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Icon(Icons.add_circle, color: Colors.white, size: 16),
-                                                  SizedBox(width: 6),
+                                                  const Icon(Icons.add_circle, color: Colors.white, size: 16),
+                                                  const SizedBox(width: 6),
                                                   Text(
                                                     'Drop to create event',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
+                                                    style: FluxForgeTheme.dockSans(size: 12, color: Colors.white, weight: FontWeight.w600),
                                                   ),
                                                 ],
                                               ),
@@ -3866,12 +3862,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                             child: Text(
                               'FOCUS: ${_lowerZoneController.superTab.label} › ${_lowerZoneController.subTabLabels.length > _lowerZoneController.currentSubTabIndex ? _lowerZoneController.subTabLabels[_lowerZoneController.currentSubTabIndex] : ""}',
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: _lowerZoneController.superTab.color,
-                                letterSpacing: 0.5,
-                              ),
+                              style: FluxForgeTheme.dockSans(size: 11, color: _lowerZoneController.superTab.color, weight: FontWeight.w700, letterSpacing: 0.5),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -3883,12 +3874,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 color: const Color(0xFF2A2A32),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text('ESC', style: TextStyle(fontSize: 9, color: Color(0xFF808088), fontFamily: 'monospace')),
-                                  SizedBox(width: 4),
-                                  Icon(Icons.fullscreen_exit, size: 12, color: Color(0xFF808088)),
+                                  Text('ESC', style: FluxForgeTheme.dockMono(size: 9, color: Color(0xFF808088))),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.fullscreen_exit, size: 12, color: Color(0xFF808088)),
                                 ],
                               ),
                             ),
@@ -3942,7 +3933,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     _draggingAudioPaths!.length > 1
                         ? '${_draggingAudioPaths!.length} files'
                         : _draggingAudioPaths!.first.split('/').last,
-                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(color: Colors.white),
                   ),
                 ),
               ),
@@ -3974,11 +3965,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     ),
                     child: Text(
                       _lastDragStatus,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 14, color: Colors.white, weight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -4090,7 +4077,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           // Transport status
           Icon(transportIcon, size: 10, color: transportColor),
           const SizedBox(width: 4),
-          Text(transportLabel, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: transportColor, letterSpacing: 0.5)),
+          Text(transportLabel, style: FluxForgeTheme.dockSans(size: 9, color: transportColor, weight: FontWeight.w600, letterSpacing: 0.5)),
           _statusDivider(),
 
           // Spin count
@@ -4145,18 +4132,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ),
             child: Text(
               '${superTab.label} › $activeSubLabel',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: superTab.color.withValues(alpha: 0.7),
-                letterSpacing: 0.3,
-              ),
+              style: FluxForgeTheme.dockSans(size: 9, color: superTab.color.withValues(alpha: 0.7), weight: FontWeight.w600, letterSpacing: 0.3),
             ),
           ),
           const SizedBox(width: 8),
 
           // Keyboard shortcut hint
-          Text('⌘K Quick Switch', style: TextStyle(fontSize: 9, color: const Color(0xFF404048))),
+          Text('⌘K Quick Switch', style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF404048))),
         ],
       ),
     );
@@ -4168,9 +4150,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     color: const Color(0xFF2A2A32),
   );
 
-  TextStyle _statusStyle() => const TextStyle(
-    fontSize: 9, color: Color(0xFF707078), letterSpacing: 0.3,
-  );
+  TextStyle _statusStyle() => FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF707078), letterSpacing: 0.3);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // QUICK SWITCHER (Cmd+K)
@@ -4752,14 +4732,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       color: FluxForgeTheme.accentGreen.withValues(alpha: 0.25),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'SLOT LAB',
-                    style: TextStyle(
-                      color: Color(0xFFD0D0D8),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFD0D0D8), weight: FontWeight.w700, letterSpacing: 1.5),
                   ),
                 ),
                 _headerDividerSmall(),
@@ -4901,12 +4876,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               const SizedBox(width: 5),
               Text(
                 label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                ),
+                style: FluxForgeTheme.dockSans(size: 10, color: color, weight: FontWeight.w600, letterSpacing: 0.3),
               ),
             ],
           ),
@@ -4983,12 +4953,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               stageName.isNotEmpty
                   ? stageName.replaceAll('_', ' ')
                   : 'IDLE',
-              style: TextStyle(
-                color: stageColor,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.8,
-              ),
+              style: FluxForgeTheme.dockSans(size: 9, color: stageColor, weight: FontWeight.w600, letterSpacing: 0.8),
             ),
           ],
         );
@@ -5024,19 +4989,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 width: 1,
               ),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.dashboard_customize, size: 14, color: Color(0xFF4A9EFF)),
-                SizedBox(width: 6),
+                const Icon(Icons.dashboard_customize, size: 14, color: Color(0xFF4A9EFF)),
+                const SizedBox(width: 6),
                 Text(
                   'Templates',
-                  style: TextStyle(
-                    color: Color(0xFF4A9EFF),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
+                  style: FluxForgeTheme.dockSans(color: Color(0xFF4A9EFF), weight: FontWeight.w600, letterSpacing: 0.5),
                 ),
               ],
             ),
@@ -5069,21 +5029,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.dashboard_customize, color: Color(0xFF4A9EFF), size: 24),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Template Gallery',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: FluxForgeTheme.dockSans(size: 18, color: Colors.white, weight: FontWeight.w600),
                           ),
                           Text(
                             'Start with a pre-configured slot audio template',
-                            style: TextStyle(color: Colors.white54, fontSize: 12),
+                            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54),
                           ),
                         ],
                       ),
@@ -5252,12 +5208,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     // Text
                     Text(
                       '$assigned/$total',
-                      style: TextStyle(
-                        color: progressColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                      ),
+                      style: FluxForgeTheme.dockMono(size: 11, color: progressColor, weight: FontWeight.w600),
                     ),
                     const SizedBox(width: 6),
                     // Mini progress bar
@@ -5283,11 +5234,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     // Percentage
                     Text(
                       '$percent%',
-                      style: TextStyle(
-                        color: progressColor.withValues(alpha: 0.8),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 9, color: progressColor.withValues(alpha: 0.8), weight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -5305,11 +5252,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A22),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.pie_chart, color: Color(0xFF4A9EFF), size: 20),
-            SizedBox(width: 8),
-            Text('Audio Coverage Breakdown', style: TextStyle(color: Colors.white, fontSize: 16)),
+            const Icon(Icons.pie_chart, color: Color(0xFF4A9EFF), size: 20),
+            const SizedBox(width: 8),
+            Text('Audio Coverage Breakdown', style: FluxForgeTheme.dockSans(size: 16, color: Colors.white)),
           ],
         ),
         content: SizedBox(
@@ -5358,18 +5305,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: const Color(0xFF40C8FF).withValues(alpha: 0.3)),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.dashboard, color: Color(0xFF40C8FF), size: 14),
-                SizedBox(width: 6),
+                const Icon(Icons.dashboard, color: Color(0xFF40C8FF), size: 14),
+                const SizedBox(width: 6),
                 Text(
                   'Dashboard',
-                  style: TextStyle(
-                    color: Color(0xFF40C8FF),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFF40C8FF), weight: FontWeight.w500),
                 ),
               ],
             ),
@@ -5406,18 +5349,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: const Color(0xFF9370DB).withValues(alpha: 0.3)),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.extension, color: Color(0xFF9370DB), size: 14),
-                SizedBox(width: 6),
+                const Icon(Icons.extension, color: Color(0xFF9370DB), size: 14),
+                const SizedBox(width: 6),
                 Text(
                   'Features',
-                  style: TextStyle(
-                    color: Color(0xFF9370DB),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFF9370DB), weight: FontWeight.w500),
                 ),
               ],
             ),
@@ -5654,12 +5593,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 width: 60,
                 child: Text(
                   '$count/$max',
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'monospace',
-                  ),
+                  style: FluxForgeTheme.dockMono(size: 12, color: color, weight: FontWeight.w600),
                   textAlign: TextAlign.right,
                 ),
               ),
@@ -6170,22 +6104,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               children: [
                 Text(
                   _formatTimecode(_playheadPosition),
-                  style: const TextStyle(
-                    color: Color(0xFF40FF90),
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: FluxForgeTheme.dockMono(size: 12, color: const Color(0xFF40FF90), weight: FontWeight.bold),
                 ),
                 if (_loopStart != null && _loopEnd != null) ...[
                   const SizedBox(width: 6),
                   Text(
                     '⟳${_formatTimecode(_loopStart!)}-${_formatTimecode(_loopEnd!)}',
-                    style: TextStyle(
-                      color: const Color(0xFFFF9040).withValues(alpha: 0.8),
-                      fontSize: 9,
-                      fontFamily: 'monospace',
-                    ),
+                    style: FluxForgeTheme.dockMono(size: 9, color: const Color(0xFFFF9040).withValues(alpha: 0.8)),
                   ),
                 ],
               ],
@@ -6271,7 +6196,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             children: [
               Icon(Icons.repeat, size: 16, color: const Color(0xFFFF9040)),
               const SizedBox(width: 8),
-              const Text('Set as Loop Region', style: TextStyle(fontSize: 12)),
+              Text('Set as Loop Region', style: FluxForgeTheme.dockSans(size: 12)),
             ],
           ),
         ),
@@ -6281,7 +6206,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             children: [
               Icon(Icons.play_arrow, size: 16, color: const Color(0xFF40FF90)),
               const SizedBox(width: 8),
-              const Text('Play from Start', style: TextStyle(fontSize: 12)),
+              Text('Play from Start', style: FluxForgeTheme.dockSans(size: 12)),
             ],
           ),
         ),
@@ -6292,7 +6217,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             children: [
               Icon(Icons.delete, size: 16, color: const Color(0xFFFF4060)),
               const SizedBox(width: 8),
-              const Text('Delete Region', style: TextStyle(fontSize: 12)),
+              Text('Delete Region', style: FluxForgeTheme.dockSans(size: 12)),
             ],
           ),
         ),
@@ -6470,20 +6395,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: [
           Text(
             label,
-            style: TextStyle(
-              color: color.withValues(alpha: 0.5),
-              fontSize: 8,
-              fontWeight: FontWeight.w600,
-            ),
+            style: FluxForgeTheme.dockSans(size: 8, color: color.withValues(alpha: 0.5), weight: FontWeight.w600),
           ),
           const SizedBox(width: 3),
           Text(
             value,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: color, weight: FontWeight.w700),
           ),
         ],
       ),
@@ -6550,11 +6467,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           const SizedBox(width: 6),
           Text(
             'Caching $_preloadTotalCount...',
-            style: TextStyle(
-              color: const Color(0xFF4A9EFF).withValues(alpha: 0.9),
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF4A9EFF).withValues(alpha: 0.9), weight: FontWeight.w500),
           ),
         ],
       ),
@@ -7044,14 +6957,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: [
           const Icon(Icons.timeline, size: 14, color: Color(0xFFFFD700)),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'AUDIO TIMELINE',
-            style: TextStyle(
-              color: Color(0xFFFFD700),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFFFD700), weight: FontWeight.w600, letterSpacing: 1),
           ),
           const Spacer(),
           // Zoom controls
@@ -7064,7 +6972,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
           Text(
             '${(_timelineZoom * 100).toInt()}%',
-            style: const TextStyle(color: Colors.white54, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54),
           ),
           IconButton(
             icon: const Icon(Icons.zoom_in, size: 14),
@@ -7084,12 +6992,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: const Color(0xFF4A9EFF).withValues(alpha: 0.5)),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.flag, size: 12, color: Color(0xFF4A9EFF)),
-                  SizedBox(width: 4),
-                  Text('Marker', style: TextStyle(color: Color(0xFF4A9EFF), fontSize: 10)),
+                  const Icon(Icons.flag, size: 12, color: Color(0xFF4A9EFF)),
+                  const SizedBox(width: 4),
+                  Text('Marker', style: FluxForgeTheme.dockSans(size: 10, color: Color(0xFF4A9EFF))),
                 ],
               ),
             ),
@@ -7105,12 +7013,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: const Color(0xFF40FF90).withValues(alpha: 0.5)),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.add, size: 12, color: Color(0xFF40FF90)),
-                  SizedBox(width: 4),
-                  Text('Track', style: TextStyle(color: Color(0xFF40FF90), fontSize: 10)),
+                  const Icon(Icons.add, size: 12, color: Color(0xFF40FF90)),
+                  const SizedBox(width: 4),
+                  Text('Track', style: FluxForgeTheme.dockSans(size: 10, color: Color(0xFF40FF90))),
                 ],
               ),
             ),
@@ -7143,10 +7051,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   const SizedBox(width: 4),
                   Text(
                     _allTracksExpanded ? 'Collapse' : 'Expand',
-                    style: TextStyle(
-                      color: _allTracksExpanded ? const Color(0xFFFF9040) : Colors.white70,
-                      fontSize: 10,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 10, color: _allTracksExpanded ? const Color(0xFFFF9040) : Colors.white70),
                   ),
                 ],
               ),
@@ -7177,9 +7082,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgSurface,
-          title: const Text(
+          title: Text(
             'Add Stage Marker',
-            style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+            style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
           ),
           content: SizedBox(
             width: 300,
@@ -7187,9 +7092,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Quick presets:',
-                  style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -7212,7 +7117,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                         ),
                         child: Text(
                           preset.$1,
-                          style: TextStyle(color: preset.$2, fontSize: 9),
+                          style: FluxForgeTheme.dockSans(size: 9, color: preset.$2),
                         ),
                       ),
                     );
@@ -7221,10 +7126,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 const SizedBox(height: 16),
                 TextField(
                   controller: nameController,
-                  style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Marker Name',
-                    labelStyle: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                    labelStyle: FluxForgeTheme.dockSans(),
                     enabledBorder: const OutlineInputBorder(
                       borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                     ),
@@ -7236,7 +7141,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 const SizedBox(height: 12),
                 Text(
                   'Position: ${_playheadPosition.toStringAsFixed(2)}s',
-                  style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(),
                 ),
               ],
             ),
@@ -7310,11 +7215,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                           ),
                           Text(
                             marker.name,
-                            style: TextStyle(
-                              color: marker.color,
-                              fontSize: 7,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: FluxForgeTheme.dockSans(size: 7, color: marker.color, weight: FontWeight.w600),
                             textAlign: TextAlign.center,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -7345,11 +7246,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         backgroundColor: FluxForgeTheme.bgSurface,
         title: Text(
           'Delete "${marker.name}"?',
-          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+          style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
         ),
-        content: const Text(
+        content: Text(
           'This marker will be removed from the timeline.',
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12),
         ),
         actions: [
           TextButton(
@@ -7399,9 +7300,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgSurface,
-          title: const Text(
+          title: Text(
             'Add Context (Game Chapter)',
-            style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+            style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
           ),
           content: SizedBox(
             width: 340,
@@ -7410,7 +7311,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Quick Presets
-                const Text('Quick Presets', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+                Text('Quick Presets', style: FluxForgeTheme.dockSans()),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
@@ -7431,9 +7332,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(preset.$3, style: const TextStyle(fontSize: 12)),
+                          Text(preset.$3, style: FluxForgeTheme.dockSans(size: 12)),
                           const SizedBox(width: 4),
-                          Text(preset.$1, style: TextStyle(color: preset.$4, fontSize: 10)),
+                          Text(preset.$1, style: FluxForgeTheme.dockSans(size: 10, color: preset.$4)),
                         ],
                       ),
                     ),
@@ -7444,23 +7345,23 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 // Name field
                 TextField(
                   controller: nameController,
-                  style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
-                  decoration: const InputDecoration(
+                  style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
+                  decoration: InputDecoration(
                     labelText: 'Display Name',
-                    labelStyle: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
-                    enabledBorder: OutlineInputBorder(
+                    labelStyle: FluxForgeTheme.dockSans(),
+                    enabledBorder: const OutlineInputBorder(
                       borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                     ),
-                    focusedBorder: OutlineInputBorder(
+                    focusedBorder: const OutlineInputBorder(
                       borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
                     ),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
                 const SizedBox(height: 12),
 
                 // Context Type dropdown
-                const Text('Context Type', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+                Text('Context Type', style: FluxForgeTheme.dockSans()),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -7473,7 +7374,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     isExpanded: true,
                     dropdownColor: FluxForgeTheme.bgSurface,
                     underline: const SizedBox(),
-                    style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
                     items: ContextType.values.map((type) => DropdownMenuItem(
                       value: type,
                       child: Text(_contextTypeName(type)),
@@ -7488,7 +7389,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 const SizedBox(height: 12),
 
                 // Icon picker
-                const Text('Icon', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+                Text('Icon', style: FluxForgeTheme.dockSans()),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
@@ -7508,7 +7409,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                           width: 2,
                         ),
                       ),
-                      child: Center(child: Text(icon, style: const TextStyle(fontSize: 16))),
+                      child: Center(child: Text(icon, style: FluxForgeTheme.dockSans(size: 16))),
                     ),
                   )).toList(),
                 ),
@@ -7517,14 +7418,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 // Layer count
                 Row(
                   children: [
-                    const Text('Music Layers: ', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+                    Text('Music Layers: ', style: FluxForgeTheme.dockSans()),
                     IconButton(
                       icon: const Icon(Icons.remove, size: 16, color: FluxForgeTheme.textSecondary),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                       onPressed: () => setDialogState(() => layerCount = (layerCount - 1).clamp(1, 8)),
                     ),
-                    Text('$layerCount', style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
+                    Text('$layerCount', style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary)),
                     IconButton(
                       icon: const Icon(Icons.add, size: 16, color: FluxForgeTheme.textSecondary),
                       padding: EdgeInsets.zero,
@@ -7586,13 +7487,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgSurface,
-        title: const Text(
+        title: Text(
           'Reset All Events?',
-          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+          style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
         ),
         content: Text(
           'This will remove $count event${count > 1 ? 's' : ''} created in this session. This action cannot be undone.',
-          style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12),
         ),
         actions: [
           TextButton(
@@ -7731,11 +7632,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             Expanded(
               child: Text(
                 track.name,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
+                style: FluxForgeTheme.dockSans(size: 10, color: isSelected ? Colors.white : Colors.white70, weight: isSelected ? FontWeight.w600 : FontWeight.normal),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -8294,11 +8191,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 ),
                                 child: Text(
                                   'LOOP',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 7,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  style: FluxForgeTheme.dockSans(size: 7, color: Colors.white, weight: FontWeight.bold),
                                 ),
                               ),
                             ),
@@ -9021,11 +8914,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             right: 4,
             child: Text(
               layer.name,
-              style: TextStyle(
-                color: muted ? Colors.grey : Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
-              ),
+              style: FluxForgeTheme.dockSans(size: 9, color: muted ? Colors.grey : Colors.white, weight: FontWeight.w500),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -9087,11 +8976,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 Expanded(
                   child: Text(
                     layer.name,
-                    style: TextStyle(
-                      color: muted ? Colors.grey : Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 9, color: muted ? Colors.grey : Colors.white, weight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -9105,7 +8990,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     ),
                     child: Text(
                       '$totalLayers',
-                      style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.bold),
+                      style: FluxForgeTheme.dockSans(size: 8, color: color, weight: FontWeight.bold),
                     ),
                   ),
               ],
@@ -9147,11 +9032,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             top: 2,
             child: Text(
               region.name,
-              style: TextStyle(
-                color: muted ? Colors.grey : Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-              ),
+              style: FluxForgeTheme.dockSans(size: 9, color: muted ? Colors.grey : Colors.white, weight: FontWeight.w600),
             ),
           ),
         ],
@@ -9898,14 +9779,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     Flexible(
                       child: Text(
                         labels[i],
-                        style: TextStyle(
-                          color: isActive
-                              ? const Color(0xFFD0D0D8)
-                              : const Color(0xFF606068),
-                          fontSize: SlotLabTypo.body,
-                          fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                          letterSpacing: 0.5,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: SlotLabTypo.body, color: isActive ? const Color(0xFFD0D0D8) : const Color(0xFF606068), weight: isActive ? FontWeight.w700 : FontWeight.w500, letterSpacing: 0.5),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                       ),
@@ -9948,12 +9822,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 const SizedBox(height: 8),
                 Text(
                   'No audio events yet',
-                  style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5), fontSize: 10),
+                  style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Assign audio in ASSIGN tab or create custom events',
-                  style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3), fontSize: 9),
+                  style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3)),
                 ),
                 const SizedBox(height: 12),
                 _buildCreateCustomEventButton(customProv),
@@ -9979,20 +9853,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     const SizedBox(width: 6),
                     Text(
                       'STAGE EVENTS',
-                      style: TextStyle(
-                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.0,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7), weight: FontWeight.w600, letterSpacing: 1.0),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       '${compositeEvents.length}',
-                      style: TextStyle(
-                        color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
-                        fontSize: 9,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
                     ),
                   ],
                 ),
@@ -10019,12 +9885,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   const SizedBox(width: 6),
                   Text(
                     'CUSTOM EVENTS',
-                    style: TextStyle(
-                      color: FluxForgeTheme.accentPurple.withValues(alpha: 0.7),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.0,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentPurple.withValues(alpha: 0.7), weight: FontWeight.w600, letterSpacing: 1.0),
                   ),
                   const Spacer(),
                   _buildCreateCustomEventButton(customProv),
@@ -10039,7 +9900,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 child: Center(
                   child: Text(
                     'No custom events yet',
-                    style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4), fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4)),
                   ),
                 ),
               ),
@@ -10069,7 +9930,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           children: [
             Icon(Icons.add_rounded, size: 12, color: FluxForgeTheme.accentPurple.withValues(alpha: 0.8)),
             const SizedBox(width: 3),
-            Text('New', style: TextStyle(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.8), fontSize: 9, fontWeight: FontWeight.w500)),
+            Text('New', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentPurple.withValues(alpha: 0.8), weight: FontWeight.w500)),
           ],
         ),
       ),
@@ -10084,30 +9945,30 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgSurface,
-        title: const Text('Create Custom Event', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14)),
+        title: Text('Create Custom Event', style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
               autofocus: true,
-              style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
-              decoration: const InputDecoration(
+              style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
+              decoration: InputDecoration(
                 hintText: 'Event name',
-                hintStyle: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentPurple)),
+                hintStyle: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textTertiary),
+                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
+                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentPurple)),
               ),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: categoryController,
-              style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
-              decoration: const InputDecoration(
+              style: FluxForgeTheme.dockSans(),
+              decoration: InputDecoration(
                 hintText: 'Category',
-                hintStyle: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentPurple)),
+                hintStyle: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
+                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
+                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentPurple)),
               ),
             ),
           ],
@@ -10115,7 +9976,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary)),
           ),
           TextButton(
             onPressed: () {
@@ -10127,7 +9988,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               );
               Navigator.pop(ctx);
             },
-            child: const Text('Create', style: TextStyle(color: FluxForgeTheme.accentPurple, fontSize: 11)),
+            child: Text('Create', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.accentPurple)),
           ),
         ],
       ),
@@ -10155,12 +10016,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           padding: const EdgeInsets.only(top: 8, bottom: 4, left: 10),
           child: Text(
             entry.key.toUpperCase(),
-            style: TextStyle(
-              color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6), weight: FontWeight.w600, letterSpacing: 0.8),
           ),
         ),
         ...entry.value.map((evt) {
@@ -10206,23 +10062,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                         children: [
                           Text(
                             evt.name,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? FluxForgeTheme.textPrimary
-                                  : FluxForgeTheme.textSecondary,
-                              fontSize: 11,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                            ),
+                            style: FluxForgeTheme.dockSans(color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary, weight: isSelected ? FontWeight.w600 : FontWeight.w400),
                             overflow: TextOverflow.ellipsis,
                           ),
                           if (tierLabel != null)
                             Text(
                               tierLabel,
-                              style: TextStyle(
-                                color: FluxForgeTheme.accentGreen.withValues(alpha: 0.6),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w500,
-                              ),
+                              style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentGreen.withValues(alpha: 0.6), weight: FontWeight.w500),
                               overflow: TextOverflow.ellipsis,
                             ),
                         ],
@@ -10236,11 +10082,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       ),
                       child: Text(
                         '${evt.layers.length}',
-                        style: TextStyle(
-                          color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7), weight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -10320,12 +10162,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           padding: const EdgeInsets.only(top: 8, bottom: 4, left: 10),
           child: Text(
             entry.key.toUpperCase(),
-            style: TextStyle(
-              color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6), weight: FontWeight.w600, letterSpacing: 0.8),
           ),
         ),
         ...entry.value.expand((evt) {
@@ -10372,13 +10209,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     Expanded(
                       child: Text(
                         evt.name,
-                        style: TextStyle(
-                          color: isSelected
-                              ? FluxForgeTheme.textPrimary
-                              : evt.enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                        ),
+                        style: FluxForgeTheme.dockSans(color: isSelected ? FluxForgeTheme.textPrimary : evt.enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary, weight: isSelected ? FontWeight.w600 : FontWeight.w400),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -10399,11 +10230,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       ),
                       child: Text(
                         '${evt.layers.length}',
-                        style: TextStyle(
-                          color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7), weight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -10474,10 +10301,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   ),
                   child: Text(
                     event.enabled ? 'ON' : 'OFF',
-                    style: TextStyle(
-                      color: event.enabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary,
-                      fontSize: 9, fontWeight: FontWeight.w600,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 9, color: event.enabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary, weight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -10504,10 +10328,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   ),
                   child: Text(
                     '▶ PLAY',
-                    style: TextStyle(
-                      color: FluxForgeTheme.accentCyan,
-                      fontSize: 9, fontWeight: FontWeight.w600,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentCyan, weight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -10527,7 +10348,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             children: [
               Text(
                 'LAYERS',
-                style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.8),
+                style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7), weight: FontWeight.w600, letterSpacing: 0.8),
               ),
               const Spacer(),
               GestureDetector(
@@ -10554,7 +10375,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     children: [
                       Icon(Icons.add_rounded, size: 11, color: FluxForgeTheme.accentPurple.withValues(alpha: 0.7)),
                       const SizedBox(width: 3),
-                      Text('Add', style: TextStyle(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.7), fontSize: 9)),
+                      Text('Add', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentPurple.withValues(alpha: 0.7))),
                     ],
                   ),
                 ),
@@ -10599,16 +10420,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     children: [
                       Text(
                         '${entry.key + 1}',
-                        style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.w600),
+                        style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6), weight: FontWeight.w600),
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           layer.displayName,
-                          style: TextStyle(
-                            color: layer.muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary,
-                            fontSize: 10,
-                          ),
+                          style: FluxForgeTheme.dockSans(size: 10, color: layer.muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -10672,10 +10490,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   child: Center(
                     child: Text(
                       isDragOver ? 'Drop audio here' : 'Drag audio from POOL →',
-                      style: TextStyle(
-                        color: isDragOver ? FluxForgeTheme.accentPurple : FluxForgeTheme.textDisabled,
-                        fontSize: 9,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 9, color: isDragOver ? FluxForgeTheme.accentPurple : FluxForgeTheme.textDisabled),
                     ),
                   ),
                 );
@@ -10713,7 +10528,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             children: [
               Text(
                 'LAYERS',
-                style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.8),
+                style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7), weight: FontWeight.w600, letterSpacing: 0.8),
               ),
               const Spacer(),
               GestureDetector(
@@ -10742,7 +10557,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     children: [
                       Icon(Icons.add_rounded, size: 11, color: FluxForgeTheme.accentGreen.withValues(alpha: 0.7)),
                       const SizedBox(width: 3),
-                      Text('Add', style: TextStyle(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.7), fontSize: 9)),
+                      Text('Add', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentGreen.withValues(alpha: 0.7))),
                     ],
                   ),
                 ),
@@ -10802,13 +10617,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     children: [
                       Text(
                         '${entry.key + 1}',
-                        style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.w600),
+                        style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6), weight: FontWeight.w600),
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           fileName,
-                          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+                          style: FluxForgeTheme.dockSans(size: 10),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -10861,10 +10676,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   child: Center(
                     child: Text(
                       isDragOver ? 'Drop audio here' : 'Drag audio from POOL →',
-                      style: TextStyle(
-                        color: isDragOver ? FluxForgeTheme.accentBlue : FluxForgeTheme.textDisabled,
-                        fontSize: 9,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 9, color: isDragOver ? FluxForgeTheme.accentBlue : FluxForgeTheme.textDisabled),
                     ),
                   ),
                 );
@@ -10882,12 +10694,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: [
           SizedBox(
             width: 62,
-            child: Text(label, style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7), fontSize: 9)),
+            child: Text(label, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7))),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.w500),
+              style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -10953,17 +10765,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     const SizedBox(width: 8),
                     Text(
                       diag.isMonitoring ? 'MONITORING' : 'IDLE',
-                      style: TextStyle(
-                        color: diag.isMonitoring ? const Color(0xFF66BB6A) : Colors.white38,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                      ),
+                      style: FluxForgeTheme.dockSans(color: diag.isMonitoring ? const Color(0xFF66BB6A) : Colors.white38, weight: FontWeight.w700, letterSpacing: 1.2),
                     ),
                     const Spacer(),
                     Text(
                       '${findings.length} findings',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10),
+                      style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4)),
                     ),
                   ],
                 ),
@@ -11029,7 +10836,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                           padding: const EdgeInsets.all(32),
                           child: Text('No diagnostics yet\nRun a check or start monitoring',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12)),
+                            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white.withValues(alpha: 0.3))),
                         ),
                       );
                     }
@@ -11067,18 +10874,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                   color: color.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
-                                child: Text(f.checker, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
+                                child: Text(f.checker, style: FluxForgeTheme.dockSans(size: 9, color: color, weight: FontWeight.w600)),
                               ),
                               if (f.affectedStage != null) ...[
                                 const SizedBox(width: 4),
-                                Text(f.affectedStage!, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9, fontFamily: 'monospace')),
+                                Text(f.affectedStage!, style: FluxForgeTheme.dockMono(size: 9, color: Colors.white.withValues(alpha: 0.4))),
                               ],
                             ],
                           ),
                           const SizedBox(height: 1),
-                          Text(f.message, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
+                          Text(f.message, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.8))),
                           if (f.detail != null)
-                            Text(f.detail!, style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 10)),
+                            Text(f.detail!, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.35))),
                         ],
                       ),
                     );
@@ -11107,7 +10914,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           children: [
             Icon(icon, color: color, size: 13),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: color, fontSize: 11)),
+            Text(label, style: FluxForgeTheme.dockSans(color: color)),
           ],
         ),
       ),
@@ -11177,14 +10984,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     Flexible(
                       child: Text(
                         labels[i],
-                        style: TextStyle(
-                          color: isActive
-                              ? const Color(0xFFD0D0D8)
-                              : const Color(0xFF606068),
-                          fontSize: SlotLabTypo.body,
-                          fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                          letterSpacing: 0.5,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: SlotLabTypo.body, color: isActive ? const Color(0xFFD0D0D8) : const Color(0xFF606068), weight: isActive ? FontWeight.w700 : FontWeight.w500, letterSpacing: 0.5),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                       ),
@@ -11261,12 +11061,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-                color: isExpanded ? const Color(0xFFD0D0D8) : const Color(0xFF606068),
-              ),
+              style: FluxForgeTheme.dockSans(weight: FontWeight.w700, letterSpacing: 0.8, color: isExpanded ? const Color(0xFFD0D0D8) : const Color(0xFF606068)),
             ),
           ],
         ),
@@ -11312,10 +11107,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               // Stack count
               Text(
                 '${undo.undoCount}',
-                style: const TextStyle(
-                  color: Color(0xFF505060),
-                  fontSize: 9,
-                ),
+                style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF505060)),
               ),
               const Spacer(),
               // Clear button
@@ -11821,12 +11613,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: const Color(0xFF40FF90).withValues(alpha: 0.5)),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.add, size: 12, color: Color(0xFF40FF90)),
-                          SizedBox(width: 4),
-                          Text('Create Event', style: TextStyle(color: Color(0xFF40FF90), fontSize: 10)),
+                          const Icon(Icons.add, size: 12, color: Color(0xFF40FF90)),
+                          const SizedBox(width: 4),
+                          Text('Create Event', style: FluxForgeTheme.dockSans(color: Color(0xFF40FF90))),
                         ],
                       ),
                     ),
@@ -11834,7 +11626,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   const Spacer(),
                   Text(
                     '${events.length} events',
-                    style: const TextStyle(color: Colors.white38, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(color: Colors.white38),
                   ),
                 ],
               ),
@@ -11847,14 +11639,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                         children: [
                           Icon(Icons.layers, size: 32, color: Colors.white.withValues(alpha: 0.2)),
                           const SizedBox(height: 8),
-                          const Text(
+                          Text(
                             'No composite events',
-                            style: TextStyle(color: Colors.white38, fontSize: 11),
+                            style: FluxForgeTheme.dockSans(color: Colors.white38),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
+                          Text(
                             'Drag audio to timeline to create',
-                            style: TextStyle(color: Colors.white24, fontSize: 9),
+                            style: FluxForgeTheme.dockSans(size: 9, color: Colors.white24),
                           ),
                         ],
                       ),
@@ -11898,7 +11690,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               const SizedBox(width: 6),
               Text(
                 event.name,
-                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w700),
               ),
             ],
           ),
@@ -11969,22 +11761,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       children: [
                         Text(
                           event.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600),
                         ),
                         Text(
                           'Stage: ${_getEventStage(event)} • Drag audio here',
-                          style: const TextStyle(color: Colors.white38, fontSize: 9),
+                          style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
                         ),
                       ],
                     ),
                   ),
                   Text(
                     '${event.layers.length} layers',
-                    style: const TextStyle(color: Colors.white38, fontSize: 9),
+                    style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
                   ),
                   const SizedBox(width: 8),
                   // Rename event button
@@ -12031,12 +11819,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     // Layers (if not using container)
                     if (!event.usesContainer)
                       event.layers.isEmpty
-                          ? const Center(
+                          ? Center(
                               child: Padding(
-                                padding: EdgeInsets.all(8.0),
+                                padding: const EdgeInsets.all(8.0),
                                 child: Text(
                                   'Drop audio files here',
-                                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                                  style: FluxForgeTheme.dockSans(color: Colors.white38),
                                 ),
                               ),
                             )
@@ -12073,9 +11861,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             children: [
               Icon(Icons.account_tree_outlined, size: 12, color: FluxForgeTheme.accentPurple),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Playback Mode',
-                style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600),
+                style: FluxForgeTheme.dockSans(color: Colors.white54, weight: FontWeight.w600),
               ),
             ],
           ),
@@ -12149,10 +11937,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
-                color: isSelected ? FluxForgeTheme.accentPurple : Colors.white38,
-                fontSize: 10,
-              ),
+              style: FluxForgeTheme.dockSans(color: isSelected ? FluxForgeTheme.accentPurple : Colors.white38),
             ),
           ],
         ),
@@ -12173,7 +11958,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         isExpanded: true,
         underline: const SizedBox.shrink(),
         dropdownColor: const Color(0xFF1A1A22),
-        style: const TextStyle(color: Colors.white, fontSize: 10),
+        style: FluxForgeTheme.dockSans(color: Colors.white),
         items: [
           ContainerType.blend,
           ContainerType.random,
@@ -12181,7 +11966,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         ].map((type) {
           return DropdownMenuItem(
             value: type,
-            child: Text(type.displayName, style: const TextStyle(fontSize: 10)),
+            child: Text(type.displayName, style: FluxForgeTheme.dockSans()),
           );
         }).toList(),
         onChanged: (type) {
@@ -12224,9 +12009,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
         ),
-        child: const Text(
+        child: Text(
           'No containers',
-          style: TextStyle(color: Colors.orange, fontSize: 10),
+          style: FluxForgeTheme.dockSans(color: Colors.orange),
         ),
       );
     }
@@ -12240,15 +12025,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       ),
       child: DropdownButton<int>(
         value: containers.any((c) => c.id == event.containerId) ? event.containerId : null,
-        hint: const Text('Select...', style: TextStyle(color: Colors.white38, fontSize: 10)),
+        hint: Text('Select...', style: FluxForgeTheme.dockSans(color: Colors.white38)),
         isExpanded: true,
         underline: const SizedBox.shrink(),
         dropdownColor: const Color(0xFF1A1A22),
-        style: const TextStyle(color: Colors.white, fontSize: 10),
+        style: FluxForgeTheme.dockSans(color: Colors.white),
         items: containers.map((c) {
           return DropdownMenuItem(
             value: c.id,
-            child: Text(c.name, style: const TextStyle(fontSize: 10)),
+            child: Text(c.name, style: FluxForgeTheme.dockSans()),
           );
         }).toList(),
         onChanged: (id) {
@@ -12324,11 +12109,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               children: [
                 Text(
                   containerName,
-                  style: TextStyle(color: typeColor, fontSize: 11, fontWeight: FontWeight.w600),
+                  style: FluxForgeTheme.dockSans(color: typeColor, weight: FontWeight.w600),
                 ),
                 Text(
                   '${event.containerType.displayName} • $childCount ${event.containerType == ContainerType.sequence ? 'steps' : 'children'}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 9),
+                  style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
                 ),
               ],
             ),
@@ -12740,13 +12525,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           Expanded(
             child: Text(
               layer.name,
-              style: const TextStyle(color: Colors.white70, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white70),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Text(
             '${(layer.volume * 100).toInt()}%',
-            style: const TextStyle(color: Colors.white38, fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
           ),
           const SizedBox(width: 6),
           // Delete layer button
@@ -12930,20 +12715,20 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgMid,
-        title: const Text('Rename Event', style: TextStyle(color: Colors.white, fontSize: 14)),
+        title: Text('Rename Event', style: FluxForgeTheme.dockSans(size: 14, color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('New name:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+            Text('New name:', style: FluxForgeTheme.dockSans(color: Colors.white70)),
             const SizedBox(height: 8),
             TextField(
               controller: controller,
               autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Enter new name...',
-                hintStyle: TextStyle(color: Colors.white38, fontSize: 12),
+                hintStyle: FluxForgeTheme.dockSans(size: 12, color: Colors.white38),
                 filled: true,
                 fillColor: Colors.black26,
                 border: OutlineInputBorder(
@@ -12971,14 +12756,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             const SizedBox(height: 8),
             Text(
               'Current stage: ${_getEventStage(event)}',
-              style: const TextStyle(color: Colors.white38, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white38),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white54)),
           ),
           TextButton(
             onPressed: () {
@@ -12988,7 +12773,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               }
               Navigator.pop(ctx);
             },
-            child: Text('Rename', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+            child: Text('Rename', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue)),
           ),
         ],
       ),
@@ -13028,21 +12813,21 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgMid,
-          title: const Text('Create Event', style: TextStyle(color: Colors.white, fontSize: 14)),
+          title: Text('Create Event', style: FluxForgeTheme.dockSans(size: 14, color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Name input
-              const Text('Name:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              Text('Name:', style: FluxForgeTheme.dockSans(color: Colors.white70)),
               const SizedBox(height: 4),
               TextField(
                 controller: controller,
                 autofocus: true,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Enter event name...',
-                  hintStyle: TextStyle(color: Colors.white38, fontSize: 12),
+                  hintStyle: FluxForgeTheme.dockSans(size: 12, color: Colors.white38),
                   filled: true,
                   fillColor: Colors.black26,
                   border: OutlineInputBorder(
@@ -13066,7 +12851,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ),
               const SizedBox(height: 12),
               // Stage dropdown
-              const Text('Stage:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              Text('Stage:', style: FluxForgeTheme.dockSans(color: Colors.white70)),
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -13080,14 +12865,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   isExpanded: true,
                   dropdownColor: FluxForgeTheme.bgDeep,
                   underline: const SizedBox(),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                   menuMaxHeight: 400,
                   items: _allStageOptions.map((stage) => DropdownMenuItem(
                     value: stage,
-                    child: Text(stage, style: TextStyle(
-                      color: _isCommonStage(stage) ? Colors.white : Colors.white70,
-                      fontWeight: _isCommonStage(stage) ? FontWeight.w600 : FontWeight.normal,
-                    )),
+                    child: Text(stage, style: FluxForgeTheme.dockSans(size: 12, color: _isCommonStage(stage) ? Colors.white : Colors.white70, weight: _isCommonStage(stage) ? FontWeight.w600 : FontWeight.normal)),
                   )).toList(),
                   onChanged: (v) => setDialogState(() => selectedStage = v!),
                 ),
@@ -13097,14 +12879,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+              child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white54)),
             ),
             TextButton(
               onPressed: () {
                 _finishCreateEvent(controller.text.trim(), selectedStage);
                 Navigator.pop(ctx);
               },
-              child: const Text('Create', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+              child: Text('Create', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue)),
             ),
           ],
         ),
@@ -13425,12 +13207,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add, size: 12, color: FluxForgeTheme.accentBlue),
-                      SizedBox(width: 4),
-                      Text('Import Audio', style: TextStyle(color: FluxForgeTheme.accentBlue, fontSize: 10)),
+                      const Icon(Icons.add, size: 12, color: FluxForgeTheme.accentBlue),
+                      const SizedBox(width: 4),
+                      Text('Import Audio', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue)),
                     ],
                   ),
                 ),
@@ -13445,12 +13227,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.folder_open, size: 12, color: Colors.white54),
-                      SizedBox(width: 4),
-                      Text('Folder', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                      const Icon(Icons.folder_open, size: 12, color: Colors.white54),
+                      const SizedBox(width: 4),
+                      Text('Folder', style: FluxForgeTheme.dockSans(color: Colors.white54)),
                     ],
                   ),
                 ),
@@ -13458,7 +13240,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               const Spacer(),
               Text(
                 '${searchFiltered.length}/$totalCount',
-                style: const TextStyle(color: Colors.white38, fontSize: 10),
+                style: FluxForgeTheme.dockSans(color: Colors.white38),
               ),
             ],
           ),
@@ -13468,10 +13250,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: TextField(
-            style: const TextStyle(color: Colors.white, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: Colors.white),
             decoration: InputDecoration(
               hintText: 'Search audio...',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
+              hintStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3)),
               prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white38),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -13537,11 +13319,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                           const SizedBox(width: 3),
                           Text(
                             tagDef.$2,
-                            style: TextStyle(
-                              color: _selectedPoolTag == tagDef.$1 ? tagDef.$3 : Colors.white38,
-                              fontSize: 9,
-                              fontWeight: _selectedPoolTag == tagDef.$1 ? FontWeight.w600 : FontWeight.normal,
-                            ),
+                            style: FluxForgeTheme.dockSans(size: 9, color: _selectedPoolTag == tagDef.$1 ? tagDef.$3 : Colors.white38, weight: _selectedPoolTag == tagDef.$1 ? FontWeight.w600 : FontWeight.normal),
                           ),
                           if (tagDef.$1 != 'ALL' && (tagCounts[tagDef.$1] ?? 0) > 0) ...[
                             const SizedBox(width: 3),
@@ -13553,7 +13331,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               ),
                               child: Text(
                                 '${tagCounts[tagDef.$1]}',
-                                style: TextStyle(color: tagDef.$3.withValues(alpha: 0.7), fontSize: 8),
+                                style: FluxForgeTheme.dockSans(size: 8, color: tagDef.$3.withValues(alpha: 0.7)),
                               ),
                             ),
                           ],
@@ -13595,10 +13373,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     ),
                     child: Text(
                       folder,
-                      style: TextStyle(
-                        color: isSelected ? FluxForgeTheme.accentBlue : Colors.white54,
-                        fontSize: 10,
-                      ),
+                      style: FluxForgeTheme.dockSans(color: isSelected ? FluxForgeTheme.accentBlue : Colors.white54),
                     ),
                   ),
                 ),
@@ -13663,7 +13438,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ),
             ],
           ),
-          child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 11)),
+          child: Text(name, style: FluxForgeTheme.dockSans(color: Colors.white)),
         ),
       ),
       onDragStarted: () {
@@ -13740,10 +13515,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             Expanded(
               child: Text(
                 name,
-                style: TextStyle(
-                  color: isPlaying ? Colors.white : Colors.white70,
-                  fontSize: 10,
-                ),
+                style: FluxForgeTheme.dockSans(color: isPlaying ? Colors.white : Colors.white70),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
@@ -13759,7 +13531,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 ),
                 child: Text(
                   '${duration.toStringAsFixed(1)}s',
-                  style: const TextStyle(fontSize: 8, color: Colors.white38, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(size: 8, color: Colors.white38),
                 ),
               ),
             // Tag badge
@@ -13773,7 +13545,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ),
               child: Text(
                 tag,
-                style: TextStyle(fontSize: 7, color: tagColor.withValues(alpha: 0.8), fontWeight: FontWeight.w600),
+                style: FluxForgeTheme.dockSans(size: 7, color: tagColor.withValues(alpha: 0.8), weight: FontWeight.w600),
               ),
             ),
             const SizedBox(width: 4),
@@ -13852,11 +13624,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       child: Center(
                         child: Text(
                           label,
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white54,
-                            fontSize: 10,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          ),
+                          style: FluxForgeTheme.dockSans(color: isSelected ? Colors.white : Colors.white54, weight: isSelected ? FontWeight.w600 : FontWeight.normal),
                         ),
                       ),
                     ),
@@ -13882,105 +13650,105 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       color: const Color(0xFF1E1E26),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       itemBuilder: (context) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusMenuItem.gameConfig,
           child: Row(
             children: [
-              Icon(Icons.settings_applications, size: 16, color: Colors.white70),
-              SizedBox(width: 8),
-              Text('Game Config', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              const Icon(Icons.settings_applications, size: 16, color: Colors.white70),
+              const SizedBox(width: 8),
+              Text('Game Config', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusMenuItem.autoSpatial,
           child: Row(
             children: [
-              Icon(Icons.surround_sound, size: 16, color: Colors.white70),
-              SizedBox(width: 8),
-              Text('AutoSpatial', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              const Icon(Icons.surround_sound, size: 16, color: Colors.white70),
+              const SizedBox(width: 8),
+              Text('AutoSpatial', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusMenuItem.scenarios,
           child: Row(
             children: [
-              Icon(Icons.theaters, size: 16, color: Colors.white70),
-              SizedBox(width: 8),
-              Text('Scenarios', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              const Icon(Icons.theaters, size: 16, color: Colors.white70),
+              const SizedBox(width: 8),
+              Text('Scenarios', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusMenuItem.commandBuilder,
           child: Row(
             children: [
-              Icon(Icons.terminal, size: 16, color: Colors.white70),
-              SizedBox(width: 8),
-              Text('Command Builder', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              const Icon(Icons.terminal, size: 16, color: Colors.white70),
+              const SizedBox(width: 8),
+              Text('Command Builder', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             ],
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusMenuItem.gadDaw,
           child: Row(
             children: [
-              Icon(Icons.videogame_asset, size: 16, color: Color(0xFF40C8FF)),
-              SizedBox(width: 8),
-              Text('Gameplay-Aware DAW', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              const Icon(Icons.videogame_asset, size: 16, color: Color(0xFF40C8FF)),
+              const SizedBox(width: 8),
+              Text('Gameplay-Aware DAW', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusMenuItem.sssQuality,
           child: Row(
             children: [
-              Icon(Icons.shield_outlined, size: 16, color: Color(0xFF4CAF50)),
-              SizedBox(width: 8),
-              Text('Scale & Stability Suite', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF4CAF50)),
+              const SizedBox(width: 8),
+              Text('Scale & Stability Suite', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             ],
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusMenuItem.rgaiCompliance,
           child: Row(
             children: [
-              Icon(Icons.shield, size: 16, color: Color(0xFFFF6B6B)),
-              SizedBox(width: 8),
-              Text('RGAI™ Compliance', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              const Icon(Icons.shield, size: 16, color: Color(0xFFFF6B6B)),
+              const SizedBox(width: 8),
+              Text('RGAI™ Compliance', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusMenuItem.spatialAudio3d,
           child: Row(
             children: [
-              Icon(Icons.surround_sound, size: 16, color: Color(0xFF7C4DFF)),
-              SizedBox(width: 8),
-              Text('3D Spatial Audio', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              const Icon(Icons.surround_sound, size: 16, color: Color(0xFF7C4DFF)),
+              const SizedBox(width: 8),
+              Text('3D Spatial Audio', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusMenuItem.abSimAnalytics,
           child: Row(
             children: [
-              Icon(Icons.science, size: 16, color: Color(0xFFFFBB33)),
-              SizedBox(width: 8),
-              Text('A/B Testing Analytics', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              const Icon(Icons.science, size: 16, color: Color(0xFFFFBB33)),
+              const SizedBox(width: 8),
+              Text('A/B Testing Analytics', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusMenuItem.ucpExport,
           child: Row(
             children: [
-              Icon(Icons.file_download, size: 16, color: Color(0xFF40C8FF)),
-              SizedBox(width: 8),
-              Text('UCP Export™', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              const Icon(Icons.file_download, size: 16, color: Color(0xFF40C8FF)),
+              const SizedBox(width: 8),
+              Text('UCP Export™', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             ],
           ),
         ),
@@ -14474,14 +14242,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           Container(
             height: 28,
             color: const Color(0xFF16161C),
-            child: const TabBar(
+            child: TabBar(
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white54,
               indicatorColor: FluxForgeTheme.accentBlue,
               indicatorSize: TabBarIndicatorSize.tab,
-              labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: TextStyle(fontSize: 10),
-              tabs: [
+              labelStyle: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600),
+              unselectedLabelStyle: FluxForgeTheme.dockSans(size: 10),
+              tabs: const [
                 Tab(text: 'Events'),
                 Tab(text: 'RTPC'),
               ],
@@ -14509,14 +14277,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           Container(
             height: 28,
             color: const Color(0xFF16161C),
-            child: const TabBar(
+            child: TabBar(
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white54,
               indicatorColor: FluxForgeTheme.accentBlue,
               indicatorSize: TabBarIndicatorSize.tab,
-              labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: TextStyle(fontSize: 10),
-              tabs: [
+              labelStyle: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600),
+              unselectedLabelStyle: FluxForgeTheme.dockSans(size: 10),
+              tabs: const [
                 Tab(text: 'Buses'),
                 Tab(text: 'Sends'),
               ],
@@ -14550,14 +14318,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           Container(
             height: 28,
             color: const Color(0xFF16161C),
-            child: const TabBar(
+            child: TabBar(
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white54,
               indicatorColor: FluxForgeTheme.accentBlue,
               indicatorSize: TabBarIndicatorSize.tab,
-              labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: TextStyle(fontSize: 10),
-              tabs: [
+              labelStyle: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600),
+              unselectedLabelStyle: FluxForgeTheme.dockSans(size: 10),
+              tabs: const [
                 Tab(text: 'Profiler'),
                 Tab(text: 'Resources'),
                 Tab(text: 'Stage Ingest'),
@@ -14639,12 +14407,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ),
             child: Text(
               'STAGE',
-              style: TextStyle(
-                color: isActive ? const Color(0xFF4A9EFF) : Colors.white38,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
+              style: FluxForgeTheme.dockSans(size: 9, color: isActive ? const Color(0xFF4A9EFF) : Colors.white38, weight: FontWeight.w600, letterSpacing: 0.5),
             ),
           ),
           const SizedBox(width: 8),
@@ -14714,12 +14477,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ),
               child: Text(
                 '${_slotLabProvider.currentStageIndex + 1}/${_slotLabProvider.lastStages.length}',
-                style: const TextStyle(
-                  color: Color(0xFF40FF90),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'monospace',
-                ),
+                style: FluxForgeTheme.dockMono(color: const Color(0xFF40FF90), weight: FontWeight.w500),
               ),
             ),
           ],
@@ -14739,11 +14497,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   const SizedBox(width: 3),
                   Text(
                     'PAUSED @ ${_slotLabProvider.currentStageIndex + 1}',
-                    style: const TextStyle(
-                      color: Color(0xFFFF9040),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFFFF9040), weight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -14859,12 +14613,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           const SizedBox(width: 6),
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFFFFD700),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
-            ),
+            style: FluxForgeTheme.dockSans(color: const Color(0xFFFFD700), weight: FontWeight.w600, letterSpacing: 1),
           ),
         ],
       ),

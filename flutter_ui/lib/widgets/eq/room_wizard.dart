@@ -526,18 +526,18 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Room Correction Wizard',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 18,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
                 Text(
                   _getStepDescription(),
-                  style: const TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textTertiary,
                   ),
                 ),
@@ -606,9 +606,9 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                         ? const Icon(Icons.check, size: 14, color: FluxForgeTheme.bgVoid)
                         : Text(
                             '${index + 1}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                            style: FluxForgeTheme.dockSans(
+                              size: 11,
+                              weight: FontWeight.bold,
                               color: isCurrent ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                             ),
                           ),
@@ -678,22 +678,22 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
 
           const SizedBox(height: 24),
 
-          const Text(
+          Text(
             'Welcome to Room Correction',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 20,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
 
           const SizedBox(height: 12),
 
-          const Text(
+          Text(
             'This wizard will help you measure and correct your room\'s '
             'acoustic problems for accurate monitoring.',
-            style: TextStyle(
-              fontSize: 14,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
               color: FluxForgeTheme.textSecondary,
               height: 1.5,
             ),
@@ -732,20 +732,20 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Quick Settings',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 12),
 
                 SwitchListTile(
-                  title: const Text(
+                  title: Text(
                     'Sub frequencies only (< 500 Hz)',
-                    style: TextStyle(fontSize: 13, color: FluxForgeTheme.textSecondary),
+                    style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textSecondary),
                   ),
                   value: _config.subOnly,
                   onChanged: (v) => setState(() {
@@ -756,9 +756,9 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                 ),
 
                 SwitchListTile(
-                  title: const Text(
+                  title: Text(
                     'Include phase correction',
-                    style: TextStyle(fontSize: 13, color: FluxForgeTheme.textSecondary),
+                    style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textSecondary),
                   ),
                   value: _config.correctPhase,
                   onChanged: (v) => setState(() {
@@ -806,16 +806,16 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    weight: FontWeight.w500,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.textTertiary,
                   ),
                 ),
@@ -829,10 +829,10 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                 color: _warningOrange.withAlpha(26),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
+              child: Text(
                 'Required',
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: _warningOrange,
                 ),
               ),
@@ -859,10 +859,10 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Input Level',
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textTertiary,
                   ),
                 ),
@@ -879,11 +879,11 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text('-60 dB', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textDisabled)),
-                    Text('-30 dB', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textDisabled)),
-                    Text('-12 dB', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textDisabled)),
-                    Text('0 dB', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textDisabled)),
+                  children: [
+                    Text('-60 dB', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textDisabled)),
+                    Text('-30 dB', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textDisabled)),
+                    Text('-12 dB', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textDisabled)),
+                    Text('0 dB', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textDisabled)),
                   ],
                 ),
               ],
@@ -892,11 +892,11 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
 
           const SizedBox(height: 24),
 
-          const Text(
+          Text(
             'Microphone Setup',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -933,21 +933,21 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
               children: [
                 const Icon(Icons.file_upload, color: FluxForgeTheme.textTertiary),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Load Calibration File',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                        style: FluxForgeTheme.dockSans(
+                          size: 13,
+                          weight: FontWeight.w500,
                           color: FluxForgeTheme.textPrimary,
                         ),
                       ),
                       Text(
                         'Optional: Load microphone calibration (.txt)',
-                        style: TextStyle(fontSize: 11, color: FluxForgeTheme.textTertiary),
+                        style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
                       ),
                     ],
                   ),
@@ -1057,9 +1057,9 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
             child: Center(
               child: Text(
                 '$number',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
+                  weight: FontWeight.bold,
                   color: _accentBlue,
                 ),
               ),
@@ -1072,17 +1072,17 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    weight: FontWeight.w500,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.textTertiary,
                   ),
                 ),
@@ -1121,11 +1121,11 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
           const SizedBox(height: 16),
 
           // Position selector
-          const Text(
+          Text(
             'Measurement Position',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -1160,8 +1160,8 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                         ),
                       Text(
                         _getPositionName(pos),
-                        style: TextStyle(
-                          fontSize: 12,
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
                           color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
                         ),
                       ),
@@ -1202,11 +1202,11 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                         },
                       ),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         'Measuring...',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        style: FluxForgeTheme.dockSans(
+                          size: 14,
+                          weight: FontWeight.w500,
                           color: FluxForgeTheme.textPrimary,
                         ),
                       ),
@@ -1221,8 +1221,8 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                   const SizedBox(height: 8),
                   Text(
                     'Playing sweep: ${(_measurementProgress * 100).toInt()}%',
-                    style: const TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: FluxForgeTheme.textTertiary,
                     ),
                   ),
@@ -1249,11 +1249,11 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
 
           // Measurement list
           if (_measurements.isNotEmpty) ...[
-            const Text(
+            Text(
               'Completed Measurements',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 14,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.textPrimary,
               ),
             ),
@@ -1300,12 +1300,12 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
       ),
       title: Text(
         _getPositionName(measurement.position),
-        style: const TextStyle(fontSize: 13, color: FluxForgeTheme.textPrimary),
+        style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textPrimary),
       ),
       subtitle: Text(
         'RT60: ${measurement.rt60.toStringAsFixed(2)}s • '
         '${measurement.problems.length} issues found',
-        style: const TextStyle(fontSize: 11, color: FluxForgeTheme.textTertiary),
+        style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
       ),
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline, color: FluxForgeTheme.textDisabled, size: 20),
@@ -1370,11 +1370,11 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
           const SizedBox(height: 24),
 
           // Detected problems
-          const Text(
+          Text(
             'Detected Problems',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -1404,11 +1404,11 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
           const SizedBox(height: 24),
 
           // Room statistics
-          const Text(
+          Text(
             'Room Statistics',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -1447,8 +1447,8 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textTertiary,
           ),
         ),
@@ -1513,17 +1513,17 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
               children: [
                 Text(
                   problem.description,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    weight: FontWeight.w500,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   problem.suggestion,
-                  style: const TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.textTertiary,
                   ),
                 ),
@@ -1538,9 +1538,8 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
             ),
             child: Text(
               '${problem.frequency.toInt()} Hz',
-              style: const TextStyle(
-                fontSize: 11,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -1558,13 +1557,12 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 13, color: FluxForgeTheme.textTertiary),
+            style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textTertiary),
           ),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 13,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -1579,18 +1577,18 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Select Target Curve',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Choose the frequency response you want to achieve.',
-            style: TextStyle(fontSize: 13, color: FluxForgeTheme.textTertiary),
+            style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textTertiary),
           ),
 
           const SizedBox(height: 24),
@@ -1601,11 +1599,11 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
 
           // Advanced settings
           ExpansionTile(
-            title: const Text(
+            title: Text(
               'Advanced Settings',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 14,
+                weight: FontWeight.w500,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -1725,16 +1723,16 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 14,
+                      weight: FontWeight.w500,
                       color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
                     ),
                   ),
                   Text(
                     description,
-                    style: const TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: FluxForgeTheme.textTertiary,
                     ),
                   ),
@@ -1775,7 +1773,7 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 12, color: FluxForgeTheme.textTertiary),
+              style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textTertiary),
             ),
           ),
           Expanded(
@@ -1792,9 +1790,8 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
             width: 50,
             child: Text(
               '${value.toStringAsFixed(1)} $unit',
-              style: const TextStyle(
-                fontSize: 11,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -1880,11 +1877,11 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Correction Summary',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
@@ -1917,9 +1914,9 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+          style: FluxForgeTheme.dockSans(
+            size: 13,
+            weight: FontWeight.w500,
             color: isActive ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
           ),
         ),
@@ -1967,22 +1964,22 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
 
           const SizedBox(height: 24),
 
-          const Text(
+          Text(
             'Ready to Apply!',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 20,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
 
           const SizedBox(height: 8),
 
-          const Text(
+          Text(
             'Your room correction is ready. Choose how to apply it.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -2061,16 +2058,16 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 14,
+                      weight: FontWeight.w500,
                       color: FluxForgeTheme.textPrimary,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
                       color: FluxForgeTheme.textTertiary,
                     ),
                   ),

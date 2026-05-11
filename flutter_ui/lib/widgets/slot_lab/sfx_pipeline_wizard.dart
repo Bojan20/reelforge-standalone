@@ -140,12 +140,12 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
         children: [
           const Icon(Icons.auto_fix_high, color: FluxForgeTheme.accentCyan, size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'SFX PIPELINE WIZARD',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.accentCyan,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+              size: 13,
+              weight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),
@@ -165,7 +165,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 const SizedBox(width: 6),
                 Text(
                   '${provider.progress.currentFilename ?? "Processing..."}',
-                  style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
                 ),
               ],
             ),
@@ -201,7 +201,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
             const SizedBox(width: 4),
             Text(
               provider.preset.name,
-              style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
             ),
             const SizedBox(width: 4),
             const Icon(Icons.arrow_drop_down, size: 14, color: FluxForgeTheme.textTertiary),
@@ -211,7 +211,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
       itemBuilder: (_) => [
         ...SfxBuiltInPresets.all.map((preset) => PopupMenuItem(
               value: preset,
-              child: Text(preset.name, style: const TextStyle(fontSize: 12, color: Colors.white)),
+              child: Text(preset.name, style: FluxForgeTheme.dockSans(size: 12, color: Colors.white)),
             )),
       ],
       onSelected: (preset) {
@@ -277,17 +277,17 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                         ? Icon(Icons.check, size: 12, color: color)
                         : Text(
                             '${stepIdx + 1}',
-                            style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700),
+                            style: FluxForgeTheme.dockSans(color: color, size: 10, weight: FontWeight.w700),
                           ),
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   step.label,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: color,
-                    fontSize: 10,
-                    fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                    size: 10,
+                    weight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -358,7 +358,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 )),
                 _paramRow('Filter', child: Text(
                   provider.preset.fileFilter,
-                  style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textSecondary, size: 11),
                 )),
                 const SizedBox(height: 12),
                 // Scan button
@@ -380,7 +380,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
           child: _stepPanel(
             'SCAN RESULTS  (${provider.selectedCount}/${provider.totalScanned} selected)',
             child: provider.scanResults.isEmpty
-                ? const Center(child: Text('No files scanned yet', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)))
+                ? Center(child: Text('No files scanned yet', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 12)))
                 : Column(
                     children: [
                       // Stats bar
@@ -452,9 +452,9 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 Expanded(
                   child: Text(
                     file.filename,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: file.selected ? Colors.white : FluxForgeTheme.textTertiary,
-                      fontSize: 11,
+                      size: 11,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -465,15 +465,15 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 // Format info
                 Text(
                   '${file.channelLabel} ${file.formatLabel}',
-                  style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textTertiary, size: 9),
                 ),
                 const SizedBox(width: 4),
                 // LUFS
                 Text(
                   '${file.integratedLufs.toStringAsFixed(1)}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: file.isQuiet ? FluxForgeTheme.accentOrange : FluxForgeTheme.textSecondary,
-                    fontSize: 9, fontFamily: 'monospace',
+                    size: 9,
                   ),
                 ),
                 // Warning indicators
@@ -528,9 +528,9 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 (v) => provider.updatePreset((p) => p.copyWith(paddingAfterMs: v)),
               )),
               const Divider(color: FluxForgeTheme.bgElevated, height: 12),
-              const Text('SKIP TRIM FOR:', style: TextStyle(
-                color: FluxForgeTheme.textTertiary, fontSize: 9,
-                fontWeight: FontWeight.w600, letterSpacing: 1,
+              Text('SKIP TRIM FOR:', style: FluxForgeTheme.dockSans(
+                color: FluxForgeTheme.textTertiary, size: 9,
+                weight: FontWeight.w600, letterSpacing: 1,
               )),
               const SizedBox(height: 4),
               ...SfxCategory.values.where((c) => c != SfxCategory.unknown).map((cat) =>
@@ -743,7 +743,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
         padding: const EdgeInsets.all(8),
         child: Center(
           child: Text('No files selected — scan files in Step 1',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11)),
         ),
       );
     }
@@ -773,15 +773,15 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
             ),
             child: Row(
               children: [
-                const Text('LIVE PREVIEW', style: TextStyle(
+                Text('LIVE PREVIEW', style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                  size: 10,
+                  weight: FontWeight.w700,
                   letterSpacing: 0.8,
                 )),
                 const SizedBox(width: 8),
-                Text('${files.length} files', style: const TextStyle(
-                  color: FluxForgeTheme.textTertiary, fontSize: 9,
+                Text('${files.length} files', style: FluxForgeTheme.dockSans(
+                  color: FluxForgeTheme.textTertiary, size: 9,
                 )),
                 const Spacer(),
                 // Per-category summary chips
@@ -795,7 +795,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                   Padding(
                     padding: const EdgeInsets.only(left: 4),
                     child: Text('${catCounts[SfxCategory.unknown]} ?',
-                      style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 8)),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 8)),
                   ),
               ],
             ),
@@ -807,7 +807,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
             decoration: BoxDecoration(
               color: FluxForgeTheme.bgDeep.withValues(alpha: 0.5),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 SizedBox(width: 180, child: Text('FILENAME', style: _previewHeaderStyle)),
                 SizedBox(width: 80, child: Text('CATEGORY', style: _previewHeaderStyle)),
@@ -878,11 +878,11 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                         width: 180,
                         child: Text(
                           file.filename,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: isUnknownCat
                                 ? FluxForgeTheme.textTertiary
                                 : Colors.white,
-                            fontSize: 10,
+                            size: 10,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -891,9 +891,8 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                       SizedBox(
                         width: 80,
                         child: cat == SfxCategory.unknown
-                            ? Text('—', style: TextStyle(
-                                color: FluxForgeTheme.textTertiary, fontSize: 9,
-                                fontStyle: FontStyle.italic))
+                            ? Text('—', style: FluxForgeTheme.dockSans(
+                                color: FluxForgeTheme.textTertiary, size: 9).copyWith(fontStyle: FontStyle.italic))
                             : _categoryBadge(cat),
                       ),
                       // Current level (LUFS for LUFS mode, peak dBFS for Peak/TruePeak)
@@ -903,36 +902,36 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                           isLufs || preset.normMode == SfxNormMode.none
                               ? '${file.integratedLufs.toStringAsFixed(1)}'
                               : '${file.peakDbfs.toStringAsFixed(1)}',
-                          style: const TextStyle(
+                          style: FluxForgeTheme.dockMono(
                             color: FluxForgeTheme.textSecondary,
-                            fontSize: 10, fontFamily: 'monospace',
+                            size: 10,
                           ),
                         ),
                       ),
                       // Arrow
                       SizedBox(
                         width: 16,
-                        child: Text('→', style: TextStyle(
+                        child: Text('→', style: FluxForgeTheme.dockSans(
                           color: preset.normMode == SfxNormMode.none
                               ? FluxForgeTheme.textTertiary
                               : FluxForgeTheme.textSecondary,
-                          fontSize: 9,
+                          size: 9,
                         )),
                       ),
                       // Target level
                       SizedBox(
                         width: 60,
                         child: preset.normMode == SfxNormMode.none
-                            ? const Text('—', style: TextStyle(
-                                color: FluxForgeTheme.textTertiary, fontSize: 10))
+                            ? Text('—', style: FluxForgeTheme.dockSans(
+                                color: FluxForgeTheme.textTertiary, size: 10))
                             : Text(
                                 '${targetDisplay.toStringAsFixed(1)}',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockMono(
                                   color: hasOverride
                                       ? FluxForgeTheme.accentCyan
                                       : FluxForgeTheme.textSecondary,
-                                  fontSize: 10, fontFamily: 'monospace',
-                                  fontWeight: hasOverride ? FontWeight.w700 : FontWeight.normal,
+                                  size: 10,
+                                  weight: hasOverride ? FontWeight.w700 : FontWeight.normal,
                                 ),
                               ),
                       ),
@@ -943,9 +942,9 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                             ? const SizedBox.shrink()
                             : Text(
                                 '${gainDelta >= 0 ? "+" : ""}${gainDelta.toStringAsFixed(1)} dB',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockMono(
                                   color: gainColor,
-                                  fontSize: 10, fontFamily: 'monospace',
+                                  size: 10,
                                 ),
                               ),
                       ),
@@ -982,10 +981,10 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
     );
   }
 
-  static const _previewHeaderStyle = TextStyle(
+  static TextStyle get _previewHeaderStyle => FluxForgeTheme.dockSans(
     color: FluxForgeTheme.textTertiary,
-    fontSize: 8,
-    fontWeight: FontWeight.w700,
+    size: 8,
+    weight: FontWeight.w700,
     letterSpacing: 0.6,
   );
 
@@ -1052,7 +1051,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
               width: 120,
               child: Text(
                 cat.displayName,
-                style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
               ),
             ),
             Expanded(
@@ -1100,11 +1099,10 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: selected ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-            fontFamily: 'monospace',
+            size: 10,
+            weight: selected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -1164,9 +1162,9 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
               _miniBtn('Auto-Match', () => _handleAutoMatch(provider)),
             ],
             child: provider.stageMappings.isEmpty
-                ? const Center(child: Text(
+                ? Center(child: Text(
                     'Run Auto-Match to map files to stages',
-                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 12),
                   ))
                 : _buildStageMappingList(provider),
           ),
@@ -1202,7 +1200,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 flex: 5,
                 child: Text(
                   mapping.sourceFilename,
-                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: Colors.white, size: 11),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1214,10 +1212,9 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 flex: 4,
                 child: Text(
                   mapping.stageId ?? '—',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: mapping.isMatched ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
-                    fontSize: 11,
-                    fontFamily: 'monospace',
+                    size: 11,
                   ),
                 ),
               ),
@@ -1226,7 +1223,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 mapping.isManualOverride
                     ? '✋'
                     : '${(mapping.confidence * 100).toInt()}%',
-                style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9),
               ),
             ],
           ),
@@ -1299,9 +1296,9 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 const SizedBox(height: 8),
                 _buildProgressLog(provider),
               ] else
-                const Center(child: Text(
+                Center(child: Text(
                   'Configure settings and click Execute',
-                  style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 12),
                 )),
               if (provider.errorMessage != null) ...[
                 const SizedBox(height: 8),
@@ -1314,7 +1311,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                   ),
                   child: Text(
                     provider.errorMessage!,
-                    style: const TextStyle(color: FluxForgeTheme.accentRed, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed, size: 11),
                   ),
                 ),
               ],
@@ -1338,11 +1335,11 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
           children: [
             Text(
               progress.currentStep.displayName,
-              style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
             ),
             Text(
               '${progress.currentFileIndex}/${progress.totalFiles}',
-              style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textTertiary, size: 10),
             ),
           ],
         ),
@@ -1358,7 +1355,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
           const SizedBox(height: 2),
           Text(
             progress.currentFilename!,
-            style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -1400,7 +1397,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
           const SizedBox(height: 4),
           Text(
             'Pipeline Complete — ${result?.successCount ?? 0} files processed',
-            style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 13, fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentGreen, size: 13, weight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Row(
@@ -1437,7 +1434,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
           // Step description
           Text(
             _steps[provider.currentStep.index].description,
-            style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11),
           ),
           const Spacer(),
           // Navigation buttons
@@ -1526,8 +1523,8 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgSurface,
-          title: const Text('Cancel Pipeline?', style: TextStyle(color: Colors.white, fontSize: 14)),
-          content: const Text('Processing is in progress. Cancel?', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
+          title: Text('Cancel Pipeline?', style: FluxForgeTheme.dockSans(color: Colors.white, size: 14)),
+          content: Text('Processing is in progress. Cancel?', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
@@ -1573,10 +1570,10 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
               ),
               child: Row(
                 children: [
-                  Text(title, style: const TextStyle(
+                  Text(title, style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    size: 10,
+                    weight: FontWeight.w700,
                     letterSpacing: 0.8,
                   )),
                   const Spacer(),
@@ -1603,9 +1600,9 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label, style: const TextStyle(
+            child: Text(label, style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
+              size: 11,
             )),
           ),
           Expanded(child: child),
@@ -1666,7 +1663,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
           width: 60,
           child: Text(
             '${value.toStringAsFixed(1)} $unit',
-            style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textSecondary, size: 10),
             textAlign: TextAlign.right,
           ),
         ),
@@ -1689,7 +1686,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
         isExpanded: true,
         underline: const SizedBox.shrink(),
         dropdownColor: FluxForgeTheme.bgSurface,
-        style: const TextStyle(color: Colors.white, fontSize: 11),
+        style: FluxForgeTheme.dockSans(color: Colors.white, size: 11),
         items: values.map((v) => DropdownMenuItem(value: v, child: Text(labelOf(v)))).toList(),
         onChanged: (v) { if (v != null) onChanged(v); },
       ),
@@ -1701,12 +1698,12 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
       height: 24,
       child: TextField(
         controller: controller,
-        style: const TextStyle(color: Colors.white, fontSize: 11),
+        style: FluxForgeTheme.dockSans(color: Colors.white, size: 11),
         decoration: InputDecoration(
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           hintText: hint,
-          hintStyle: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+          hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11),
           filled: true,
           fillColor: FluxForgeTheme.bgSurface,
           border: OutlineInputBorder(
@@ -1742,10 +1739,10 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
           children: [
             Icon(icon, size: large ? 16 : 14, color: enabled ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(
+            Text(label, style: FluxForgeTheme.dockSans(
               color: enabled ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
-              fontSize: large ? 13 : 11,
-              fontWeight: FontWeight.w700,
+              size: large ? 13 : 11,
+              weight: FontWeight.w700,
               letterSpacing: 0.5,
             )),
           ],
@@ -1769,7 +1766,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
           children: [
             Icon(icon, size: 12, color: FluxForgeTheme.textSecondary),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10)),
+            Text(label, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 10)),
           ],
         ),
       ),
@@ -1786,10 +1783,10 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: primary ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgElevated),
         ),
-        child: Text(label, style: TextStyle(
+        child: Text(label, style: FluxForgeTheme.dockSans(
           color: primary ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+          size: 11,
+          weight: FontWeight.w600,
         )),
       ),
     );
@@ -1805,7 +1802,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
           color: FluxForgeTheme.bgSurface,
           borderRadius: BorderRadius.circular(3),
         ),
-        child: Text(label, style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
+        child: Text(label, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
       ),
     );
   }
@@ -1818,7 +1815,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
         color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(3),
       ),
-      child: Text(text, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
+      child: Text(text, style: FluxForgeTheme.dockSans(color: color, size: 9, weight: FontWeight.w600)),
     );
   }
 
@@ -1828,8 +1825,8 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label: ', style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
-          Text(value, style: TextStyle(color: color ?? FluxForgeTheme.textSecondary, fontSize: 9, fontFamily: 'monospace')),
+          Text('$label: ', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
+          Text(value, style: FluxForgeTheme.dockMono(color: color ?? FluxForgeTheme.textSecondary, size: 9)),
         ],
       ),
     );
@@ -1869,7 +1866,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
       ),
       child: Text(
         cat.displayName.split(' ').first,
-        style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w600),
+        style: FluxForgeTheme.dockSans(color: color, size: 8, weight: FontWeight.w600),
       ),
     );
   }
@@ -1881,7 +1878,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
         children: [
           Container(width: 4, height: 4, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
           const SizedBox(width: 6),
-          Expanded(child: Text(text, style: TextStyle(color: color, fontSize: 11))),
+          Expanded(child: Text(text, style: FluxForgeTheme.dockSans(color: color, size: 11))),
         ],
       ),
     );
