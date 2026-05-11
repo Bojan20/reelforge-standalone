@@ -80,10 +80,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
         const SizedBox(width: 8),
         Text(
           'Music System',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -101,10 +101,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
               const SizedBox(width: 4),
               Text(
                 '120 BPM',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.pink,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -129,7 +129,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
         ),
         labelColor: Colors.pink,
         unselectedLabelColor: FluxForgeTheme.textSecondary,
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        labelStyle: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold),
         tabs: const [
           Tab(text: 'Segments'),
           Tab(text: 'Stingers'),
@@ -177,7 +177,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                 const SizedBox(width: 8),
                 Text(
                   'Add Segment',
-                  style: TextStyle(color: Colors.green, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(color: Colors.green, size: 12),
                 ),
               ],
             ),
@@ -233,10 +233,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                                   Expanded(
                                     child: Text(
                                       segment.name,
-                                      style: TextStyle(
+                                      style: FluxForgeTheme.dockSans(
                                         color: FluxForgeTheme.textPrimary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                        size: 12,
+                                        weight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
@@ -294,10 +294,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
               const SizedBox(width: 8),
               Text(
                 segment.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  size: 14,
+                  weight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -365,10 +365,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
           // Cue points
           Text(
             'Cue Points',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -405,10 +405,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
           // Loop region
           Text(
             'Loop Region',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -447,10 +447,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
             children: [
               Text(
                 'Markers',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  size: 11,
+                  weight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -470,7 +470,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                       const SizedBox(width: 4),
                       Text(
                         'Add Marker',
-                        style: TextStyle(color: Colors.cyan, fontSize: 10),
+                        style: FluxForgeTheme.dockSans(color: Colors.cyan, size: 10),
                       ),
                     ],
                   ),
@@ -485,7 +485,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                 ? Center(
                     child: Text(
                       'No markers',
-                      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
                     ),
                   )
                 : ListView.builder(
@@ -510,9 +510,9 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                               ),
                               child: Text(
                                 marker.markerType.displayName,
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
                                   color: _getMarkerColor(marker.markerType),
-                                  fontSize: 9,
+                                  size: 9,
                                 ),
                               ),
                             ),
@@ -520,17 +520,17 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                             Expanded(
                               child: Text(
                                 marker.name,
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
                                   color: FluxForgeTheme.textPrimary,
-                                  fontSize: 11,
+                                  size: 11,
                                 ),
                               ),
                             ),
                             Text(
                               '${marker.positionBars.toStringAsFixed(1)} bars',
-                              style: TextStyle(
+                              style: FluxForgeTheme.dockSans(
                                 color: FluxForgeTheme.textSecondary,
-                                fontSize: 10,
+                                size: 10,
                               ),
                             ),
                           ],
@@ -596,7 +596,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                 const SizedBox(width: 8),
                 Text(
                   'Add Stinger',
-                  style: TextStyle(color: Colors.green, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(color: Colors.green, size: 12),
                 ),
               ],
             ),
@@ -652,10 +652,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                                   Expanded(
                                     child: Text(
                                       stinger.name,
-                                      style: TextStyle(
+                                      style: FluxForgeTheme.dockSans(
                                         color: FluxForgeTheme.textPrimary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                        size: 12,
+                                        weight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
@@ -711,10 +711,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
               const SizedBox(width: 8),
               Text(
                 stinger.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  size: 14,
+                  weight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -738,10 +738,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
           // Sync point selector
           Text(
             'Sync Point',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -767,10 +767,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                   ),
                   child: Text(
                     syncPoint.displayName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isActive ? Colors.cyan : FluxForgeTheme.textSecondary,
-                      fontSize: 11,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                      size: 11,
+                      weight: isActive ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -799,10 +799,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
           // Ducking settings
           Text(
             'Music Ducking',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -871,7 +871,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                 children: [
                   Text(
                     'Can Interrupt',
-                    style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 10),
                   ),
                   const SizedBox(height: 8),
                   GestureDetector(
@@ -929,9 +929,9 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: color,
-          fontSize: 9,
+          size: 9,
         ),
       ),
     );
@@ -952,7 +952,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
             const SizedBox(height: 8),
             Text(
               message,
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             ),
           ],
         ),
@@ -973,7 +973,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
       children: [
         Text(
           label,
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 10),
         ),
         const SizedBox(height: 4),
         Row(
@@ -1000,10 +1000,10 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
               child: Text(
                 value.toStringAsFixed(0),
                 textAlign: TextAlign.right,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  size: 11,
+                  weight: FontWeight.bold,
                 ),
               ),
             ),
@@ -1029,11 +1029,11 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
           children: [
             Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 10),
             ),
             Text(
               '${value.toStringAsFixed(1)} $unit',
-              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+              style: FluxForgeTheme.dockSans(color: color, size: 10, weight: FontWeight.bold),
             ),
           ],
         ),
@@ -1063,12 +1063,12 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.surfaceDark,
-        title: Text('Add Segment', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Add Segment', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           decoration: InputDecoration(
             labelText: 'Segment Name',
-            labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+            labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             enabledBorder: OutlineInputBorder(
               borderSide: BorderSide(color: FluxForgeTheme.border),
             ),
@@ -1076,13 +1076,13 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
               borderSide: BorderSide(color: Colors.pink),
             ),
           ),
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -1091,7 +1091,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                 Navigator.pop(ctx);
               }
             },
-            child: Text('Add', style: TextStyle(color: Colors.pink)),
+            child: Text('Add', style: FluxForgeTheme.dockSans(color: Colors.pink)),
           ),
         ],
       ),
@@ -1106,12 +1106,12 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.surfaceDark,
-        title: Text('Add Stinger', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Add Stinger', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           decoration: InputDecoration(
             labelText: 'Stinger Name',
-            labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+            labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             enabledBorder: OutlineInputBorder(
               borderSide: BorderSide(color: FluxForgeTheme.border),
             ),
@@ -1119,13 +1119,13 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
               borderSide: BorderSide(color: Colors.orange),
             ),
           ),
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -1134,7 +1134,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                 Navigator.pop(ctx);
               }
             },
-            child: Text('Add', style: TextStyle(color: Colors.orange)),
+            child: Text('Add', style: FluxForgeTheme.dockSans(color: Colors.orange)),
           ),
         ],
       ),
@@ -1151,7 +1151,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
           backgroundColor: FluxForgeTheme.surfaceDark,
-          title: Text('Add Marker', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+          title: Text('Add Marker', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1159,7 +1159,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                 controller: controller,
                 decoration: InputDecoration(
                   labelText: 'Marker Name',
-                  labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+                  labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: FluxForgeTheme.border),
                   ),
@@ -1167,7 +1167,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                     borderSide: BorderSide(color: Colors.cyan),
                   ),
                 ),
-                style: TextStyle(color: FluxForgeTheme.textPrimary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
               ),
               const SizedBox(height: 16),
               Row(
@@ -1193,11 +1193,11 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                         child: Text(
                           type.displayName,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: isActive
                                 ? _getMarkerColor(type)
                                 : FluxForgeTheme.textSecondary,
-                            fontSize: 10,
+                            size: 10,
                           ),
                         ),
                       ),
@@ -1210,7 +1210,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+              child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
             ),
             TextButton(
               onPressed: () {
@@ -1224,7 +1224,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
                   Navigator.pop(ctx);
                 }
               },
-              child: Text('Add', style: TextStyle(color: Colors.cyan)),
+              child: Text('Add', style: FluxForgeTheme.dockSans(color: Colors.cyan)),
             ),
           ],
         ),

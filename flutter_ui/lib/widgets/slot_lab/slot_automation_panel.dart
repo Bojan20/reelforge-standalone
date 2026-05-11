@@ -115,10 +115,10 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
               const SizedBox(width: 8),
               Text(
                 'Reel Set Generator',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -126,9 +126,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
           const SizedBox(height: 4),
           Text(
             'Drop one audio file → Generate events for all reels with auto-pan',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textMuted,
-              fontSize: 11,
             ),
           ),
 
@@ -148,7 +148,7 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
             children: [
               Text(
                 'Reels:',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
               ),
               Expanded(
                 child: Slider(
@@ -163,10 +163,10 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
               ),
               Text(
                 '$_reelCount',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -227,10 +227,10 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
               const SizedBox(width: 8),
               Text(
                 'Win Tier Escalation',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -238,9 +238,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
           const SizedBox(height: 4),
           Text(
             'Assign audio to each win tier with automatic volume scaling',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textMuted,
-              fontSize: 11,
             ),
           ),
 
@@ -307,10 +307,10 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
             ),
             child: Text(
               tier.name.toUpperCase(),
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: _winTierColor(tier),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+                weight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
             ),
@@ -321,10 +321,7 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
           // Volume indicator
           Text(
             '${((volumeScale[tier] ?? 1.0) * 100).round()}%',
-            style: TextStyle(
-              color: FluxForgeTheme.textMuted,
-              fontSize: 10,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textMuted),
           ),
 
           const SizedBox(width: 8),
@@ -334,19 +331,18 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
             child: path != null
                 ? Text(
                     path.split('/').last,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 11,
                     ),
                     overflow: TextOverflow.ellipsis,
                   )
                 : Text(
                     'Drop ${tier.name} win audio',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: FluxForgeTheme.textMuted,
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                    ),
+                    ).copyWith(fontStyle: FontStyle.italic),
                   ),
           ),
 
@@ -413,10 +409,10 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
               const SizedBox(width: 8),
               Text(
                 'Flow Templates',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -424,9 +420,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
           const SizedBox(height: 4),
           Text(
             'One-click templates for common slot audio flows',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textMuted,
-              fontSize: 11,
             ),
           ),
 
@@ -478,27 +474,24 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
           ),
           child: Text(
             template.category.name.toUpperCase(),
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+              weight: FontWeight.w600,
             ),
           ),
         ),
         title: Text(
           template.name,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 13,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+            weight: FontWeight.w500,
           ),
         ),
         subtitle: Text(
           '$requiredCount required, $optionalCount optional stages',
-          style: TextStyle(
-            color: FluxForgeTheme.textMuted,
-            fontSize: 10,
-          ),
+          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textMuted),
         ),
         children: [
           Container(
@@ -508,9 +501,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
               children: [
                 Text(
                   template.description,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 11,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -529,10 +522,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
                         const SizedBox(width: 6),
                         Text(
                           stage.stage,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
+                            size: 11,
                             color: FluxForgeTheme.textPrimary,
-                            fontSize: 11,
-                            fontFamily: 'monospace',
                           ),
                         ),
                         const Spacer(),
@@ -607,10 +599,10 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
               const SizedBox(width: 8),
               Text(
                 'Batch Import',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -618,9 +610,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
           const SizedBox(height: 4),
           Text(
             'Drop multiple audio files → Auto-analyze → Preview → Commit all',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textMuted,
-              fontSize: 11,
             ),
           ),
 
@@ -635,9 +627,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
           if (_batchAnalysis != null) ...[
             Text(
               _batchAnalysis!.summary,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
               ),
             ),
             const SizedBox(height: 8),
@@ -660,9 +652,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
                         Expanded(
                           child: Text(
                             w,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 11,
                               color: FluxForgeTheme.accentOrange,
-                              fontSize: 11,
                             ),
                           ),
                         ),
@@ -708,16 +700,16 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
                     const SizedBox(height: 12),
                     Text(
                       'Drop audio files or folder here',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
                         color: FluxForgeTheme.textMuted,
-                        fontSize: 13,
                       ),
                     ),
                     Text(
                       'Smart parser will auto-detect stages',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: FluxForgeTheme.textMuted.withValues(alpha: 0.7),
-                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -767,7 +759,7 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
                   _batchPaths.isEmpty
                       ? 'Drop audio files here'
                       : '${_batchPaths.length} files loaded (drop more to add)',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isHovering ? FluxForgeTheme.accentPurple : FluxForgeTheme.textSecondary,
                   ),
                 ),
@@ -780,7 +772,7 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
                     }),
                     child: Text(
                       'Clear',
-                      style: TextStyle(color: FluxForgeTheme.accentRed, fontSize: 12),
+                      style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.accentRed),
                     ),
                   ),
                 ],
@@ -810,10 +802,7 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
             width: 24,
             child: Text(
               '${index + 1}',
-              style: TextStyle(
-                color: FluxForgeTheme.textMuted,
-                fontSize: 10,
-              ),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textMuted),
             ),
           ),
 
@@ -822,10 +811,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
             flex: 2,
             child: Text(
               event.stage,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 11,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -839,10 +827,7 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
             ),
             child: Text(
               category,
-              style: TextStyle(
-                color: FluxForgeTheme.accentBlue,
-                fontSize: 9,
-              ),
+              style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentBlue),
             ),
           ),
 
@@ -851,9 +836,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
           // Confidence
           Text(
             '${confidence.round()}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: confidence > 70 ? FluxForgeTheme.accentGreen : FluxForgeTheme.textMuted,
-              fontSize: 10,
             ),
           ),
 
@@ -869,10 +854,10 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
               ),
               child: Text(
                 'STOP',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: FluxForgeTheme.accentRed,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
             ),
@@ -942,9 +927,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
                       const SizedBox(height: 4),
                       Text(
                         currentPath.split('/').last,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
                           color: FluxForgeTheme.textPrimary,
-                          fontSize: 12,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -960,9 +945,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
                       const SizedBox(height: 4),
                       Text(
                         label,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
                           color: isHovering ? FluxForgeTheme.accentBlue : FluxForgeTheme.textMuted,
-                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -989,20 +974,19 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              weight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 4),
           ...items.map((item) {
             return Text(
               '  • $item',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textMuted,
-                fontSize: 10,
-                fontFamily: 'monospace',
               ),
             );
           }),
@@ -1044,7 +1028,7 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
             const SizedBox(width: 8),
             Text(
               'Events Generated',
-              style: TextStyle(color: FluxForgeTheme.textPrimary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
             ),
           ],
         ),
@@ -1054,14 +1038,14 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
           children: [
             Text(
               result.summary,
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             ),
             const SizedBox(height: 16),
             Text(
               '${result.eventCount} events ready to commit',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.accentGreen,
-                fontWeight: FontWeight.w600,
+                weight: FontWeight.w600,
               ),
             ),
             if (result.warnings.isNotEmpty) ...[
@@ -1075,9 +1059,9 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
                     Expanded(
                       child: Text(
                         w,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
                           color: FluxForgeTheme.accentOrange,
-                          fontSize: 12,
                         ),
                       ),
                     ),
@@ -1092,7 +1076,7 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
               'Close',
-              style: TextStyle(color: FluxForgeTheme.textMuted),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
             ),
           ),
           ElevatedButton(
@@ -1195,7 +1179,7 @@ class _TemplateWizardDialogState extends State<_TemplateWizardDialog> {
       backgroundColor: FluxForgeTheme.surfaceDark,
       title: Text(
         'Apply: ${widget.template.name}',
-        style: TextStyle(color: FluxForgeTheme.textPrimary),
+        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
       ),
       content: SizedBox(
         width: 500,
@@ -1205,16 +1189,16 @@ class _TemplateWizardDialogState extends State<_TemplateWizardDialog> {
           children: [
             Text(
               widget.template.description,
-              style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
             ),
             const SizedBox(height: 8),
             Text(
               '$filledCount / $requiredCount required stages filled',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: filledCount >= requiredCount
                     ? FluxForgeTheme.accentGreen
                     : FluxForgeTheme.textSecondary,
-                fontSize: 12,
               ),
             ),
             const SizedBox(height: 16),
@@ -1234,7 +1218,7 @@ class _TemplateWizardDialogState extends State<_TemplateWizardDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textMuted)),
+          child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted)),
         ),
         ElevatedButton(
           onPressed: filledCount >= requiredCount
@@ -1311,10 +1295,9 @@ class _TemplateWizardDialogState extends State<_TemplateWizardDialog> {
                 width: 150,
                 child: Text(
                   stage.stage,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 11,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ),
@@ -1342,9 +1325,9 @@ class _TemplateWizardDialogState extends State<_TemplateWizardDialog> {
                             Expanded(
                               child: Text(
                                 path.split('/').last,
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
+                                  size: 11,
                                   color: FluxForgeTheme.textSecondary,
-                                  fontSize: 11,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1359,11 +1342,10 @@ class _TemplateWizardDialogState extends State<_TemplateWizardDialog> {
                         )
                       : Text(
                           stage.hint.isNotEmpty ? stage.hint : 'Drop audio here',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
                             color: FluxForgeTheme.textMuted,
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic,
-                          ),
+                          ).copyWith(fontStyle: FontStyle.italic),
                         ),
                 ),
               ),

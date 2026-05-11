@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../services/gdd_import_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Dialog that displays the imported GDD configuration with comprehensive preview
 class GddPreviewDialog extends StatefulWidget {
@@ -152,10 +153,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
               children: [
                 Text(
                   gdd.name,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 28,
                     color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
+                    weight: FontWeight.bold,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -213,10 +214,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
       ),
       child: Text(
         text,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 11,
           color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
+          weight: FontWeight.bold,
           letterSpacing: 0.5,
         ),
       ),
@@ -241,9 +242,9 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
         indicatorWeight: 3,
         labelColor: const Color(0xFF4a9eff),
         unselectedLabelColor: Colors.white54,
-        labelStyle: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
+        labelStyle: FluxForgeTheme.dockSans(
+          size: 13,
+          weight: FontWeight.w600,
           letterSpacing: 0.5,
         ),
         tabs: const [
@@ -339,10 +340,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                   const SizedBox(width: 10),
                   Text(
                     'SLOT PREVIEW: ${grid.columns}×${grid.rows}',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                      size: 15,
+                      weight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
                   ),
@@ -358,10 +359,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                     ),
                     child: Text(
                       grid.mechanic.toUpperCase(),
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: _mechanicColor(grid.mechanic),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                        size: 12,
+                        weight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -459,7 +460,7 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                 children: [
                   Text(
                     _emojiForSymbol(symbol),
-                    style: TextStyle(fontSize: size * 0.38),
+                    style: FluxForgeTheme.dockSans(size: size * 0.38),
                   ),
                   const SizedBox(height: 3),
                   Container(
@@ -472,10 +473,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                       symbol.id.length > 6
                           ? '${symbol.id.substring(0, 5)}…'
                           : symbol.id,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                        size: 10,
+                        weight: FontWeight.bold,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -512,10 +513,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             const SizedBox(width: 6),
             Text(
               '${grid.paylines} PAYLINES',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+                size: 13,
+                weight: FontWeight.w600,
               ),
             ),
           ],
@@ -524,10 +525,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             const SizedBox(width: 6),
             Text(
               '${grid.ways} WAYS',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+                size: 13,
+                weight: FontWeight.w600,
               ),
             ),
           ],
@@ -681,10 +682,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
               const SizedBox(width: 8),
               Text(
                 '${tier.label}: $count',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: _tierColor(tier),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  size: 13,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -733,9 +734,9 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             width: 32,
             child: Text(
               '#${index + 1}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 12,
+                size: 12,
               ),
             ),
           ),
@@ -759,7 +760,7 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             child: Center(
               child: Text(
                 _emojiForSymbol(symbol),
-                style: const TextStyle(fontSize: 26),
+                style: FluxForgeTheme.dockSans(size: 26),
               ),
             ),
           ),
@@ -773,19 +774,18 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
               children: [
                 Text(
                   symbol.name,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    size: 15,
+                    weight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'ID: ${symbol.id}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 11,
-                    fontFamily: 'monospace',
+                    size: 11,
                   ),
                 ),
               ],
@@ -802,10 +802,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             ),
             child: Text(
               symbol.tier.label.toUpperCase(),
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: tierColor,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
                 letterSpacing: 0.5,
               ),
             ),
@@ -827,10 +827,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                     : symbol.isScatter
                         ? 'SCATTER'
                         : 'BONUS',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white70,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                  size: 9,
+                  weight: FontWeight.bold,
                 ),
               ),
             ),
@@ -841,11 +841,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             child: sortedPayouts.isEmpty
                 ? Text(
                     'No payouts defined',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white.withValues(alpha: 0.3),
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                    ),
+                      size: 12,
+                    ).copyWith(fontStyle: FontStyle.italic),
                   )
                 : Wrap(
                     spacing: 8,
@@ -865,17 +864,17 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                             children: [
                               TextSpan(
                                 text: '${entry.key}× ',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
                                   color: Colors.white.withValues(alpha: 0.5),
-                                  fontSize: 11,
+                                  size: 11,
                                 ),
                               ),
                               TextSpan(
                                 text: '${entry.value.toStringAsFixed(entry.value == entry.value.truncate() ? 0 : 1)}x',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
                                   color: tierColor,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                                  size: 12,
+                                  weight: FontWeight.bold,
                                 ),
                               ),
                             ],
@@ -908,9 +907,9 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             const SizedBox(height: 16),
             Text(
               'No features defined in GDD',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 16,
+                size: 16,
               ),
             ),
           ],
@@ -970,10 +969,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                   children: [
                     Text(
                       feature.name,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
+                        size: 17,
+                        weight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -985,10 +984,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                       ),
                       child: Text(
                         feature.type.label.toUpperCase(),
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: color,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          size: 10,
+                          weight: FontWeight.bold,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -1031,18 +1030,18 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
           if (label.isNotEmpty) ...[
             Text(
               '$label: ',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 11,
+                size: 11,
               ),
             ),
           ],
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              size: 12,
+              weight: FontWeight.w600,
             ),
           ),
         ],
@@ -1094,10 +1093,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
               const SizedBox(width: 10),
               Text(
                 '${stages.length} STAGES WILL BE REGISTERED',
-                style: const TextStyle(
-                  color: Color(0xFF40ff90),
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  color: const Color(0xFF40ff90),
+                  size: 15,
+                  weight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -1142,10 +1141,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                         const SizedBox(width: 12),
                         Text(
                           category.toUpperCase(),
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: color,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
+                            size: 13,
+                            weight: FontWeight.bold,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -1158,10 +1157,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                           ),
                           child: Text(
                             '${stagesInCat.length}',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: color,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                              size: 11,
+                              weight: FontWeight.bold,
                             ),
                           ),
                         ),
@@ -1186,10 +1185,9 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                             ),
                             child: Text(
                               stage,
-                              style: const TextStyle(
-                                fontFamily: 'monospace',
+                              style: FluxForgeTheme.dockMono(
                                 color: Colors.white,
-                                fontSize: 11,
+                                size: 11,
                               ),
                             ),
                           );
@@ -1343,10 +1341,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
               const SizedBox(width: 10),
               Text(
                 title,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  size: 14,
+                  weight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -1367,9 +1365,9 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 14,
+                size: 14,
               ),
             ),
           ),
@@ -1381,10 +1379,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             ),
             child: Text(
               value,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: valueColor,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                size: 16,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -1405,9 +1403,9 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
         child: Center(
           child: Text(
             'No win tiers defined',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 14,
+              size: 14,
             ),
           ),
         ),
@@ -1428,21 +1426,21 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             children: [
               const Icon(Icons.emoji_events, color: Color(0xFFffd700), size: 22),
               const SizedBox(width: 10),
-              const Text(
+              Text(
                 'WIN TIERS',
-                style: TextStyle(
-                  color: Color(0xFFffd700),
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  color: const Color(0xFFffd700),
+                  size: 14,
+                  weight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),
               ),
               const Spacer(),
               Text(
                 '${tiers.length} tiers',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 12,
+                  size: 12,
                 ),
               ),
             ],
@@ -1473,10 +1471,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                         ),
                         child: Text(
                           tier.name.toUpperCase(),
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: color,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
+                            size: 13,
+                            weight: FontWeight.bold,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -1484,10 +1482,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                       const Spacer(),
                       Text(
                         '${tier.minMultiplier.toStringAsFixed(0)}x',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                          size: 16,
+                          weight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1499,10 +1497,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                       const SizedBox(width: 8),
                       Text(
                         '${tier.maxMultiplier.toStringAsFixed(0)}x',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: color,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          size: 18,
+                          weight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -1568,10 +1566,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                   const SizedBox(width: 8),
                   Text(
                     '${result.warnings.length} warning${result.warnings.length > 1 ? 's' : ''}',
-                    style: const TextStyle(
-                      color: Color(0xFFff9040),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      color: const Color(0xFFff9040),
+                      size: 13,
+                      weight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -1586,9 +1584,12 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             ),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white54, fontSize: 15),
+              style: FluxForgeTheme.dockSans(
+                color: Colors.white54,
+                size: 15,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -1605,11 +1606,11 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
             ),
             onPressed: () => Navigator.of(context).pop(true),
             icon: const Icon(Icons.check, size: 22),
-            label: const Text(
+            label: Text(
               'Apply Configuration',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 15,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -1641,10 +1642,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
                 const SizedBox(width: 10),
                 Text(
                   title,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: color,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
+                    size: 13,
+                    weight: FontWeight.bold,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -1676,9 +1677,9 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 13,
+                size: 13,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -1686,10 +1687,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
           if (value.isNotEmpty)
             Text(
               value,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: color ?? Colors.white.withValues(alpha: 0.55),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+                size: 12,
+                weight: FontWeight.bold,
               ),
             ),
         ],
@@ -1708,7 +1709,10 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
           Expanded(
             child: Text(
               warning,
-              style: const TextStyle(color: Color(0xFFff9040), fontSize: 12),
+              style: FluxForgeTheme.dockSans(
+                color: const Color(0xFFff9040),
+                size: 12,
+              ),
             ),
           ),
         ],

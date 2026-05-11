@@ -156,10 +156,10 @@ class _AdvancedMiddlewarePanelState extends State<AdvancedMiddlewarePanel>
           const SizedBox(width: 8),
           Text(
             'Advanced Middleware',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 8),
@@ -171,10 +171,10 @@ class _AdvancedMiddlewarePanelState extends State<AdvancedMiddlewarePanel>
             ),
             child: Text(
               'Wwise + FMOD + Custom',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.green,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+                size: 9,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -252,9 +252,9 @@ class _AdvancedMiddlewarePanelState extends State<AdvancedMiddlewarePanel>
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: count > 0 ? color : FluxForgeTheme.textSecondary,
-              fontSize: 9,
+              size: 9,
             ),
           ),
           const SizedBox(width: 4),
@@ -266,10 +266,10 @@ class _AdvancedMiddlewarePanelState extends State<AdvancedMiddlewarePanel>
             ),
             child: Text(
               '$count',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: count > 0 ? Colors.white : FluxForgeTheme.surface,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
+                size: 8,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -313,10 +313,10 @@ class _AdvancedMiddlewarePanelState extends State<AdvancedMiddlewarePanel>
                   const SizedBox(width: 4),
                   Text(
                     tab.label,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isActive ? tab.color : FluxForgeTheme.textSecondary,
-                      fontSize: 10,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                      size: 10,
+                      weight: isActive ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -367,10 +367,10 @@ class MiddlewareQuickPanel extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     'Advanced Middleware',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      size: 12,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -403,10 +403,10 @@ class MiddlewareQuickPanel extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         'Open Editor',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.accentBlue,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                          size: 11,
+                          weight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -430,9 +430,9 @@ class MiddlewareQuickPanel extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
+                size: 10,
               ),
             ),
           ),
@@ -444,10 +444,10 @@ class MiddlewareQuickPanel extends StatelessWidget {
             ),
             child: Text(
               '$count',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: count > 0 ? color : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -484,10 +484,10 @@ class MiddlewareQuickPanel extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       'Advanced Middleware Editor',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                        size: 14,
+                        weight: FontWeight.bold,
                       ),
                     ),
                     const Spacer(),
@@ -543,10 +543,10 @@ class _StateGroupsPanel extends StatelessWidget {
                 children: [
                   Text(
                     'State Groups',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                      size: 14,
+                      weight: FontWeight.bold,
                     ),
                   ),
                   const Spacer(),
@@ -559,7 +559,7 @@ class _StateGroupsPanel extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 'Global game states that trigger sound changes (Wwise-style)',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
               ),
               const SizedBox(height: 16),
               // State groups list
@@ -596,21 +596,21 @@ class _StateGroupsPanel extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgMid,
-        title: Text('Add State Group', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Add State Group', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: nameController,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             labelText: 'Group Name',
-            labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+            labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             hintText: 'e.g., GameState, MusicMood',
-            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
+            hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -657,7 +657,7 @@ class _StateGroupCard extends StatelessWidget {
             children: [
               Icon(Icons.account_tree, size: 16, color: Colors.orange),
               const SizedBox(width: 8),
-              Text(group.name, style: TextStyle(color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.bold)),
+              Text(group.name, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, weight: FontWeight.bold)),
               const Spacer(),
               IconButton(
                 icon: Icon(Icons.delete_outline, size: 16, color: FluxForgeTheme.textSecondary),
@@ -686,10 +686,10 @@ class _StateGroupCard extends StatelessWidget {
                   ),
                   child: Text(
                     state.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isActive ? Colors.orange : FluxForgeTheme.textSecondary,
-                      fontSize: 11,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                      size: 11,
+                      weight: isActive ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -724,10 +724,10 @@ class _SwitchGroupsPanel extends StatelessWidget {
                 children: [
                   Text(
                     'Switch Groups',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                      size: 14,
+                      weight: FontWeight.bold,
                     ),
                   ),
                   const Spacer(),
@@ -740,7 +740,7 @@ class _SwitchGroupsPanel extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 'Per-object sound variants (footsteps on different surfaces, etc.)',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
               ),
               const SizedBox(height: 16),
               // Switch groups list
@@ -775,21 +775,21 @@ class _SwitchGroupsPanel extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgMid,
-        title: Text('Add Switch Group', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Add Switch Group', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: nameController,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             labelText: 'Group Name',
-            labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+            labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             hintText: 'e.g., Surface, WeaponType',
-            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
+            hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -832,7 +832,7 @@ class _SwitchGroupCard extends StatelessWidget {
             children: [
               Icon(Icons.alt_route, size: 16, color: Colors.green),
               const SizedBox(width: 8),
-              Text(group.name, style: TextStyle(color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.bold)),
+              Text(group.name, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, weight: FontWeight.bold)),
               const Spacer(),
               IconButton(
                 icon: Icon(Icons.delete_outline, size: 16, color: FluxForgeTheme.textSecondary),
@@ -856,7 +856,7 @@ class _SwitchGroupCard extends StatelessWidget {
                 ),
                 child: Text(
                   sw.name,
-                  style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
                 ),
               );
             }).toList(),
@@ -889,10 +889,10 @@ class _RtpcPanel extends StatelessWidget {
                 children: [
                   Text(
                     'Real-Time Parameter Controls (RTPC)',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                      size: 14,
+                      weight: FontWeight.bold,
                     ),
                   ),
                   const Spacer(),
@@ -905,7 +905,7 @@ class _RtpcPanel extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 'Continuous parameters that modulate audio (health, speed, distance, etc.)',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
               ),
               const SizedBox(height: 16),
               // RTPC list
@@ -942,21 +942,21 @@ class _RtpcPanel extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgMid,
-        title: Text('Add RTPC', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Add RTPC', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: nameController,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             labelText: 'Parameter Name',
-            labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+            labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             hintText: 'e.g., Health, Speed, Distance',
-            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
+            hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1009,11 +1009,11 @@ class _RtpcCard extends StatelessWidget {
             children: [
               Icon(Icons.tune, size: 16, color: Colors.cyan),
               const SizedBox(width: 8),
-              Text(rtpc.name, style: TextStyle(color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.bold)),
+              Text(rtpc.name, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, weight: FontWeight.bold)),
               const Spacer(),
               Text(
                 '${currentValue.toStringAsFixed(1)}',
-                style: TextStyle(color: Colors.cyan, fontSize: 12, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(color: Colors.cyan, size: 12, weight: FontWeight.bold),
               ),
               const SizedBox(width: 12),
               IconButton(
@@ -1027,7 +1027,7 @@ class _RtpcCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              Text('${rtpc.min}', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+              Text('${rtpc.min}', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 10)),
               Expanded(
                 child: Slider(
                   value: currentValue.clamp(rtpc.min, rtpc.max).toDouble(),
@@ -1038,7 +1038,7 @@ class _RtpcCard extends StatelessWidget {
                   onChanged: onValueChange,
                 ),
               ),
-              Text('${rtpc.max}', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+              Text('${rtpc.max}', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 10)),
             ],
           ),
         ],
@@ -1082,10 +1082,10 @@ class _PresetButton extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+                size: 11,
+                weight: FontWeight.bold,
               ),
             ),
           ],
@@ -1119,7 +1119,7 @@ class _AddButton extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.accentBlue, fontSize: 11, fontWeight: FontWeight.bold),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue, size: 11, weight: FontWeight.bold),
             ),
           ],
         ),
@@ -1147,9 +1147,9 @@ class _EmptyState extends StatelessWidget {
         children: [
           Icon(icon, size: 28, color: FluxForgeTheme.textTertiary),
           const SizedBox(height: 16),
-          Text(message, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 14)),
+          Text(message, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 14)),
           const SizedBox(height: 8),
-          Text(hint, style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+          Text(hint, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11)),
         ],
       ),
     );
@@ -1175,10 +1175,10 @@ class _IntegrationPanel extends StatelessWidget {
             children: [
               Text(
                 'Engine Integration',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  size: 14,
+                  weight: FontWeight.bold,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1190,10 +1190,10 @@ class _IntegrationPanel extends StatelessWidget {
                 ),
                 child: Text(
                   'Unity • Unreal • Custom',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.lightGreen,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+                    size: 9,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -1202,7 +1202,7 @@ class _IntegrationPanel extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             'Connect to game engines for real-time STAGE events or import offline JSON traces',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
           const SizedBox(height: 16),
           // Engine connection panel

@@ -199,11 +199,11 @@ class _HelixEventNexusState extends State<HelixEventNexus> {
           const Icon(Icons.hub_rounded,
               size: 14, color: FluxForgeTheme.accentCyan),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'EVENT NEXUS',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
               letterSpacing: 1.4,
               color: FluxForgeTheme.accentCyan,
             ),
@@ -241,14 +241,14 @@ class _HelixEventNexusState extends State<HelixEventNexus> {
             child: TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _filter = v.trim()),
-              style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(size: 10),
               decoration: InputDecoration(
                 isDense: true,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 hintText: 'filter stages…',
-                hintStyle: TextStyle(
-                    fontSize: 10,
+                hintStyle: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: FluxForgeTheme.textTertiary
                         .withValues(alpha: 0.5)),
                 filled: true,
@@ -429,9 +429,9 @@ class _StageConstellation extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 category.label.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w700,
                   letterSpacing: 1.0,
                   color: color,
                 ),
@@ -439,11 +439,9 @@ class _StageConstellation extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 '$boundCount/${defs.length}',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontFamily: 'monospace',
-                  color:
-                      FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
+                  color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -526,10 +524,9 @@ class _StageConstellation extends StatelessWidget {
                   child: Text(
                     displayName,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.w400,
                       color: hasAudio
                           ? FluxForgeTheme.textPrimary
                           : FluxForgeTheme.textTertiary
@@ -599,8 +596,8 @@ class _SelectedEventCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'Select a stage',
-                style: TextStyle(
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: FluxForgeTheme.textTertiary
                       .withValues(alpha: 0.7),
                 ),
@@ -609,8 +606,8 @@ class _SelectedEventCard extends StatelessWidget {
               Text(
                 'Long-press a row to audition without selecting',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: FluxForgeTheme.textTertiary
                       .withValues(alpha: 0.5),
                 ),
@@ -646,9 +643,9 @@ class _SelectedEventCard extends StatelessWidget {
                 child: Text(
                   stage!,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.w700,
                     letterSpacing: 0.8,
                     color: FluxForgeTheme.textPrimary,
                   ),
@@ -657,9 +654,8 @@ class _SelectedEventCard extends StatelessWidget {
               if (ev != null)
                 Text(
                   ev.id,
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontFamily: 'monospace',
+                  style: FluxForgeTheme.dockMono(
+                    size: 8,
                     color: FluxForgeTheme.textTertiary
                         .withValues(alpha: 0.6),
                   ),
@@ -677,16 +673,16 @@ class _SelectedEventCard extends StatelessWidget {
                     color: FluxForgeTheme.accentOrange
                         .withValues(alpha: 0.4)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded,
+                  const Icon(Icons.warning_amber_rounded,
                       size: 14, color: FluxForgeTheme.accentOrange),
-                  SizedBox(width: 6),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'No audio assigned. Drop folder on Bind Orb or use AUDIO ASSIGN.',
-                      style: TextStyle(
-                          fontSize: 9, color: FluxForgeTheme.textPrimary),
+                      style: FluxForgeTheme.dockSans(
+                          size: 9, color: FluxForgeTheme.textPrimary),
                     ),
                   ),
                 ],
@@ -753,9 +749,9 @@ class _SelectedEventCard extends StatelessWidget {
                 child: Text(
                   fileName,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
@@ -763,9 +759,8 @@ class _SelectedEventCard extends StatelessWidget {
               if (sizeStr != null)
                 Text(
                   sizeStr,
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontFamily: 'monospace',
+                  style: FluxForgeTheme.dockMono(
+                    size: 8,
                     color: sizeStr == 'MISSING'
                         ? FluxForgeTheme.accentRed
                         : FluxForgeTheme.textTertiary,
@@ -779,9 +774,8 @@ class _SelectedEventCard extends StatelessWidget {
               child: Text(
                 folder,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 8,
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 8,
                   color: FluxForgeTheme.textTertiary
                       .withValues(alpha: 0.6),
                 ),
@@ -796,21 +790,19 @@ class _SelectedEventCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   'duration  $durStr',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontFamily: 'monospace',
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: FluxForgeTheme.accentGreen,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   '(plays in full — pure trigger)',
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontStyle: FontStyle.italic,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
                     color: FluxForgeTheme.textTertiary
                         .withValues(alpha: 0.6),
-                  ),
+                  ).copyWith(fontStyle: FontStyle.italic),
                 ),
               ],
             ),
@@ -826,10 +818,10 @@ class _SelectedEventCard extends StatelessWidget {
         Expanded(
           child: ElevatedButton.icon(
             icon: const Icon(Icons.play_arrow_rounded, size: 18),
-            label: const Text('TRIGGER',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+            label: Text('TRIGGER',
+                style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w700,
                     letterSpacing: 1.2)),
             style: ElevatedButton.styleFrom(
               backgroundColor:
@@ -850,10 +842,10 @@ class _SelectedEventCard extends StatelessWidget {
         const SizedBox(width: 6),
         ElevatedButton.icon(
           icon: const Icon(Icons.stop_rounded, size: 14),
-          label: const Text('STOP ALL',
-              style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+          label: Text('STOP ALL',
+              style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w600,
                   letterSpacing: 1.0)),
           style: ElevatedButton.styleFrom(
             backgroundColor:
@@ -944,8 +936,8 @@ class _ParameterOrbit extends StatelessWidget {
                 ? Center(
                     child: Text(
                       'select a stage to edit parameters',
-                      style: TextStyle(
-                        fontSize: 9,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: FluxForgeTheme.textTertiary
                             .withValues(alpha: 0.5),
                       ),
@@ -994,8 +986,8 @@ class _ParameterOrbit extends StatelessWidget {
       return Center(
         child: Text(
           'no layers — drop audio on Bind Orb',
-          style: TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
           ),
         ),
@@ -1104,8 +1096,8 @@ class _ParameterOrbit extends StatelessWidget {
           child: Text(
             'No DSP nodes on any layer.\n\nAdd inserts in SlotLab → ASSIGN spine.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
               height: 1.5,
             ),
@@ -1137,13 +1129,12 @@ class _ParameterOrbit extends StatelessWidget {
                     const SizedBox(width: 4),
                     Expanded(
                         child: Text(l.name,
-                            style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600))),
+                            style: FluxForgeTheme.dockSans(
+                                size: 10,
+                                weight: FontWeight.w600))),
                     Text('${l.dspChain.length} nodes',
-                        style: TextStyle(
-                            fontSize: 8,
-                            fontFamily: 'monospace',
+                        style: FluxForgeTheme.dockMono(
+                            size: 8,
                             color: FluxForgeTheme.accentPurple
                                 .withValues(alpha: 0.8))),
                   ],
@@ -1167,12 +1158,12 @@ class _ParameterOrbit extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           node.type.name,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontFamily: 'monospace',
+                          style: FluxForgeTheme.dockMono(
+                            size: 9,
                             color: node.bypass
                                 ? FluxForgeTheme.textTertiary
                                 : FluxForgeTheme.textPrimary,
+                          ).copyWith(
                             decoration: node.bypass
                                 ? TextDecoration.lineThrough
                                 : null,
@@ -1286,12 +1277,13 @@ class _LayerCard extends StatelessWidget {
                     child: Text(
                       layer.name.isEmpty ? layer.id : layer.name,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: FontWeight.w600,
                         color: layer.muted
                             ? FluxForgeTheme.textTertiary
                             : FluxForgeTheme.textPrimary,
+                      ).copyWith(
                         decoration: layer.muted
                             ? TextDecoration.lineThrough
                             : null,
@@ -1317,9 +1309,8 @@ class _LayerCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     '${(layer.volume * 100).toInt()}%',
-                    style: const TextStyle(
-                      fontSize: 9,
-                      fontFamily: 'monospace',
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
                       color: FluxForgeTheme.accentCyan,
                     ),
                   ),
@@ -1345,9 +1336,8 @@ class _LayerCard extends StatelessWidget {
                             child: Text(
                               layer.audioPath.split('/').last,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontFamily: 'monospace',
+                              style: FluxForgeTheme.dockMono(
+                                size: 8,
                                 color: FluxForgeTheme.textTertiary
                                     .withValues(alpha: 0.7),
                               ),
@@ -1357,9 +1347,8 @@ class _LayerCard extends StatelessWidget {
                               layer.durationSeconds! > 0)
                             Text(
                               '${layer.durationSeconds!.toStringAsFixed(2)}s',
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontFamily: 'monospace',
+                              style: FluxForgeTheme.dockMono(
+                                size: 8,
                                 color: FluxForgeTheme.accentGreen
                                     .withValues(alpha: 0.7),
                               ),
@@ -1626,17 +1615,16 @@ class _HeaderBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label,
-              style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.w600,
                   letterSpacing: 0.8,
                   color: color.withValues(alpha: 0.8))),
           const SizedBox(width: 4),
           Text(value,
-              style: TextStyle(
-                  fontSize: 9,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w700,
+              style: FluxForgeTheme.dockMono(
+                  size: 9,
+                  weight: FontWeight.w700,
                   color: color)),
         ],
       ),
@@ -1681,9 +1669,9 @@ class _HeaderButton extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w700,
                   letterSpacing: 0.8,
                   color: color,
                 ),
@@ -1735,9 +1723,9 @@ class _CategoryChip extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: active ? FontWeight.w700 : FontWeight.w500,
                   letterSpacing: 0.8,
                   color: color,
                 ),
@@ -1746,9 +1734,8 @@ class _CategoryChip extends StatelessWidget {
                 const SizedBox(width: 3),
                 Text(
                   '$boundCount/$count',
-                  style: TextStyle(
-                    fontSize: 7,
-                    fontFamily: 'monospace',
+                  style: FluxForgeTheme.dockMono(
+                    size: 7,
                     color: color.withValues(alpha: 0.8),
                   ),
                 ),
@@ -1788,9 +1775,9 @@ class _MetaChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 7,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 7,
+              weight: FontWeight.w600,
               color: color.withValues(alpha: 0.7),
               letterSpacing: 0.6,
             ),
@@ -1798,10 +1785,9 @@ class _MetaChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 8,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockMono(
+              size: 8,
+              weight: FontWeight.w700,
               color: color,
             ),
           ),
@@ -1849,9 +1835,9 @@ class _OrbitTabButton extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w700,
                 letterSpacing: 1.0,
                 color: color,
               ),
@@ -1900,9 +1886,9 @@ class _MicroToggle extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 8,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 8,
+              weight: FontWeight.w700,
               color: color,
             ),
           ),
@@ -1946,10 +1932,10 @@ class _ParamSlider extends StatelessWidget {
             width: 70,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: color.withValues(alpha: 0.85),
-                fontWeight: FontWeight.w500,
+                weight: FontWeight.w500,
               ),
             ),
           ),
@@ -1980,9 +1966,8 @@ class _ParamSlider extends StatelessWidget {
             child: Text(
               display,
               textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: color,
               ),
             ),
@@ -2022,10 +2007,10 @@ class _Dropdown<T> extends StatelessWidget {
             width: 70,
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: FluxForgeTheme.textSecondary,
-                fontWeight: FontWeight.w500,
+                weight: FontWeight.w500,
               ),
             ),
           ),
@@ -2047,9 +2032,8 @@ class _Dropdown<T> extends StatelessWidget {
                   isDense: true,
                   value: value,
                   iconSize: 14,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontFamily: 'monospace',
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: FluxForgeTheme.textPrimary,
                   ),
                   dropdownColor: FluxForgeTheme.bgSurface,
@@ -2125,8 +2109,8 @@ class _MiniToggleRow extends StatelessWidget {
               child: Text(
                 label,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: value
                       ? FluxForgeTheme.textPrimary
                       : FluxForgeTheme.textSecondary,
@@ -2152,12 +2136,11 @@ class _SectionDivider extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 7,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 7,
+              weight: FontWeight.w700,
               letterSpacing: 1.4,
-              color:
-                  FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
+              color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(width: 6),
@@ -2242,9 +2225,8 @@ class _MetaSection extends StatelessWidget {
             padding: const EdgeInsets.only(left: 4, top: 1),
             child: Text(
               r.value,
-              style: const TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: FluxForgeTheme.textPrimary,
               ),
             ),
@@ -2274,16 +2256,15 @@ class _ReadOnlyRow extends StatelessWidget {
             width: 70,
             child: Text(
               label,
-              style: TextStyle(
-                  fontSize: 9, color: color.withValues(alpha: 0.7)),
+              style: FluxForgeTheme.dockSans(
+                  size: 9, color: color.withValues(alpha: 0.7)),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: color,
               ),
             ),
