@@ -161,10 +161,10 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
         const SizedBox(width: 8),
         Text(
           'Elastic Pro',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            size: 16,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -198,10 +198,10 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
                 const SizedBox(width: 4),
                 Text(
                   _processing ? 'Processing...' : 'Apply',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: _processing ? Colors.orange : FluxForgeTheme.accentBlue,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    size: 11,
+                    weight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -218,9 +218,9 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           ),
           child: Text(
             _initialized ? 'Ready' : 'Init...',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: _initialized ? Colors.green : Colors.red,
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ),
@@ -288,7 +288,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           width: 90,
           child: Text(
             label,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
           ),
         ),
         Expanded(child: child),
@@ -296,10 +296,10 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           width: 60,
           child: Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.accentBlue,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              size: 12,
+              weight: FontWeight.bold,
             ),
             textAlign: TextAlign.right,
           ),
@@ -347,9 +347,9 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-            fontSize: 10,
+            size: 10,
           ),
         ),
       ),
@@ -364,7 +364,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Mode', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+              Text('Mode', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11)),
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -378,7 +378,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
                   isExpanded: true,
                   dropdownColor: FluxForgeTheme.surfaceDark,
                   underline: const SizedBox(),
-                  style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
                   items: StretchMode.values.map((m) => DropdownMenuItem(
                     value: m,
                     child: Text(_getModeLabel(m)),
@@ -402,7 +402,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Quality', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+              Text('Quality', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11)),
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -416,7 +416,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
                   isExpanded: true,
                   dropdownColor: FluxForgeTheme.surfaceDark,
                   underline: const SizedBox(),
-                  style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
                   items: StretchQuality.values.map((q) => DropdownMenuItem(
                     value: q,
                     child: Text(_getQualityLabel(q)),
@@ -450,7 +450,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           const SizedBox(width: 4),
           Text(
             'Advanced Options',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
           ),
         ],
       ),
@@ -547,7 +547,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
         ),
       ],
     );

@@ -11,6 +11,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/recent_favorites_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Quick access panel widget
 class QuickAccessPanel extends StatefulWidget {
@@ -92,9 +93,9 @@ class _QuickAccessPanelState extends State<QuickAccessPanel> {
           const SizedBox(width: 8),
           Text(
             'QUICK ACCESS',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.bold,
               color: color,
               letterSpacing: 1.0,
             ),
@@ -102,8 +103,8 @@ class _QuickAccessPanelState extends State<QuickAccessPanel> {
           const Spacer(),
           Text(
             '${_service.recentCount} recent · ${_service.favoriteCount} favorites',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: color.withValues(alpha: 0.5),
             ),
           ),
@@ -148,9 +149,9 @@ class _QuickAccessPanelState extends State<QuickAccessPanel> {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   color: isSelected ? color : Colors.white54,
                 ),
               ),
@@ -195,8 +196,8 @@ class _QuickAccessPanelState extends State<QuickAccessPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: isSelected ? color : Colors.white54,
           ),
         ),
@@ -262,8 +263,8 @@ class _QuickAccessPanelState extends State<QuickAccessPanel> {
           const SizedBox(height: 8),
           Text(
             message,
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: Colors.white38,
             ),
             textAlign: TextAlign.center,
@@ -299,7 +300,7 @@ class _QuickAccessPanelState extends State<QuickAccessPanel> {
               alignment: Alignment.center,
               child: Text(
                 item.type.emoji,
-                style: const TextStyle(fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12),
               ),
             ),
             const SizedBox(width: 10),
@@ -310,9 +311,9 @@ class _QuickAccessPanelState extends State<QuickAccessPanel> {
                 children: [
                   Text(
                     item.title,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.w500,
                       color: Colors.white,
                     ),
                     maxLines: 1,
@@ -321,8 +322,8 @@ class _QuickAccessPanelState extends State<QuickAccessPanel> {
                   if (item.subtitle != null)
                     Text(
                       item.subtitle!,
-                      style: const TextStyle(
-                        fontSize: 9,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: Colors.white38,
                       ),
                       maxLines: 1,
@@ -342,7 +343,7 @@ class _QuickAccessPanelState extends State<QuickAccessPanel> {
                 ),
                 child: Text(
                   '×${item.accessCount}',
-                  style: TextStyle(fontSize: 8, color: color),
+                  style: FluxForgeTheme.dockMono(size: 8, color: color),
                 ),
               ),
             // Favorite toggle
@@ -423,8 +424,8 @@ class _FavoritesBarState extends State<FavoritesBar> {
             const SizedBox(width: 6),
             Text(
               'No favorites — Click ☆ on items to add',
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: color.withValues(alpha: 0.5),
               ),
             ),
@@ -474,12 +475,12 @@ class _FavoritesBarState extends State<FavoritesBar> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(item.type.emoji, style: const TextStyle(fontSize: 10)),
+            Text(item.type.emoji, style: FluxForgeTheme.dockSans(size: 10)),
             const SizedBox(width: 4),
             Text(
               item.title,
-              style: const TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: Colors.white,
               ),
             ),

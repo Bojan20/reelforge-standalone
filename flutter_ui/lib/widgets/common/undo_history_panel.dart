@@ -110,10 +110,10 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
               const SizedBox(width: 8),
               Text(
                 'Undo History',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  size: 14,
+                  weight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
@@ -128,15 +128,15 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
           // Search bar
           TextField(
             controller: _searchController,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 12,
+              size: 12,
             ),
             decoration: InputDecoration(
               hintText: 'Search actions...',
-              hintStyle: TextStyle(
+              hintStyle: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textMuted,
-                fontSize: 12,
+                size: 12,
               ),
               prefixIcon: Icon(
                 Icons.search,
@@ -192,20 +192,19 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              size: 10,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             count.toString(),
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'monospace',
+              size: 11,
+              weight: FontWeight.w700,
             ),
           ),
         ],
@@ -231,9 +230,9 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
             const SizedBox(height: 12),
             Text(
               'No actions yet',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textMuted,
-                fontSize: 13,
+                size: 13,
               ),
             ),
           ],
@@ -293,10 +292,10 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 0.5,
             ),
           ),
@@ -309,10 +308,9 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
             ),
             child: Text(
               count.toString(),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textMuted,
-                fontSize: 9,
-                fontFamily: 'monospace',
+                size: 9,
               ),
             ),
           ),
@@ -343,10 +341,10 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
           const SizedBox(width: 8),
           Text(
             'CURRENT STATE',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.accentBlue,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+              size: 11,
+              weight: FontWeight.w700,
               letterSpacing: 0.5,
             ),
           ),
@@ -390,12 +388,11 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
                   alignment: Alignment.centerRight,
                   child: Text(
                     '#${index + 1}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: isFuture
                           ? FluxForgeTheme.textMuted.withValues(alpha: 0.5)
                           : FluxForgeTheme.textMuted,
-                      fontSize: 10,
-                      fontFamily: 'monospace',
+                      size: 10,
                     ),
                   ),
                 ),
@@ -417,11 +414,12 @@ class _UndoHistoryPanelState extends State<UndoHistoryPanel> {
                 Expanded(
                   child: Text(
                     action.description,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isFuture
                           ? FluxForgeTheme.textMuted.withValues(alpha: 0.6)
                           : FluxForgeTheme.textPrimary,
-                      fontSize: 12,
+                      size: 12,
+                    ).copyWith(
                       decoration: isFuture ? TextDecoration.lineThrough : null,
                     ),
                   ),
@@ -569,10 +567,10 @@ class _FooterButton extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: enabled ? color : FluxForgeTheme.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    size: 11,
+                    weight: FontWeight.w600,
                   ),
                 ),
               ],

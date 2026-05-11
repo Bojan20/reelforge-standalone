@@ -94,10 +94,10 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
           const SizedBox(width: 8),
           Text(
             'ROOM CORRECTION',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              size: 14,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
@@ -128,10 +128,10 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
         ),
         child: Text(
           _enabled ? 'ACTIVE' : 'BYPASS',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: _enabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            size: 10,
+            weight: FontWeight.bold,
           ),
         ),
       ),
@@ -162,10 +162,10 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
       children: [
         Text(
           'TARGET CURVE',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            size: 10,
+            weight: FontWeight.bold,
             letterSpacing: 1.0,
           ),
         ),
@@ -196,18 +196,18 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
                   children: [
                     Text(
                       label,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: isSelected ? color : FluxForgeTheme.textTertiary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        size: 11,
+                        weight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       _getCurveDescription(curve),
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: isSelected ? color.withValues(alpha: 0.7) : FluxForgeTheme.textTertiary,
-                        fontSize: 9,
+                        size: 9,
                       ),
                     ),
                   ],
@@ -256,18 +256,18 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
                 children: [
                   Text(
                     'MAX CORRECTION',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      size: 10,
+                      weight: FontWeight.bold,
                     ),
                   ),
                   Text(
                     '${_maxCorrection.toStringAsFixed(1)} dB',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.accentCyan,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      size: 12,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -326,10 +326,10 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
                 const SizedBox(height: 4),
                 Text(
                   'CUT ONLY',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: _cutOnly ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+                    size: 9,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -358,18 +358,18 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
               children: [
                 Text(
                   'ROOM MEASUREMENT',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textTertiary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    size: 10,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _initialized ? 'Ready to measure' : 'Initializing...',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textTertiary,
-                    fontSize: 11,
+                    size: 11,
                   ),
                 ),
               ],
@@ -383,7 +383,7 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
               backgroundColor: FluxForgeTheme.accentCyan,
               foregroundColor: FluxForgeTheme.textPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              textStyle: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: 8),

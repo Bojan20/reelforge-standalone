@@ -152,12 +152,12 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        const Text(
+        Text(
           'De-Esser',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            size: 16,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -184,10 +184,10 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
             ),
             child: Text(
               'LISTEN',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _listen ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -216,10 +216,10 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
             ),
             child: Text(
               'BYPASS',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _bypass ? Colors.orange : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -237,9 +237,9 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
           ),
           child: Text(
             _initialized ? 'Ready' : 'Init...',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: _initialized ? Colors.green : Colors.red,
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ),
@@ -252,7 +252,7 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
       children: [
         Text(
           'Mode',
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -293,10 +293,10 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              size: 11,
+              weight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
           ),
         ),
@@ -319,18 +319,18 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
             children: [
               Text(
                 'Gain Reduction',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                  size: 10,
+                  weight: FontWeight.bold,
                 ),
               ),
               Text(
                 '-${_gainReduction.toStringAsFixed(1)} dB',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: _gainReduction > 3 ? Colors.orange : FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                  size: 10,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -360,10 +360,10 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
           alignment: Alignment.centerLeft,
           child: Text(
             'Detection',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              size: 11,
+              weight: FontWeight.w600,
             ),
           ),
         ),
@@ -408,10 +408,10 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
           alignment: Alignment.centerLeft,
           child: Text(
             'Dynamics',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              size: 11,
+              weight: FontWeight.w600,
             ),
           ),
         ),
@@ -498,7 +498,7 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
           width: 70,
           child: Text(
             label,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
           ),
         ),
         Expanded(child: child),
@@ -506,10 +506,10 @@ class _DeEsserPanelState extends State<DeEsserPanel> {
           width: 70,
           child: Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.accentBlue,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              size: 12,
+              weight: FontWeight.bold,
             ),
             textAlign: TextAlign.right,
           ),

@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../services/unified_search_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Unified search overlay widget
 class UnifiedSearchOverlay extends StatefulWidget {
@@ -205,14 +206,14 @@ class _UnifiedSearchOverlayState extends State<UnifiedSearchOverlay> {
             child: TextField(
               controller: _controller,
               focusNode: _focusNode,
-              style: const TextStyle(
-                fontSize: 18,
+              style: FluxForgeTheme.dockSans(
+                size: 18,
                 color: Colors.white,
               ),
               decoration: InputDecoration(
                 hintText: 'Search everything...',
-                hintStyle: TextStyle(
-                  fontSize: 18,
+                hintStyle: FluxForgeTheme.dockSans(
+                  size: 18,
                   color: Colors.white.withValues(alpha: 0.3),
                 ),
                 border: InputBorder.none,
@@ -264,8 +265,8 @@ class _UnifiedSearchOverlayState extends State<UnifiedSearchOverlay> {
           if (_searchService.currentResults != null)
             Text(
               '${_searchService.currentResults!.count} results',
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: Colors.white.withValues(alpha: 0.4),
               ),
             ),
@@ -299,8 +300,8 @@ class _UnifiedSearchOverlayState extends State<UnifiedSearchOverlay> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: isSelected ? color : Colors.white.withValues(alpha: 0.6),
           ),
         ),
@@ -326,8 +327,8 @@ class _UnifiedSearchOverlayState extends State<UnifiedSearchOverlay> {
               _controller.text.isEmpty
                   ? 'Start typing to search'
                   : 'No results found',
-              style: TextStyle(
-                fontSize: 14,
+              style: FluxForgeTheme.dockSans(
+                size: 14,
                 color: Colors.white.withValues(alpha: 0.4),
               ),
             ),
@@ -375,7 +376,7 @@ class _UnifiedSearchOverlayState extends State<UnifiedSearchOverlay> {
               alignment: Alignment.center,
               child: Text(
                 result.category.emoji,
-                style: const TextStyle(fontSize: 14),
+                style: FluxForgeTheme.dockSans(size: 14),
               ),
             ),
             const SizedBox(width: 12),
@@ -386,17 +387,17 @@ class _UnifiedSearchOverlayState extends State<UnifiedSearchOverlay> {
                 children: [
                   Text(
                     result.title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
+                      weight: FontWeight.w500,
                       color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9),
                     ),
                   ),
                   if (result.subtitle != null)
                     Text(
                       result.subtitle!,
-                      style: TextStyle(
-                        fontSize: 11,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
@@ -412,8 +413,8 @@ class _UnifiedSearchOverlayState extends State<UnifiedSearchOverlay> {
               ),
               child: Text(
                 result.category.label,
-                style: TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: _getCategoryColor(result.category),
                 ),
               ),
@@ -458,8 +459,8 @@ class _UnifiedSearchOverlayState extends State<UnifiedSearchOverlay> {
           if (_searchService.currentResults != null)
             Text(
               'Search took ${_searchService.currentResults!.searchTime.inMilliseconds}ms',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: Colors.white.withValues(alpha: 0.3),
               ),
             ),
@@ -480,9 +481,9 @@ class _UnifiedSearchOverlayState extends State<UnifiedSearchOverlay> {
           ),
           child: Text(
             shortcut,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w500,
               color: Colors.white54,
             ),
           ),
@@ -490,8 +491,8 @@ class _UnifiedSearchOverlayState extends State<UnifiedSearchOverlay> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: Colors.white.withValues(alpha: 0.4),
           ),
         ),

@@ -81,14 +81,13 @@ class DsdIndicator extends StatelessWidget {
                 color: _getRateColor(),
                 borderRadius: BorderRadius.circular(2),
               ),
-              child: const Text(
+              child: Text(
                 'DSD',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: Colors.black,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
+                  size: 8,
+                  weight: FontWeight.bold,
+                ).copyWith(letterSpacing: 0.5),
               ),
             ),
             const SizedBox(width: 6),
@@ -96,10 +95,10 @@ class DsdIndicator extends StatelessWidget {
             // Rate indicator
             Text(
               _getRateLabel(),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: _getRateColor(),
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+                size: 11,
+                weight: FontWeight.bold,
               ),
             ),
 
@@ -114,10 +113,10 @@ class DsdIndicator extends StatelessWidget {
                 ),
                 child: Text(
                   _getModeLabel(),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: _getModeColor(),
-                    fontSize: 8,
-                    fontWeight: FontWeight.w500,
+                    size: 8,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -247,22 +246,22 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
                   ),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
+                child: Text(
                   'DSD',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: Colors.black,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    size: 12,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Playback Settings',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  size: 14,
+                  weight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -287,11 +286,11 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
           const SizedBox(height: 16),
 
           // Playback mode selection
-          const Text(
+          Text(
             'Playback Mode',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
+              size: 11,
             ),
           ),
           const SizedBox(height: 8),
@@ -346,9 +345,9 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
                     widget.nativeDsdSupported
                         ? 'Your audio interface supports native DSD'
                         : 'Native DSD not available on current device',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 11,
+                      size: 11,
                     ),
                   ),
                 ),
@@ -366,17 +365,17 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 12,
+            size: 12,
           ),
         ),
         Text(
           value,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+            size: 12,
+            weight: FontWeight.w500,
           ),
         ),
       ],
@@ -430,21 +429,21 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: enabled
                           ? FluxForgeTheme.textPrimary
                           : FluxForgeTheme.textSecondary.withValues(alpha: 0.4),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      size: 12,
+                      weight: FontWeight.w500,
                     ),
                   ),
                   Text(
                     description,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: enabled
                           ? FluxForgeTheme.textSecondary
                           : FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
-                      fontSize: 10,
+                      size: 10,
                     ),
                   ),
                 ],
@@ -512,10 +511,10 @@ class DsdBadge extends StatelessWidget {
       ),
       child: Text(
         _getLabel(),
-        style: TextStyle(
+        style: FluxForgeTheme.dockMono(
           color: _getColor(),
-          fontSize: 8,
-          fontWeight: FontWeight.bold,
+          size: 8,
+          weight: FontWeight.bold,
         ),
       ),
     );

@@ -291,9 +291,9 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
         children: [
           Text(
             'Crossfade Editor',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -370,9 +370,9 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             padding: const EdgeInsets.all(8),
             child: Text(
               'Presets',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -426,8 +426,8 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             Expanded(
               child: Text(
                 config.name,
-                style: TextStyle(
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: isSelected
                       ? FluxForgeTheme.textPrimary
                       : FluxForgeTheme.textSecondary,
@@ -509,8 +509,8 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
               children: [
                 Text(
                   'Center Offset',
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.textSecondary,
                   ),
                 ),
@@ -526,8 +526,8 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
                 ),
                 Text(
                   '${(_config.centerOffset * 100).toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
                     color: FluxForgeTheme.textTertiary,
                   ),
                 ),
@@ -551,9 +551,9 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
         children: [
           Text(
             title,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -564,8 +564,8 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             value: config.preset,
             isExpanded: true,
             dropdownColor: FluxForgeTheme.bgSurface,
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textPrimary,
             ),
             items: CrossfadePreset.values.map((preset) {
@@ -586,8 +586,8 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
           // Tension slider (for custom curves)
           Text(
             'Tension',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -619,8 +619,8 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
         children: [
           Text(
             'Duration:',
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -644,8 +644,8 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             width: 80,
             child: TextFormField(
               controller: _durationController,
-              style: TextStyle(
-                fontSize: 12,
+              style: FluxForgeTheme.dockMono(
+                size: 12,
                 color: FluxForgeTheme.textPrimary,
               ),
               decoration: InputDecoration(
@@ -704,7 +704,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             onPressed: widget.onCancel,
             child: Text(
               'Cancel',
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             ),
           ),
           const SizedBox(width: 8),
