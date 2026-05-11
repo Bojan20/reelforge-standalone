@@ -70,13 +70,13 @@ class _MacroHistoryState extends State<MacroHistory> {
         children: [
           const Icon(Icons.history, size: 14, color: FluxForgeTheme.accentCyan),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'HISTORY',
-            style: TextStyle(
-              color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
               letterSpacing: 1.2,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const Spacer(),
@@ -100,12 +100,12 @@ class _MacroHistoryState extends State<MacroHistory> {
               ),
               child: Text(
                 'COMPARE',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: _compareMode
                       ? FluxForgeTheme.accentCyan
                       : FluxForgeTheme.textTertiary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -139,16 +139,16 @@ class _MacroHistoryState extends State<MacroHistory> {
               color: FluxForgeTheme.textTertiary.withValues(alpha: 0.2),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'No run history',
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
             ),
             const SizedBox(height: 4),
             Text(
               'Run a macro to build history',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
-                fontSize: 10,
               ),
             ),
           ],
@@ -223,19 +223,18 @@ class _MacroHistoryState extends State<MacroHistory> {
                         children: [
                           Text(
                             entry.macroName,
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 11,
+                              weight: FontWeight.w500,
                               color: FluxForgeTheme.textSecondary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
                           const Spacer(),
                           Text(
                             '${entry.durationMs}ms',
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockMono(
+                              size: 10,
                               color: FluxForgeTheme.textTertiary,
-                              fontSize: 10,
-                              fontFamily: 'JetBrains Mono',
                             ),
                           ),
                         ],
@@ -245,9 +244,9 @@ class _MacroHistoryState extends State<MacroHistory> {
                         children: [
                           Text(
                             entry.gameId,
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
                               color: FluxForgeTheme.textTertiary,
-                              fontSize: 10,
                             ),
                           ),
                           const Spacer(),
@@ -255,10 +254,9 @@ class _MacroHistoryState extends State<MacroHistory> {
                             entry.timestamp.length > 16
                                 ? entry.timestamp.substring(0, 16)
                                 : entry.timestamp,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockMono(
+                              size: 9,
                               color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
-                              fontSize: 9,
-                              fontFamily: 'JetBrains Mono',
                             ),
                           ),
                         ],
@@ -288,10 +286,10 @@ class _MacroHistoryState extends State<MacroHistory> {
   }
 
   Widget _buildDetailPlaceholder() {
-    return const Center(
+    return Center(
       child: Text(
         'Select a run to view details',
-        style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+        style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
       ),
     );
   }
@@ -315,13 +313,13 @@ class _MacroHistoryState extends State<MacroHistory> {
           const SizedBox(height: 12),
           // Steps executed
           if (detail['steps'] != null) ...[
-            const Text(
+            Text(
               'STEPS',
-              style: TextStyle(
-                color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w700,
                 letterSpacing: 1.0,
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
             const SizedBox(height: 4),
@@ -329,10 +327,9 @@ class _MacroHistoryState extends State<MacroHistory> {
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Text(
                     '  $s',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 10,
-                      fontFamily: 'JetBrains Mono',
                     ),
                   ),
                 )),
@@ -352,20 +349,19 @@ class _MacroHistoryState extends State<MacroHistory> {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w500,
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
-                fontFamily: 'JetBrains Mono',
               ),
             ),
           ),
@@ -379,10 +375,10 @@ class _MacroHistoryState extends State<MacroHistory> {
     final detail2 = _provider.getRunDetail('/tmp/fluxmacro', _compareRunId!);
 
     if (detail1 == null || detail2 == null) {
-      return const Center(
+      return Center(
         child: Text(
           'Cannot load run details for comparison',
-          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
         ),
       );
     }
@@ -392,13 +388,13 @@ class _MacroHistoryState extends State<MacroHistory> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'COMPARE RUNS',
-            style: TextStyle(
-              color: FluxForgeTheme.accentCyan,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
               letterSpacing: 1.0,
+              color: FluxForgeTheme.accentCyan,
             ),
           ),
           const SizedBox(height: 12),
@@ -409,20 +405,20 @@ class _MacroHistoryState extends State<MacroHistory> {
               Expanded(
                 child: Text(
                   'Run A',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.accentBlue.withValues(alpha: 0.8),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
               Expanded(
                 child: Text(
                   'Run B',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.accentCyan.withValues(alpha: 0.8),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -457,30 +453,28 @@ class _MacroHistoryState extends State<MacroHistory> {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w500,
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ),
           Expanded(
             child: Text(
               valueA,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: match ? FluxForgeTheme.textSecondary : FluxForgeTheme.accentOrange,
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
               ),
             ),
           ),
           Expanded(
             child: Text(
               valueB,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: match ? FluxForgeTheme.textSecondary : FluxForgeTheme.accentOrange,
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
               ),
             ),
           ),

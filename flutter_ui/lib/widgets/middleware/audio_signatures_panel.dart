@@ -186,12 +186,11 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
         children: [
           Icon(Icons.fingerprint, color: FluxForgeTheme.accentCyan, size: 16),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'AUDIO SIGNATURES',
-            style: TextStyle(
-              color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 1,
             ),
           ),
@@ -204,10 +203,10 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
             ),
             child: Text(
               '${allSigs.length}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 9,
+                weight: FontWeight.w700,
                 color: FluxForgeTheme.accentCyan,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -256,7 +255,7 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(color: c, fontSize: 9, fontWeight: FontWeight.w600),
+              style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: c),
             ),
           ],
         ),
@@ -277,10 +276,10 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
         ),
         child: TextField(
           onChanged: (v) => setState(() => _searchQuery = v),
-          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(size: 11),
           decoration: InputDecoration(
             hintText: 'Search events or paths...',
-            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+            hintStyle: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
             prefixIcon: Icon(Icons.search, size: 14, color: FluxForgeTheme.textTertiary),
             prefixIconConstraints: const BoxConstraints(minWidth: 32),
             border: InputBorder.none,
@@ -301,12 +300,12 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
             const SizedBox(height: 8),
             Text(
               _searchQuery.isNotEmpty ? 'No matching signatures' : 'No audio signatures',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
             ),
             const SizedBox(height: 4),
             Text(
               'Register events with audio layers to generate signatures',
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
             ),
           ],
         ),
@@ -340,10 +339,9 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
               Expanded(
                 child: Text(
                   sig.eventName,
-                  style: const TextStyle(
-                    color: FluxForgeTheme.textPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -360,11 +358,10 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
                   ),
                   child: Text(
                     sig.hashShort,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
+                      weight: FontWeight.w500,
                       color: FluxForgeTheme.accentCyan.withValues(alpha: 0.8),
-                      fontSize: 9,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -395,10 +392,7 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
               const Spacer(),
               Text(
                 sig.audioPath.split('/').last,
-                style: TextStyle(
-                  color: FluxForgeTheme.textTertiary,
-                  fontSize: 9,
-                ),
+                style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -418,11 +412,7 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          color: color,
-          fontSize: 8,
-          fontWeight: FontWeight.w600,
-        ),
+        style: FluxForgeTheme.dockMono(size: 8, weight: FontWeight.w600, color: color),
       ),
     );
   }
@@ -432,7 +422,7 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
       return Center(
         child: Text(
           'Need at least 2 signatures to compare',
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
         ),
       );
     }
@@ -484,10 +474,10 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
           value: selectedIndex,
           hint: Text(
             'Select $label',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
           ),
           dropdownColor: FluxForgeTheme.bgMid,
-          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 10),
+          style: FluxForgeTheme.dockSans(size: 10),
           items: List.generate(sigs.length, (i) {
             return DropdownMenuItem(
               value: i,
@@ -520,20 +510,19 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
         children: [
           Text(
             '$pct%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 36,
+              weight: FontWeight.w700,
               color: color,
-              fontSize: 36,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'monospace',
             ),
           ),
           Text(
             'SIMILARITY',
-            style: TextStyle(
-              color: color.withValues(alpha: 0.7),
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w600,
               letterSpacing: 1,
+              color: color.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 12),
@@ -566,12 +555,12 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700),
+            style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w700, color: color),
           ),
           const SizedBox(height: 4),
           Text(
             sig.eventName,
-            style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10),
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 6),
@@ -585,7 +574,7 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
           const SizedBox(height: 4),
           Text(
             '${sig.durationFormatted}  ${sig.sampleRate ~/ 1000}kHz  ${sig.channelLabel}',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 8),
+            style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary),
           ),
         ],
       ),
@@ -605,14 +594,14 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
             _searchQuery.isNotEmpty
                 ? '${filtered.length} / ${allSigs.length} signatures'
                 : '${allSigs.length} signatures',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary),
           ),
           const Spacer(),
           Icon(Icons.fingerprint, size: 10, color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5)),
           const SizedBox(width: 4),
           Text(
             'SHA-256 fingerprints',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary),
           ),
         ],
       ),

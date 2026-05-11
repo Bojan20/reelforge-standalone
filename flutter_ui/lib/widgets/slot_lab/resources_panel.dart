@@ -167,20 +167,23 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
             children: [
               const Icon(Icons.storage, size: 14, color: FluxForgeTheme.accentBlue),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'RESOURCES',
-                style: TextStyle(
-                  color: FluxForgeTheme.accentBlue,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.accentBlue,
                 ),
               ),
               const Spacer(),
               // Stats
               Text(
                 '${_resources.length} files • ${_formatBytes(_totalMemory)}',
-                style: const TextStyle(color: Colors.white38, fontSize: 9),
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
+                  color: Colors.white38,
+                ),
               ),
             ],
           ),
@@ -206,10 +209,10 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: TextField(
-                          style: const TextStyle(color: Colors.white70, fontSize: 11),
-                          decoration: const InputDecoration(
+                          style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
+                          decoration: InputDecoration(
                             hintText: 'Search...',
-                            hintStyle: TextStyle(color: Colors.white24),
+                            hintStyle: FluxForgeTheme.dockSans(size: 11, color: Colors.white24),
                             border: InputBorder.none,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
@@ -234,7 +237,7 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
                     value: _selectedCategory,
                     dropdownColor: FluxForgeTheme.bgMid,
                     isDense: true,
-                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70),
                     items: _categories.map((c) =>
                       DropdownMenuItem(value: c, child: Text(c))
                     ).toList(),
@@ -302,29 +305,28 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
                 children: [
                   Text(
                     resource.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.w600,
                       color: isSelected ? Colors.white : Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                    ).copyWith(overflow: TextOverflow.ellipsis),
                   ),
                   const SizedBox(height: 2),
                   Row(
                     children: [
                       Text(
                         resource.formattedDuration,
-                        style: const TextStyle(color: Colors.white38, fontSize: 9),
+                        style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         resource.channelsLabel,
-                        style: const TextStyle(color: Colors.white38, fontSize: 9),
+                        style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         resource.formattedSize,
-                        style: const TextStyle(color: Colors.white38, fontSize: 9),
+                        style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38),
                       ),
                     ],
                   ),
@@ -341,10 +343,10 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
                 ),
                 child: Text(
                   '${resource.usedInClips.length}',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.accentGreen,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -371,17 +373,17 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             color: FluxForgeTheme.bgMid,
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.cached, size: 14, color: FluxForgeTheme.accentCyan),
-                SizedBox(width: 8),
+                const Icon(Icons.cached, size: 14, color: FluxForgeTheme.accentCyan),
+                const SizedBox(width: 8),
                 Text(
                   'WAVEFORM CACHE',
-                  style: TextStyle(
-                    color: FluxForgeTheme.accentCyan,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     letterSpacing: 1,
+                    color: FluxForgeTheme.accentCyan,
                   ),
                 ),
               ],
@@ -416,17 +418,17 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: const Color(0xFFFF4040).withValues(alpha: 0.5)),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.delete_outline, size: 14, color: Color(0xFFFF4040)),
-                          SizedBox(width: 6),
+                          const Icon(Icons.delete_outline, size: 14, color: Color(0xFFFF4040)),
+                          const SizedBox(width: 6),
                           Text(
                             'Clear Cache',
-                            style: TextStyle(
-                              color: Color(0xFFFF4040),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
+                              weight: FontWeight.w600,
+                              color: const Color(0xFFFF4040),
                             ),
                           ),
                         ],
@@ -444,17 +446,17 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5)),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.refresh, size: 14, color: FluxForgeTheme.accentBlue),
-                          SizedBox(width: 6),
+                          const Icon(Icons.refresh, size: 14, color: FluxForgeTheme.accentBlue),
+                          const SizedBox(width: 6),
                           Text(
                             'Refresh Stats',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
+                              weight: FontWeight.w600,
                               color: FluxForgeTheme.accentBlue,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -462,9 +464,9 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Select a resource for details',
-                    style: TextStyle(color: Colors.white38, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -486,13 +488,13 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
             children: [
               const Icon(Icons.info_outline, size: 14, color: FluxForgeTheme.accentCyan),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'DETAILS',
-                style: TextStyle(
-                  color: FluxForgeTheme.accentCyan,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.accentCyan,
                 ),
               ),
             ],
@@ -508,19 +510,20 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
                 // Name
                 Text(
                   selectedResource.name,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.bold,
                     color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                  ).copyWith(overflow: TextOverflow.ellipsis),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   selectedResource.path,
-                  style: const TextStyle(color: Colors.white38, fontSize: 10),
-                  overflow: TextOverflow.ellipsis,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    color: Colors.white38,
+                  ).copyWith(overflow: TextOverflow.ellipsis),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 16),
@@ -593,14 +596,14 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white54, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54),
           ),
           Text(
             value,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -625,10 +628,10 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],

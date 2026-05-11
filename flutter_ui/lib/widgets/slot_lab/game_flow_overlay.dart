@@ -212,11 +212,11 @@ class _FeatureStatusBar extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             flow.currentState.displayName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               letterSpacing: 0.5,
+              color: Colors.white,
             ),
           ),
           const Spacer(),
@@ -229,7 +229,10 @@ class _FeatureStatusBar extends StatelessWidget {
               ),
               child: Text(
                 'Depth: ${flow.featureDepth}',
-                style: const TextStyle(color: Colors.white70, fontSize: 10),
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  color: Colors.white70,
+                ),
               ),
             ),
         ],
@@ -658,10 +661,10 @@ class _LockedCoinCell extends StatelessWidget {
               ),
             Text(
               coin.value.toStringAsFixed(0),
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 12,
+                weight: FontWeight.bold,
                 color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -735,7 +738,10 @@ class _BonusGameOverlay extends StatelessWidget {
       _ => Center(
           child: Text(
             'Bonus Round: $bonusType',
-            style: const TextStyle(color: Colors.white70, fontSize: 16),
+            style: FluxForgeTheme.dockSans(
+              size: 16,
+              color: Colors.white70,
+            ),
           ),
         ),
     };
@@ -801,10 +807,10 @@ class _GambleOverlay extends StatelessWidget {
               children: [
                 Text(
                   _gambleLabel(gambleType),
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 18,
+                    weight: FontWeight.bold,
                     color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -911,11 +917,11 @@ class _GambleButton extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
               letterSpacing: 1,
+              color: Colors.white,
             ),
           ),
         ),
@@ -966,20 +972,20 @@ class _JackpotOverlay extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             tierName.toUpperCase(),
-            style: const TextStyle(
-              color: Color(0xFFFFD700),
-              fontSize: 36,
-              fontWeight: FontWeight.w900,
+            style: FluxForgeTheme.dockSans(
+              size: 36,
+              weight: FontWeight.w900,
               letterSpacing: 4,
+              color: const Color(0xFFFFD700),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             wonValue.toStringAsFixed(2),
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 48,
+              weight: FontWeight.bold,
               color: Colors.white,
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -1081,31 +1087,31 @@ class _WinPresentationOverlay extends StatelessWidget {
               size: 48,
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'WIN',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 14,
+                weight: FontWeight.w600,
                 letterSpacing: 2,
+                color: Colors.white70,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               totalWin.toStringAsFixed(2),
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 42,
+                weight: FontWeight.bold,
                 color: Colors.white,
-                fontSize: 42,
-                fontWeight: FontWeight.bold,
               ),
             ),
             if (multiplierSources.isNotEmpty) ...[
               const SizedBox(height: 8),
               ...multiplierSources.map((source) => Text(
                     source,
-                    style: const TextStyle(
-                      color: Color(0xFFFFD700),
-                      fontSize: 12,
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      color: const Color(0xFFFFD700),
                     ),
                   )),
             ],
@@ -1225,10 +1231,10 @@ class _CollectorMeters extends StatelessWidget {
               children: [
                 Text(
                   entry.key,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     letterSpacing: 0.5,
+                    color: Colors.white70,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1250,9 +1256,9 @@ class _CollectorMeters extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${entry.value} / $target',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 8,
                     color: Colors.white54,
-                    fontSize: 8,
                   ),
                 ),
               ],
@@ -1283,10 +1289,10 @@ class _QueueIndicator extends StatelessWidget {
       ),
       child: Text(
         '+$count features',
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 10,
+          weight: FontWeight.w600,
           color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -1341,21 +1347,21 @@ class _OverlayBadge extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w600,
               letterSpacing: 0.6,
+              color: Colors.white70,
             ),
           ),
           const SizedBox(width: 5),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 12,
+              weight: FontWeight.bold,
               height: 1.0,
+              color: Colors.white,
             ),
           ),
         ],
@@ -1905,11 +1911,11 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                   opacity: _hintOpacity.value,
                   child: Text(
                     'TAP TO CONTINUE',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.bold,
                       letterSpacing: 3,
+                      color: Colors.white.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -2044,11 +2050,11 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
           child: Text(
             text,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: fontSize + 2,
-              fontWeight: FontWeight.w900,
-              color: Colors.white.withValues(alpha: 0.3),
+            style: FluxForgeTheme.dockSans(
+              size: fontSize + 2,
+              weight: FontWeight.w900,
               letterSpacing: 5,
+              color: Colors.white.withValues(alpha: 0.3),
             ),
           ),
         ),
@@ -2063,11 +2069,12 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
           child: Text(
             text,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
+            style: FluxForgeTheme.dockSans(
+              size: fontSize,
+              weight: FontWeight.w900,
               letterSpacing: 4,
+              color: Colors.white,
+            ).copyWith(
               shadows: [
                 // Emboss shadow
                 Shadow(
@@ -2099,11 +2106,12 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
         // "TOTAL WIN" label
         Text(
           'TOTAL WIN',
-          style: TextStyle(
-            color: _secondaryColor.withValues(alpha: 0.8),
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.bold,
             letterSpacing: 3,
+            color: _secondaryColor.withValues(alpha: 0.8),
+          ).copyWith(
             shadows: [
               Shadow(color: _secondaryColor.withValues(alpha: 0.5), blurRadius: 8),
             ],
@@ -2143,11 +2151,12 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
               ).createShader(bounds),
               child: Text(
                 totalWin.toStringAsFixed(2),
-                style: TextStyle(
-                  fontSize: 44,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
+                style: FluxForgeTheme.dockMono(
+                  size: 44,
+                  weight: FontWeight.w900,
                   letterSpacing: 3,
+                  color: Colors.white,
+                ).copyWith(
                   height: 1.1,
                   shadows: [
                     const Shadow(color: Colors.white, blurRadius: 4),

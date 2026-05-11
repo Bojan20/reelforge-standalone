@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../services/dsp_script_service.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -102,7 +103,7 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
               ? Center(child: Text(
                   'No scripts.\n\nTap + to create a new\nDSP script.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary),
+                  style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary),
                 ))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -117,11 +118,11 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
             border: Border(top: BorderSide(color: FabFilterColors.border)),
           ),
           child: Row(children: [
-            Text('Total: ${_service.count}', style: const TextStyle(
-              fontSize: 9, color: FabFilterColors.textTertiary)),
+            Text('Total: ${_service.count}', style: FluxForgeTheme.dockMono(
+              size: 9, color: FabFilterColors.textTertiary)),
             const Spacer(),
-            Text('Active: ${_service.activeCount}', style: TextStyle(
-              fontSize: 9,
+            Text('Active: ${_service.activeCount}', style: FluxForgeTheme.dockMono(
+              size: 9,
               color: _service.activeCount > 0
                   ? FabFilterColors.green : FabFilterColors.textTertiary)),
           ]),
@@ -165,13 +166,13 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(script.name, style: TextStyle(
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+              Text(script.name, style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: selected ? FontWeight.w600 : FontWeight.normal,
                 color: FabFilterColors.textPrimary,
               ), overflow: TextOverflow.ellipsis),
-              Text('${script.lineCount} lines', style: const TextStyle(
-                fontSize: 9, color: FabFilterColors.textTertiary)),
+              Text('${script.lineCount} lines', style: FluxForgeTheme.dockMono(
+                size: 9, color: FabFilterColors.textTertiary)),
             ],
           )),
           // Active toggle
@@ -208,7 +209,7 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
     if (script == null) {
       return Center(child: Text(
         'Select or create a script to edit',
-        style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 12),
+        style: FluxForgeTheme.dockSans(size: 12, color: FabFilterColors.textTertiary),
       ));
     }
 
@@ -223,8 +224,8 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
             color: FabFilterColors.bgMid,
           ),
           child: Row(children: [
-            Text(script.name, style: const TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w600, color: FabFilterColors.textPrimary)),
+            Text(script.name, style: FluxForgeTheme.dockSans(
+              size: 11, weight: FontWeight.w600, color: FabFilterColors.textPrimary)),
             const Spacer(),
             // Compile button
             _toolbarButton(Icons.play_arrow, 'Compile & Run',
@@ -256,17 +257,16 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
               focusNode: _codeFocus,
               maxLines: null,
               expands: true,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FabFilterColors.textPrimary,
                 height: 1.5,
               ),
-              decoration: const InputDecoration(
-                contentPadding: EdgeInsets.all(12),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.all(12),
                 border: InputBorder.none,
                 hintText: '// Write your DSP code here...',
-                hintStyle: TextStyle(color: FabFilterColors.textDisabled),
+                hintStyle: FluxForgeTheme.dockMono(color: FabFilterColors.textDisabled),
               ),
               onChanged: (text) {
                 _service.updateSourceCode(script.id, text);
@@ -294,16 +294,16 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
                             ? FabFilterColors.red : FabFilterColors.orange,
                       ),
                       const SizedBox(width: 4),
-                      Text('Line ${err.line}: ${err.message}', style: TextStyle(
-                        fontSize: 10,
+                      Text('Line ${err.line}: ${err.message}', style: FluxForgeTheme.dockMono(
+                        size: 10,
                         color: err.severity == 'error'
                             ? FabFilterColors.red : FabFilterColors.orange,
                       )),
                     ]),
                   ),
                 if (script.errors.length > 5)
-                  Text('...and ${script.errors.length - 5} more', style: const TextStyle(
-                    fontSize: 9, color: FabFilterColors.textTertiary)),
+                  Text('...and ${script.errors.length - 5} more', style: FluxForgeTheme.dockSans(
+                    size: 9, color: FabFilterColors.textTertiary)),
               ],
             ),
           ),
@@ -317,12 +317,12 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
           child: Row(children: [
             _compileStatusBadge(script),
             const Spacer(),
-            Text('${script.lineCount} lines', style: const TextStyle(
-              fontSize: 9, color: FabFilterColors.textTertiary)),
+            Text('${script.lineCount} lines', style: FluxForgeTheme.dockMono(
+              size: 9, color: FabFilterColors.textTertiary)),
             if (script.active) ...[
               const SizedBox(width: 8),
               Text('CPU: ${(script.cpuUsage * 100).toStringAsFixed(1)}%',
-                style: TextStyle(fontSize: 9,
+                style: FluxForgeTheme.dockMono(size: 9,
                   color: script.cpuUsage > 0.5
                       ? FabFilterColors.red : FabFilterColors.textTertiary)),
             ],
@@ -353,8 +353,8 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
         borderRadius: BorderRadius.circular(3),
         border: Border.all(color: color),
       ),
-      child: Text(label, style: TextStyle(
-        fontSize: 8, fontWeight: FontWeight.w600, color: color)),
+      child: Text(label, style: FluxForgeTheme.dockSans(
+        size: 8, weight: FontWeight.w600, color: color)),
     );
   }
 
@@ -394,7 +394,7 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
                 script == null
                     ? 'No script selected'
                     : 'No parameters.\n\nDeclare sliders:\n@slider1 Name = def, min, max',
-                style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary),
+                style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary),
               ),
             )
           else
@@ -411,15 +411,15 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
           const SizedBox(height: 4),
           if (script != null) ...[
             Text('Status: ${script.compileStatus.name}',
-              style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+              style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)),
             Text('Active: ${script.active ? "ON" : "OFF"}',
-              style: TextStyle(fontSize: 10,
+              style: FluxForgeTheme.dockSans(size: 10,
                 color: script.active ? FabFilterColors.green : FabFilterColors.textTertiary)),
             if (script.description != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(script.description!, style: const TextStyle(
-                  fontSize: 10, color: FabFilterColors.textTertiary, height: 1.3)),
+                child: Text(script.description!, style: FluxForgeTheme.dockSans(
+                  size: 10, color: FabFilterColors.textTertiary, height: 1.3)),
               ),
           ],
 
@@ -434,7 +434,7 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
             '@sample — per sample\n\n'
             'spl0/spl1 — L/R samples\n'
             'srate — sample rate',
-            style: const TextStyle(fontSize: 9, color: FabFilterColors.textTertiary, height: 1.4),
+            style: FluxForgeTheme.dockMono(size: 9, color: FabFilterColors.textTertiary, height: 1.4),
           ),
         ],
       ),
@@ -448,13 +448,13 @@ class _DspScriptPanelState extends State<DspScriptPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Expanded(child: Text(param.label, style: const TextStyle(
-              fontSize: 10, color: FabFilterColors.textSecondary),
+            Expanded(child: Text(param.label, style: FluxForgeTheme.dockSans(
+              size: 10, color: FabFilterColors.textSecondary),
               overflow: TextOverflow.ellipsis)),
             GestureDetector(
               onTap: () => _service.resetParam(script.id, param.index),
-              child: Text(param.value.toStringAsFixed(1), style: const TextStyle(
-                fontSize: 9, color: FabFilterColors.cyan)),
+              child: Text(param.value.toStringAsFixed(1), style: FluxForgeTheme.dockMono(
+                size: 9, color: FabFilterColors.cyan)),
             ),
           ]),
           SliderTheme(

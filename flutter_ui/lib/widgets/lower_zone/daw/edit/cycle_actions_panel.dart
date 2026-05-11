@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../services/cycle_action_service.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -110,7 +111,7 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
                   child: Text(
                     'No cycles defined.\nClick + or load presets.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textTertiary),
                   ),
                 )
               : ListView.builder(
@@ -134,7 +135,7 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
               child: TextField(
                 controller: _cycleNameCtrl,
                 focusNode: _cycleNameFocus,
-                style: const TextStyle(fontSize: 11, color: FabFilterColors.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textPrimary),
                 decoration: _inputDeco('Cycle name...'),
                 onSubmitted: (_) => _createCycle(),
               ),
@@ -182,20 +183,20 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(cycle.name, style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                  Text(cycle.name, style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: selected ? FontWeight.w600 : FontWeight.normal,
                     color: selected ? FabFilterColors.textPrimary : FabFilterColors.textSecondary,
                   ), overflow: TextOverflow.ellipsis),
                   if (cycle.description != null)
-                    Text(cycle.description!, style: TextStyle(
-                      fontSize: 9, color: FabFilterColors.textTertiary,
+                    Text(cycle.description!, style: FluxForgeTheme.dockSans(
+                      size: 9, color: FabFilterColors.textTertiary,
                     ), overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
-            Text('${cycle.stepCount}', style: TextStyle(
-              fontSize: 10, color: FabFilterColors.textTertiary)),
+            Text('${cycle.stepCount}', style: FluxForgeTheme.dockMono(
+              size: 10, color: FabFilterColors.textTertiary)),
             const SizedBox(width: 4),
             Container(
               width: 16, height: 16,
@@ -208,7 +209,7 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
               ),
               child: Text(
                 cycle.isEmpty ? '-' : '${cycle.currentIndex + 1}',
-                style: TextStyle(fontSize: 9, color: FabFilterColors.cyan),
+                style: FluxForgeTheme.dockMono(size: 9, color: FabFilterColors.cyan),
               ),
             ),
           ],
@@ -225,7 +226,7 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
     final cycle = _selectedCycle;
     if (cycle == null) {
       return Center(child: Text('Select a cycle to view steps',
-        style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 12)));
+        style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary, size: 12)));
     }
 
     return Column(
@@ -237,8 +238,8 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
             children: [
               FabSectionLabel('STEPS'),
               const SizedBox(width: 8),
-              Text(cycle.name, style: const TextStyle(
-                fontSize: 11, color: FabFilterColors.cyan)),
+              Text(cycle.name, style: FluxForgeTheme.dockSans(
+                size: 11, color: FabFilterColors.cyan)),
               const Spacer(),
               _iconBtn(Icons.add, 'Add Step', () =>
                 setState(() => _showAddStep = !_showAddStep)),
@@ -249,7 +250,7 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
         Expanded(
           child: cycle.steps.isEmpty
               ? Center(child: Text('No steps. Click + to add.',
-                  style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 11)))
+                  style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary, size: 11)))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   itemCount: cycle.steps.length,
@@ -275,14 +276,14 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
           SizedBox(height: 26, child: TextField(
             controller: _stepLabelCtrl,
             focusNode: _stepLabelFocus,
-            style: const TextStyle(fontSize: 11, color: FabFilterColors.textPrimary),
+            style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textPrimary),
             decoration: _inputDeco('Step label...'),
           )),
           const SizedBox(height: 4),
           SizedBox(height: 26, child: TextField(
             controller: _stepTargetCtrl,
             focusNode: _stepTargetFocus,
-            style: const TextStyle(fontSize: 11, color: FabFilterColors.textPrimary),
+            style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textPrimary),
             decoration: _inputDeco(
               _newStepType == CycleStepType.command
                   ? 'Command ID (e.g. view.zoom_fit)...'
@@ -312,8 +313,8 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: active ? FabFilterColors.cyan : FabFilterColors.border),
         ),
-        child: Text(label, style: TextStyle(
-          fontSize: 10,
+        child: Text(label, style: FluxForgeTheme.dockSans(
+          size: 10,
           color: active ? FabFilterColors.cyan : FabFilterColors.textTertiary,
         )),
       ),
@@ -356,8 +357,8 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
       child: Row(
         children: [
           SizedBox(width: 20, child: Text('${index + 1}', textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10,
-              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+            style: FluxForgeTheme.dockMono(size: 10,
+              weight: isCurrent ? FontWeight.bold : FontWeight.normal,
               color: isCurrent ? FabFilterColors.cyan : FabFilterColors.textTertiary))),
           const SizedBox(width: 6),
           Container(
@@ -369,7 +370,7 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
             child: Text(
               step.type == CycleStepType.command ? 'CMD'
                   : step.type == CycleStepType.action ? 'ACT' : 'IF',
-              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(size: 9, weight: FontWeight.w600,
                 color: _stepColor(step.type)),
             ),
           ),
@@ -378,11 +379,11 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(step.label, style: TextStyle(fontSize: 11,
+                Text(step.label, style: FluxForgeTheme.dockSans(size: 11,
                   color: isCurrent ? FabFilterColors.textPrimary : FabFilterColors.textSecondary),
                   overflow: TextOverflow.ellipsis),
                 Text(step.commandId ?? step.actionName ?? 'conditional',
-                  style: TextStyle(fontSize: 9, color: FabFilterColors.textTertiary),
+                  style: FluxForgeTheme.dockMono(size: 9, color: FabFilterColors.textTertiary),
                   overflow: TextOverflow.ellipsis),
               ],
             ),
@@ -443,12 +444,12 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
           if (cycle != null) ...[
             const Divider(color: FabFilterColors.border, height: 16),
             Text('Steps: ${cycle.stepCount}',
-              style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+              style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textTertiary)),
             Text('Position: ${cycle.isEmpty ? "-" : "${cycle.currentIndex + 1}/${cycle.stepCount}"}',
-              style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+              style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textTertiary)),
             if (cycle.currentStep != null)
               Text('Next: ${cycle.currentStep!.label}',
-                style: TextStyle(fontSize: 10, color: FabFilterColors.cyan)),
+                style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.cyan)),
           ],
         ],
       ),
@@ -493,7 +494,7 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
               Icon(icon, size: 14,
                 color: enabled ? FabFilterColors.textSecondary : FabFilterColors.textDisabled),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 11,
+              Text(label, style: FluxForgeTheme.dockSans(size: 11,
                 color: enabled ? FabFilterColors.textSecondary : FabFilterColors.textDisabled)),
             ],
           ),
@@ -504,7 +505,7 @@ class _CycleActionsPanelState extends State<CycleActionsPanel> {
 
   InputDecoration _inputDeco(String hint) => InputDecoration(
     hintText: hint,
-    hintStyle: TextStyle(color: FabFilterColors.textTertiary, fontSize: 11),
+    hintStyle: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary, size: 11),
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
     border: OutlineInputBorder(

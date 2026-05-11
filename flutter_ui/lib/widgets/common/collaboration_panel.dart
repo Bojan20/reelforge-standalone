@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/collaboration_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ============================================================================
 // COLLABORATION STATUS BADGE
@@ -72,9 +73,9 @@ class CollaborationStatusBadge extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       '${session.participants.length}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockMono(
+                        size: 11,
+                        weight: FontWeight.bold,
                         color: color,
                       ),
                     ),
@@ -170,16 +171,16 @@ class _CollaborationPanelState extends State<CollaborationPanel>
                   service.isInSession
                       ? service.currentSession!.projectName
                       : 'Collaboration',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                  style: FluxForgeTheme.dockSans(
+                    weight: FontWeight.bold,
+                    size: 14,
                   ),
                 ),
                 Text(
                   service.status.displayName,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[400],
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    color: Colors.grey[400]!,
                   ),
                 ),
               ],
@@ -216,19 +217,19 @@ class _CollaborationPanelState extends State<CollaborationPanel>
           const SizedBox(height: 16),
           Text(
             'Start Collaborating',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[300],
+            style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.bold,
+              color: Colors.grey[300]!,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Create or join a session to collaborate in real-time',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[500],
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              color: Colors.grey[500]!,
             ),
           ),
           const SizedBox(height: 24),
@@ -266,7 +267,7 @@ class _CollaborationPanelState extends State<CollaborationPanel>
                   const SizedBox(width: 4),
                   Text(
                     service.lastError!,
-                    style: const TextStyle(fontSize: 11, color: Colors.red),
+                    style: FluxForgeTheme.dockSans(size: 11, color: Colors.red),
                   ),
                 ],
               ),
@@ -288,7 +289,7 @@ class _CollaborationPanelState extends State<CollaborationPanel>
             Tab(text: 'Chat'),
             Tab(text: 'Activity'),
           ],
-          labelStyle: const TextStyle(fontSize: 12),
+          labelStyle: FluxForgeTheme.dockSans(size: 12),
           indicatorSize: TabBarIndicatorSize.tab,
         ),
 
@@ -387,7 +388,7 @@ class _CollaborationPanelState extends State<CollaborationPanel>
                   Expanded(
                     child: Text(
                       link,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                      style: FluxForgeTheme.dockMono(size: 12),
                     ),
                   ),
                   IconButton(
@@ -487,10 +488,10 @@ class CollaboratorTile extends StatelessWidget {
                 collaborator.name.isNotEmpty
                     ? collaborator.name[0].toUpperCase()
                     : '?',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  weight: FontWeight.bold,
+                  size: 14,
                 ),
               ),
             ),
@@ -506,16 +507,16 @@ class CollaboratorTile extends StatelessWidget {
                   children: [
                     Text(
                       collaborator.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
+                      style: FluxForgeTheme.dockSans(
+                        weight: FontWeight.w500,
+                        size: 13,
                       ),
                     ),
                     if (isLocal)
-                      const Text(
+                      Text(
                         ' (you)',
-                        style: TextStyle(
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: Colors.grey,
                         ),
                       ),
@@ -531,8 +532,8 @@ class CollaboratorTile extends StatelessWidget {
                       ),
                       child: Text(
                         collaborator.role.displayName,
-                        style: TextStyle(
-                          fontSize: 10,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: _roleColor(collaborator.role),
                         ),
                       ),
@@ -541,21 +542,20 @@ class CollaboratorTile extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         '• ${collaborator.currentSection}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey[500],
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          color: Colors.grey[500]!,
                         ),
                       ),
                     ],
                     if (collaborator.isTyping) ...[
                       const SizedBox(width: 4),
-                      const Text(
+                      Text(
                         '• typing...',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontStyle: FontStyle.italic,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: Colors.blue,
-                        ),
+                        ).copyWith(fontStyle: FontStyle.italic),
                       ),
                     ],
                   ],
@@ -578,9 +578,9 @@ class CollaboratorTile extends StatelessWidget {
                   child: Text('Make Viewer'),
                 ),
                 const PopupMenuDivider(),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'kick',
-                  child: Text('Remove', style: TextStyle(color: Colors.red)),
+                  child: Text('Remove', style: FluxForgeTheme.dockSans(color: Colors.red)),
                 ),
               ],
               onSelected: (value) {
@@ -687,7 +687,7 @@ class _CollaborationChatPanelState extends State<CollaborationChatPanel> {
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     border: OutlineInputBorder(),
                   ),
-                  style: const TextStyle(fontSize: 13),
+                  style: FluxForgeTheme.dockSans(size: 13),
                   onChanged: (_) => _handleTyping(),
                   onSubmitted: (_) => _sendMessage(),
                 ),
@@ -714,11 +714,10 @@ class _CollaborationChatPanelState extends State<CollaborationChatPanel> {
         child: Center(
           child: Text(
             message.content,
-            style: TextStyle(
-              fontSize: 11,
-              fontStyle: FontStyle.italic,
-              color: Colors.grey[500],
-            ),
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              color: Colors.grey[500]!,
+            ).copyWith(fontStyle: FontStyle.italic),
           ),
         ),
       );
@@ -740,21 +739,21 @@ class _CollaborationChatPanelState extends State<CollaborationChatPanel> {
             if (!isLocal)
               Text(
                 message.senderName,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[400],
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
+                  color: Colors.grey[400]!,
                 ),
               ),
             Text(
               message.content,
-              style: const TextStyle(fontSize: 13),
+              style: FluxForgeTheme.dockSans(size: 13),
             ),
             Text(
               _formatTime(message.timestamp),
-              style: TextStyle(
-                fontSize: 9,
-                color: Colors.grey[600],
+              style: FluxForgeTheme.dockMono(
+                size: 9,
+                color: Colors.grey[600]!,
               ),
             ),
           ],
@@ -1100,10 +1099,10 @@ class LiveCursorsOverlay extends StatelessWidget {
                     ),
                     child: Text(
                       user.name,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                        size: 10,
+                        weight: FontWeight.bold,
                       ),
                     ),
                   ),

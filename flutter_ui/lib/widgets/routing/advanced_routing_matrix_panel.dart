@@ -155,13 +155,13 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
         children: [
           Icon(Icons.grid_on, color: FluxForgeTheme.accentBlue, size: 16),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'ADVANCED ROUTING',
-            style: TextStyle(
-              color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 1,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const SizedBox(width: 16),
@@ -238,10 +238,10 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w600,
             color: value ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -265,10 +265,10 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.accentGreen,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -341,10 +341,10 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
                             const SizedBox(width: 4),
                             Text(
                               'SRC',
-                              style: TextStyle(
+                              style: FluxForgeTheme.dockSans(
+                                size: 8,
+                                weight: FontWeight.w600,
                                 color: FluxForgeTheme.textSecondary,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -414,20 +414,20 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
             children: [
               Text(
                 isMaster ? 'MST' : (target.type == ChannelType.aux ? 'AUX' : 'BUS'),
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 7,
+                  weight: FontWeight.w600,
                   color: target.color.withValues(alpha: 0.7),
-                  fontSize: 7,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
                 target.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: _compactMode ? 8 : 9,
+                  weight: FontWeight.w500,
                   color: isSelected || isHovered
                       ? target.color
                       : FluxForgeTheme.textPrimary,
-                  fontSize: _compactMode ? 8 : 9,
-                  fontWeight: FontWeight.w500,
                 ),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -444,12 +444,12 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
                           color: FluxForgeTheme.accentRed.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(2),
                         ),
-                        child: const Text(
+                        child: Text(
                           'M',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 7,
+                            weight: FontWeight.w600,
                             color: FluxForgeTheme.accentRed,
-                            fontSize: 7,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -461,12 +461,12 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
                           color: FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(2),
                         ),
-                        child: const Text(
+                        child: Text(
                           'S',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 7,
+                            weight: FontWeight.w600,
                             color: FluxForgeTheme.accentOrange,
-                            fontSize: 7,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -551,12 +551,12 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
                       children: [
                         Text(
                           channel.name,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: _compactMode ? 9 : 10,
+                            weight: FontWeight.w500,
                             color: isSelected || isHovered
                                 ? FluxForgeTheme.textPrimary
                                 : FluxForgeTheme.textSecondary,
-                            fontSize: _compactMode ? 9 : 10,
-                            fontWeight: FontWeight.w500,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -564,23 +564,23 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
                           Row(
                             children: [
                               if (channel.muted)
-                                const Text(
+                                Text(
                                   'M',
-                                  style: TextStyle(
+                                  style: FluxForgeTheme.dockSans(
+                                    size: 7,
+                                    weight: FontWeight.w600,
                                     color: FluxForgeTheme.accentRed,
-                                    fontSize: 7,
-                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               if (channel.soloed)
                                 Padding(
                                   padding: EdgeInsets.only(left: channel.muted ? 2 : 0),
-                                  child: const Text(
+                                  child: Text(
                                     'S',
-                                    style: TextStyle(
+                                    style: FluxForgeTheme.dockSans(
+                                      size: 7,
+                                      weight: FontWeight.w600,
                                       color: FluxForgeTheme.accentOrange,
-                                      fontSize: 7,
-                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
@@ -692,10 +692,10 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
           const SizedBox(height: 2),
           Text(
             '${(sendLevel * 100).toInt()}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: cellSize * 0.18,
+              weight: FontWeight.w600,
               color: target.color,
-              fontSize: cellSize * 0.18,
-              fontWeight: FontWeight.w600,
             ),
           ),
           // Mini level bar
@@ -795,9 +795,9 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
             Expanded(
               child: Text(
                 '${source.name} -> ${target.name}',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
                 ),
               ),
             ),
@@ -809,13 +809,13 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Send level
-              const Text(
+              Text(
                 'SEND LEVEL',
-                style: TextStyle(
-                  color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -847,10 +847,10 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
                     ),
                     child: Text(
                       '${(tempLevel * 100).toInt()}%',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 12,
+                        weight: FontWeight.w600,
                         color: target.color,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -861,13 +861,13 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
               const SizedBox(height: 16),
 
               // Pre/Post fader toggle
-              const Text(
+              Text(
                 'FADER POSITION',
-                style: TextStyle(
-                  color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -898,7 +898,7 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             ),
           ),
           ElevatedButton(
@@ -953,10 +953,10 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: selected ? color : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -1056,9 +1056,9 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
           const SizedBox(width: 24),
           Text(
             '${channels.length} sources | ${buses.length + 1} targets | $connectionCount routes',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
             ),
           ),
           if (_selectedSources.isNotEmpty) ...[
@@ -1071,10 +1071,10 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
               ),
               child: Text(
                 '${_selectedSources.length} selected',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.accentBlue,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -1091,9 +1091,9 @@ class _AdvancedRoutingMatrixPanelState extends State<AdvancedRoutingMatrixPanel>
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 9,
           ),
         ),
       ],
