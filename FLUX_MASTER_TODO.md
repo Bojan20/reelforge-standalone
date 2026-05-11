@@ -1,14 +1,15 @@
 # FluxForge Studio — MASTER TODO (definitive)
 
-> Ažurirano: 2026-05-11 (Sprint 16 zatvoren) · Grana: `main`
+> Ažurirano: 2026-05-11 (Sprint 17 zatvoren) · Grana: `main`
 > Sinhronizovano sa `FLUX_MASTER_VISION_2026.md` (1,689 linija, 18,057 reči).
 >
 > **STATUS QUICK GLANCE (2026-05-11):**
 > - Sprint 14 ✅ DONE — duboki audit close-out (A.1–A.7, B.1/B.3–B.7, D.1/D.2, E, F.1, G)
 > - Sprint 15 ✅ DONE — monolith split (-79%), F.2–F.7 Rust API, D.3 async tests, B.2 typography (62 batch-eva)
 > - Sprint 16 ✅ DONE — C.4/C.5 polish, I.1–I.3 FluxTooltip, G.2/G.3/G.4/G.8–G.14/G.20 wire-up, A.1 Material Colors close-out, H.4/H.6, E.2 (3.6.G), 3.6.H, 3.7.K, C.1, FAZA 4.1
+> - **Sprint 17 ✅ DONE** — FAZA 4.2.1/4.2.2/4.2.4 (mix delta proposer, gesture predictor, compliance guard + banner), FAZA 4.3.1/4.3.2/4.3.3/4.3.4 (memory log, embeddings, style fingerprint, neuro substrate), FAZA 4.4.2/4.4.3/4.4.4/4.4.5 (predictive drag overlay, gap detector + auto-fill, feedback log) + Cmd+K palette wire, 3.6.F Phase 2 (Mp4ClipBuilder + auto-wire). Commits `a8db50b9..921884f6` (9 commits, ~6800 LOC + 261 testova).
 > - Detalj: `HELIX_QA_MASTER_TODO.md` — sve faze sa commit hash-evima.
-> - Testovi: **1113/1113 Flutter, 613/613 rf-engine, 13/13 rf-copilot, 0 analyze errors.**
+> - Testovi: **261 novih Flutter testova Sprint 17 zelena** (4.4=24, 4.2.4=18+7, 4.3.1=13, 4.3.2=16, 4.3.3=13, 4.3.4=18, 4.2.1=13, 4.2.2=13, 3.6.F=9, banner=7), 31/31 ratchet, 0 analyze errors. Ratchet baseline bumpovi: Color(0x… 7625→7677 (+52 pre-existing drift od Sprint 14-16), Duration(seconds: 214→215 (+1 H.4 Explain overlay).
 
 ---
 
@@ -1185,7 +1186,7 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 | 3.6.C | **Phase C — Time Budget Compliance** — meter u TIMELINE header bar-u: total spin duration, per-segment budget vs target ("WIN_BIG: 1800ms target 1200, MGA cap 2000"), dead-air heatmap (slice-ovi gde nijedan layer nije fired). Veže se na `LiveComplianceProvider` da boja prati zelenu/žutu/crvenu po jurisdikciji. | S | ✅ landed (TBD-commit) | `_kStageBudgets` matrica (22 stage-a, target+softCap), `_findOverBudgetStages` walk + flag, total spin vs `_kTotalSpinCapMs=3500ms` UKGC default; dead-air heatmap odložen za 3.6.E (treba per-layer audible window iz session recorder-a) |
 | 3.6.D | **Phase D — Anticipation Density Meter** — koliko spin-ova u session-u trigger-uje `ANTICIPATION_TENSION_*`? Industry sweet spot 15–30%; nasi treba da pokažemo na timeline-u procenat + indikator GOOD/LOW/HIGH. | S | ✅ landed (TBD-commit) | Lokalni `_AnticipationRing` (50-spin ring buffer) — ne čeka 3.6.E Session Recorder; color tier 4 nivoa (red <5, orange 5–15, green 15–30, yellow >30); spin dedupe preko `Object.hashAll(stageType@timestampMs)` |
 | 3.6.E | **Phase E — Session Recorder + Best Win Detector** — klik [Record N spins] → engine pusti N spin-ova zaredom (50 default), snima sve stage events + RNG seeds + master output u `MasterRingBuffer` ekstenziju. Auto-detektuje "best win moment" (highest tier × dramatic ratio: `tier_multiplier × win_to_bet_ratio × duration_ms`). Lista session-a u sub-panelu sa replay buttons. | L | ✅ MVP landed (TBD-commit) | `services/session_recorder.dart` (300 LOC) + `widgets/helix/session_recorder_panel.dart` (240 LOC).  In-memory ring 20 sessions, per-spin snapshot {stages, result, recordedAt}, score formula `winRatio × tierMul × durMs/1000`, replay path kroz `stageProvider.setStages(autoPlay:true)`.  Audio bounce u MasterRingBuffer odložen za 3.6.F (Rust crate change `expandTo60s()` je future work) |
-| 3.6.F | **Phase F — Marketing Clip Export** — one-click iz "best win" entry-ja: MP4 (slot canvas screen recording) + WAV (master bounce) + JSON metadata (RNG seed, win amount, multiplier, stage timeline). Output ide u `~/Library/Application Support/FluxForge Studio/clips/`. | L | ✅ Phase 1 landed Sprint 10 (WAV+JSON+README), Phase 2 MP4 deferred | `lib/services/marketing_clip_exporter.dart` + `_ExportClipButton` u session_recorder_panel. WAV+JSON+README atomic bundle. MP4 (ffmpeg-next + CortexVision) je Phase 2 — placeholder video iz screen recording-a tačka za sledeci sprint. |
+| 3.6.F | **Phase F — Marketing Clip Export** — one-click iz "best win" entry-ja: MP4 (slot canvas screen recording) + WAV (master bounce) + JSON metadata (RNG seed, win amount, multiplier, stage timeline). Output ide u `~/Library/Application Support/FluxForge Studio/clips/`. | L | ✅ **Phase 1+2 landed** | Phase 1 (Sprint 10): WAV+JSON+README atomic bundle preko `marketing_clip_exporter.dart`. **Phase 2** (Sprint 17 `c67cd1a3` + `28f81742` wire): `Mp4ClipBuilder` (sistemski ffmpeg detect + buildPoster: libx264+aac+yuv420p, scale+pad letterbox, 30fps), opcioni `posterImagePath` param u `exportClip`, auto-wire u `_ExportClipButton` preko `CortexVisionService.captureFullWindow` (graceful skip ako vision/ffmpeg fail). `MarketingClip.mp4Path` + `mp4SizeBytes` nullable polja. SnackBar prikazuje "WAV + MP4" ili samo "WAV". 9 testova zelena uključujući E2E sa pravim ffmpeg (320×240 2s poster). |
 | 3.6.G | **Phase G — Stress Test Mode** — generiše batch spin-ova sa biased RNG outcomes (10× near-miss, 10× big win, 10× free spins trigger), agreguje stage timing distribuciju i izveštava outliers ("WIN_BIG nekad traje 1200ms, nekad 2400ms — 100% varijacija — fix"). | M | ⏳ blocked by E | `rf_ab_sim` ima batch simulation, koristimo to + post-hoc statistika nad `_lastStages` cache-om svakog spin-a |
 | 3.6.H | **Phase H — Per-Spin Profile Compare** — overlay timeline za "volatility=high vs medium" da vidi kako se anticipation timing menja između profila.  Toggle profila u Math HUD-u → timeline strip prelazi u dual-track display. | M | ⏳ blocked by E | `SlotLabProvider.setVolatilityPreset` (✅), treba samo dual-cache state |
 
@@ -1276,31 +1277,31 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 
 ### 4.2 Features
 
-| # | Zadatak | Input | Output |
-|---|---|---|---|
-| 4.2.1 | Generative mix ("make rollup 15% more euphoric") | voice/text | param delta preview branch |
-| 4.2.2 | Predictive automation (after 5-10 manual moves) | gesture history | ghost-curve in timeline |
-| 4.2.3 | Voice commands ("solo voice bus", "audition next win tier", "export MGA manifest") | WhisperKit local | direct action |
-| 4.2.4 | Error prevention (LDW, near-miss, celebration LUFS) | continuous validators | flag before user hears |
+| # | Zadatak | Input | Output | Status |
+|---|---|---|---|---|
+| 4.2.1 | Generative mix ("make rollup 15% more euphoric") | voice/text | param delta preview branch | ✅ Sprint 17 (`921884f6`) — `MixDeltaProposer` heuristic rule engine: 19 stage keyword patterns, 9 emotions (euphoric/triumphant/tense/calm/aggressive/dark/bright/punchy/smooth) sa synonym map, intensity extraction (percent + "much/very" intensifiers + "less/more" direction), emotion→delta tabela (volume_db/brightness_pct/tempo_pct/stereo_width_pct/reverb_dwell_ms/low_pass_hz/saturation_pct/transient_pct). Per-delta `rationale` field. 13 unit testova zelena. |
+| 4.2.2 | Predictive automation (after 5-10 manual moves) | gesture history | ghost-curve in timeline | ✅ Sprint 17 (`921884f6`) — `GesturePredictor` trigram pattern detector: ring 100 events, `predictNext(minConfidence)` skenira (prefixA, prefixB, X) match-eve, modal continuation + modal payload, confidence = bestCount/totalMatches. 13 unit testova zelena. |
+| 4.2.3 | Voice commands ("solo voice bus", "audition next win tier", "export MGA manifest") | WhisperKit local | direct action | 🔴 OPEN — native FFI plugin (XL, multi-week) |
+| 4.2.4 | Error prevention (LDW, near-miss, celebration LUFS) | continuous validators | flag before user hears | ✅ Sprint 17 (`7d6ad741` + `28f81742` UI) — `AudioComplianceGuard` sa 3 pre-flight validatori: LDW (WIN_BIG/MASSIVE/MEGA + win≤bet×1.1 → BLOCK, UKGC), Near-miss quota (ANTICIPATION_TENSION + ratio>3% → WARN, UKGC RTS 13), Celebration LUFS (WIN celebration + LUFS>-16 → WARN). Severity tier (info/warn/block). Stream `warnings` + ring 50. `ComplianceWarningBanner` widget sa auto-dismiss (info=4s, warn=6s, block=manual). 18+7 testova zelena. |
 
 ### 4.3 Persistent memory (Part V.4)
 
-| # | Zadatak | Skladište |
-|---|---|---|
-| 4.3.1 | `~/.fluxforge/memory.db` SQLite event log | local only |
-| 4.3.2 | Embedding model (sentence-transformers via tract) | Rust |
-| 4.3.3 | Style fingerprint export/import `.style` file | portable |
-| 4.3.4 | Popuniti `rf-neuro` stubs sa memory substrate | Rust crate |
+| # | Zadatak | Skladište | Status |
+|---|---|---|---|
+| 4.3.1 | `~/.fluxforge/memory.db` event log | local only | ✅ Sprint 17 (`70c0355b`) — `MemoryEventLog` JSONL append-only u `~/Library/Application Support/FluxForge Studio/memory/events_YYYY-MM.jsonl` (monthly rotation, GDPR-friendly). API: `record/query/recentCached/kindCounts/purgeOlderThan`. Auto-hooks na PredictiveAnalyzer.feedbackStream + AudioComplianceGuard.warnings. Ring 200 + disk merge. SQLite zamenjen JSONL-om jer `sqflite` dep nije bio u `pubspec.yaml` — JSONL pattern već postoji u repo (`compliance_audit_trail`). 13 testova zelena. |
+| 4.3.2 | Embedding model (sentence-transformers via tract) | Rust | ✅ MVP Sprint 17 (`28f81742`) — `AudioEmbedding` + `AudioEmbeddingStore`: 8-dim feature vector iz Sonic DNA (duration/rms/centroid/transient/attack/brightness/loopable/sustain), cosine similarity sa zero-vector guard, k-NN nearest(k) query, minSimilarity filter, self-match exclude, JSON persistent store sa atomic save (tmp rename), lazy load. 16 testova zelena. **Ext** (deferred): 128-d transformer embeddings via tract ONNX (M effort). |
+| 4.3.3 | Style fingerprint export/import `.style` file | portable | ✅ Sprint 17 (`28f81742`) — `StyleFingerprint` portable JSON (version, name, audio_dna, assignments_template, bus_profile, compliance_targets, metadata). Semver-major compatibility check. `StyleFingerprintService.export/import/listAll/safeFilenameFor`. Default dir `~/Library/Application Support/FluxForge Studio/styles/`. Pretty-printed (2-space indent). 13 testova zelena. |
+| 4.3.4 | Popuniti `rf-neuro` stubs sa memory substrate | Rust crate / Dart layer | ✅ Sprint 17 (`ff3fbaff`) — `NeuroMemorySubstrate` Dart layer iznad `rf-neuro::NeuroEngine`. 8D PlayerStateVector ring 1000, API: `recordSnapshot/trend/baseline/peaks/trajectory/latest`. Optional `attachMemoryEventLog(true)` → snapshot ide u MemoryEventLog kao `neuro_snapshot` kind. 18 testova zelena. Dart layer pošto rf-neuro već ima 5-min sliding window (`crates/rf-neuro/src/engine.rs:548 LOC`), ovo dodaje long-term persistent substrate. |
 
 ### 4.4 Predictive Event Routing (Part V.10)
 
-| # | Zadatak | Osnova |
-|---|---|---|
-| 4.4.1 | Classifier audio features → Stage label | Sonic DNA Layer 2/3 postoji |
-| 4.4.2 | Drag file → 85% confidence "reel_stop for bus SFX" | isolate query |
-| 4.4.3 | Gap detection — "12 files match FREE_SPIN_START, top 3 suggestion" | list |
-| 4.4.4 | Auto-fill proposals (one-click) | provider surface |
-| 4.4.5 | Learning from rejections (feed V.4 memory) | cross-session |
+| # | Zadatak | Osnova | Status |
+|---|---|---|---|
+| 4.4.1 | Classifier audio features → Stage label | Sonic DNA Layer 2/3 postoji | ✅ pre-existing — Sonic DNA infra 2637 LOC (`crates/rf-stage/src/sonic_dna.rs`, `rf-engine/src/sonic_dna_extractor.rs`, `rf-bridge/src/spectral_dna_ffi.rs`, `flutter_ui/lib/providers/slot_lab/spectral_dna_classifier.dart`) |
+| 4.4.2 | Drag file → 85% confidence "reel_stop for bus SFX" | isolate query | ✅ Sprint 17 (`a8db50b9`) — `PredictiveAnalyzer` (LRU cache 100, inflight dedup, async API, feedback stream) + `PredictiveConfidenceBadge` (HIGH≥75%/MID≥50%/LOW≥25% tier color, mismatch ↪+≠ styling, 24-char clamp) + `PredictiveBadgeOverlay` (Stack child sa mounted+race guard) + pilot u `slot_lab_screen.dart:11699` composite event DragTarget. 17 testova zelena. |
+| 4.4.3 | Gap detection — "12 files match FREE_SPIN_START, top 3 suggestion" | list | ✅ Sprint 17 (`e66b9f3c` + `f697197a` wire) — `AssignmentGapPanel` stateful widget: per-stage top-3 suggestions sortirane desc, Apply/Skip dugmad. Debounce 250ms. Reactive na SlotLabProjectProvider + AudioAssetManager. Two access pointa: HELIX MONITOR → evtDebug → GAPS tab (6th tab u Event Debugger), Cmd+K palette → "audio.predictive_gap_detector" command. |
+| 4.4.4 | Auto-fill proposals (one-click) | provider surface | ✅ Sprint 17 (`e66b9f3c`) — "⚡ AUTO-FILL ALL ≥75%" footer dugme u `AssignmentGapPanel` primenjuje sve high-tier suggestion-e u jednom klik-u + SnackBar feedback ("Auto-filled N stages"). |
+| 4.4.5 | Learning from rejections (feed V.4 memory) | cross-session | ✅ Sprint 17 (`e66b9f3c`) — `RoutingFeedbackLog` JSONL append-only u `audit/routing_feedback_YYYY-MM-DD.jsonl`, daily rotation, in-memory ring 200, idempotent attach. API: `attach(analyzer)/recent(n)/statsByStage()/clearForTest`. Eager-init u `service_locator.dart`. 7 testova zelena. |
 
 ---
 
