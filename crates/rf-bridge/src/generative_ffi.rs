@@ -42,7 +42,7 @@
 
 use std::ffi::{CStr, CString, c_char};
 
-use rf_generative::{GenerationRequest, GenerativeBackend, MockBackend};
+use rf_generative::{ComplianceReport, GenerationRequest, GenerativeBackend, MockBackend};
 use serde::Serialize;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -95,6 +95,9 @@ struct GenerativeMetadata<'a> {
     generated_at_utc: &'a str,
     duration_seconds: f32,
     frame_count: usize,
+    /// FAZA 5.1.8 — full compliance manifest. Serialized inline so the Dart
+    /// side parses one JSON object per generation, no extra FFI call.
+    compliance: &'a ComplianceReport,
 }
 
 /// Run a generation request and return PCM + metadata.
@@ -138,6 +141,7 @@ pub extern "C" fn generative_generate(request_json: *const c_char) -> Generative
         generated_at_utc: &response.provenance.generated_at_utc,
         duration_seconds,
         frame_count,
+        compliance: &response.compliance,
     };
     let metadata_json = match serde_json::to_string(&metadata) {
         Ok(s) => into_c_string(s),
@@ -345,6 +349,40 @@ mod tests {
             err.contains("duration") || err.contains("range"),
             "got: {err}"
         );
+        generative_free_buffer(buf);
+    }
+
+    #[test]
+    fn metadata_includes_compliance_manifest() {
+        // 5.1.8 — every clip must surface a compliance manifest via the
+        // FFI metadata JSON. Without this contract, downstream UIs would
+        // have to re-scan PCM after every call.
+        let req = r#"{
+            "prompt": "compliance check",
+            "duration_seconds": 0.1,
+            "sample_rate_hz": 0,
+            "seed": 99,
+            "style": { "stage_hint": "win_big", "tags": [] }
+        }"#;
+        let buf = call(req);
+        assert!(buf.error_json.is_null());
+        let metadata = read_string(buf.metadata_json).expect("metadata required");
+        let v: serde_json::Value = serde_json::from_str(&metadata).unwrap();
+        let comp = &v["compliance"];
+        assert!(comp.is_object(), "compliance must be an object: {v}");
+        // Top-level fields the Dart side reads.
+        assert!(
+            ["pass", "warn", "fail"].contains(&comp["level"].as_str().unwrap()),
+            "got level={}",
+            comp["level"]
+        );
+        assert!(comp["findings"].is_array());
+        assert!(comp["peak_dbfs"].is_number());
+        assert!(comp["rms_dbfs"].is_number());
+        assert!(comp["clip_count"].is_number());
+        assert!(comp["nan_count"].is_number());
+        assert!(comp["silence_ratio"].is_number());
+        assert!(comp["duration_seconds"].is_number());
         generative_free_buffer(buf);
     }
 

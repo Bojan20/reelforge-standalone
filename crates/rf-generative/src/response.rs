@@ -1,6 +1,7 @@
 //! Response types. Caller-friendly: PCM is owned, sample rate is explicit,
 //! provenance is required (so AudioSeal / 5.2.4 watermarking can hook).
 
+use crate::compliance::ComplianceReport;
 use serde::{Deserialize, Serialize};
 
 /// What every backend returns. Owned data — caller is free to move into a
@@ -24,6 +25,14 @@ pub struct GenerationResponse {
 
     /// Required provenance metadata. Audited in compliance pipelines.
     pub provenance: ProvenanceTag,
+
+    /// FAZA 5.1.8 — auto-compliance manifest. Computed by the backend at
+    /// generation time so every consumer (UI badge, slot-builder validator,
+    /// audit pipeline) reads the *same* report and never re-scans PCM.
+    /// `#[serde(default)]` so old responses (pre-5.1.8) deserialize cleanly
+    /// with a generic "unknown" stub.
+    #[serde(default = "ComplianceReport::default_unknown")]
+    pub compliance: ComplianceReport,
 }
 
 impl GenerationResponse {

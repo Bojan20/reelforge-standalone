@@ -43,6 +43,7 @@
 //! - 5.1.8 ⏳ compliance validator pass on generated buffers
 
 pub mod backend;
+pub mod compliance;
 pub mod request;
 pub mod response;
 pub mod mock;
@@ -51,6 +52,9 @@ pub mod mock;
 pub mod onnx;
 
 pub use backend::{GenerativeBackend, GenError};
+pub use compliance::{
+    compute_compliance, ComplianceFinding, ComplianceLevel, ComplianceReport,
+};
 pub use mock::MockBackend;
 pub use request::{
     EmotionalArc, EmotionalArcPoint, GenerationRequest, GenerationStyle,

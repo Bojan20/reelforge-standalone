@@ -22,6 +22,8 @@ GenerationResult _fakeResult({
   String model = 'mock-additive-v1',
   int? seed = 42,
   int frames = 480,
+  ComplianceLevel complianceLevel = ComplianceLevel.pass,
+  List<ComplianceFinding>? complianceFindings,
 }) {
   // Build a deterministic ramp so the sparkline painter has real data and
   // peak detection is non-zero.
@@ -41,6 +43,24 @@ GenerationResult _fakeResult({
       generatedAtUtc: '2026-05-11T12:00:00Z',
       durationSeconds: frames / 48000,
       frameCount: frames,
+      compliance: ComplianceReport(
+        level: complianceLevel,
+        findings: complianceFindings ??
+            const [
+              ComplianceFinding(
+                id: 'clean',
+                level: ComplianceLevel.pass,
+                message: 'All compliance checks passed',
+              ),
+            ],
+        peakDbfs: -6.0,
+        rmsDbfs: -12.0,
+        dcOffset: 0.0,
+        clipCount: 0,
+        nanCount: 0,
+        silenceRatio: 0.02,
+        durationSeconds: frames / 48000,
+      ),
     ),
   );
 }
@@ -215,6 +235,108 @@ void main() {
       expect(find.byKey(const Key('gen_panel_generate_button')),
           findsOneWidget);
       expect(find.text('OUTPUT'), findsOneWidget);
+    });
+  });
+
+  // ─── FAZA 5.1.8 compliance badge ────────────────────────────────────────
+  group('SlotLabMusicGenPanel compliance badge', () {
+    testWidgets('renders PASS badge after clean generation', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 700));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SlotLabMusicGenPanel(
+              generator: (_) async => _fakeResult(),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('gen_panel_generate_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('gen_panel_compliance_badge')),
+          findsOneWidget);
+      expect(find.byKey(const Key('gen_panel_compliance_details')),
+          findsOneWidget);
+      // PASS label visible (badge text).
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('gen_panel_compliance_badge')),
+          matching: find.text('PASS'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('FAIL badge shows when generator returns failing manifest',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 700));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SlotLabMusicGenPanel(
+              generator: (_) async => _fakeResult(
+                complianceLevel: ComplianceLevel.fail,
+                complianceFindings: const [
+                  ComplianceFinding(
+                    id: 'clipping',
+                    level: ComplianceLevel.fail,
+                    message: '128 clipped samples',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('gen_panel_generate_button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('gen_panel_compliance_badge')),
+          matching: find.text('FAIL'),
+        ),
+        findsOneWidget,
+      );
+      // Failing-finding message bubbles into the details strip.
+      expect(find.text('128 clipped samples'), findsOneWidget);
+    });
+
+    testWidgets('WARN badge shows when generator returns warning manifest',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 700));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SlotLabMusicGenPanel(
+              generator: (_) async => _fakeResult(
+                complianceLevel: ComplianceLevel.warn,
+                complianceFindings: const [
+                  ComplianceFinding(
+                    id: 'peak-too-hot',
+                    level: ComplianceLevel.warn,
+                    message: 'Peak -0.4 dBFS exceeds headroom',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('gen_panel_generate_button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('gen_panel_compliance_badge')),
+          matching: find.text('WARN'),
+        ),
+        findsOneWidget,
+      );
     });
   });
 

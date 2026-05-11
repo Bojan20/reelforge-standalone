@@ -626,6 +626,8 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              const Spacer(),
+              _ComplianceBadge(report: m.compliance),
             ],
           ),
           const SizedBox(height: 8),
@@ -641,6 +643,8 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
           if (_wallClock != null)
             _kv('wall-clock', '${_wallClock!.inMilliseconds} ms'),
           _kv('generated', m.generatedAtUtc.isEmpty ? '—' : m.generatedAtUtc),
+          const SizedBox(height: 8),
+          _ComplianceDetails(report: m.compliance),
         ],
       ),
     );
@@ -844,6 +848,207 @@ class _SparklinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _SparklinePainter old) =>
       !identical(old.result, result);
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// FAZA 5.1.8 — Compliance badge + details strip
+// ──────────────────────────────────────────────────────────────────────
+
+class _ComplianceBadge extends StatelessWidget {
+  final ComplianceReport report;
+  const _ComplianceBadge({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = _palette(report.level);
+    return Container(
+      key: const Key('gen_panel_compliance_badge'),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: palette.fill,
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: palette.border, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(palette.icon, size: 11, color: palette.text),
+          const SizedBox(width: 4),
+          Text(
+            report.level.label,
+            style: TextStyle(
+              color: palette.text,
+              fontSize: 9.5,
+              letterSpacing: 1.3,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComplianceDetails extends StatelessWidget {
+  final ComplianceReport report;
+  const _ComplianceDetails({required this.report});
+
+  String _fmtDbfs(double v) {
+    if (!v.isFinite) return '−∞';
+    return '${v.toStringAsFixed(2)} dBFS';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = _palette(report.level);
+    return Container(
+      key: const Key('gen_panel_compliance_details'),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: palette.fill.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: palette.border.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(palette.icon, size: 11, color: palette.text),
+              const SizedBox(width: 4),
+              Text(
+                'COMPLIANCE',
+                style: TextStyle(
+                  color: palette.text,
+                  fontSize: 9.5,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 2×2 metric grid — peak / rms / clips / silence — at a glance.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _metric('peak', _fmtDbfs(report.peakDbfs))),
+              Expanded(child: _metric('rms', _fmtDbfs(report.rmsDbfs))),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                  child: _metric(
+                      'clips', report.clipCount.toString())),
+              Expanded(
+                child: _metric('silence',
+                    '${(report.silenceRatio * 100).toStringAsFixed(0)}%'),
+              ),
+            ],
+          ),
+          if (report.findings.isNotEmpty &&
+              !(report.findings.length == 1 &&
+                  report.findings.first.id == 'clean')) ...[
+            const SizedBox(height: 6),
+            for (final f in report.findings.take(5))
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 4, right: 5),
+                      width: 5,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: _palette(f.level).text,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        f.message,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          fontSize: 10.5,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _metric(String k, String v) => Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Text(
+            '$k ',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.45),
+              fontSize: 10,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              v,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      );
+}
+
+class _CompliancePalette {
+  final Color fill;
+  final Color border;
+  final Color text;
+  final IconData icon;
+  const _CompliancePalette({
+    required this.fill,
+    required this.border,
+    required this.text,
+    required this.icon,
+  });
+}
+
+_CompliancePalette _palette(ComplianceLevel level) {
+  switch (level) {
+    case ComplianceLevel.pass:
+      return const _CompliancePalette(
+        fill: Color(0xFF142817),
+        border: Color(0xFF3FBA63),
+        text: Color(0xFF7CEF92),
+        icon: Icons.verified,
+      );
+    case ComplianceLevel.warn:
+      return const _CompliancePalette(
+        fill: Color(0xFF2A2010),
+        border: Color(0xFFD9A23A),
+        text: Color(0xFFF6CB6A),
+        icon: Icons.warning_amber_rounded,
+      );
+    case ComplianceLevel.fail:
+      return const _CompliancePalette(
+        fill: Color(0xFF2C1414),
+        border: Color(0xFFE0524A),
+        text: Color(0xFFFF8A7A),
+        icon: Icons.gpp_bad,
+      );
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────

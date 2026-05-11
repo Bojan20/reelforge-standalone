@@ -12,6 +12,7 @@
 //! Seed is a hard contract: same seed + same request ⇒ byte-identical PCM.
 
 use crate::backend::{BackendCapabilities, GenError, GenerativeBackend};
+use crate::compliance::compute_compliance;
 use crate::request::{GenerationRequest, SlotStageHint};
 use crate::response::{GenerationResponse, ProvenanceTag};
 use std::time::Instant;
@@ -115,7 +116,7 @@ impl GenerativeBackend for MockBackend {
             pcm.push((r * scale).clamp(-1.0, 1.0));
         }
 
-        let response = GenerationResponse {
+        let mut response = GenerationResponse {
             pcm,
             sample_rate_hz: sample_rate,
             channels,
@@ -126,7 +127,11 @@ impl GenerativeBackend for MockBackend {
                 seed: request.seed,
                 generated_at_utc: iso8601_utc_now(),
             },
+            // Filled below — we compute against the finished response so all
+            // checks see the real PCM, not a placeholder.
+            compliance: crate::ComplianceReport::default_unknown(),
         };
+        response.compliance = compute_compliance(&response, request);
 
         Ok(response)
     }

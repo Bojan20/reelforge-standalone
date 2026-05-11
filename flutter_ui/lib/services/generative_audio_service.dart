@@ -148,6 +148,31 @@ class GenerationMetadata {
   final double durationSeconds;
   final int frameCount;
 
+  /// FAZA 5.1.8 — auto-compliance manifest. Always populated for clips
+  /// produced by the modern FFI; defaults to a const "unknown" stub for
+  /// callers that haven't migrated yet (older tests, mocks, legacy JSON).
+  final ComplianceReport compliance;
+
+  /// Const-buildable stub. Identical to `ComplianceReport.unknown()` but
+  /// usable as a default argument because it's a compile-time constant.
+  static const ComplianceReport _legacyUnknown = ComplianceReport(
+    level: ComplianceLevel.warn,
+    findings: [
+      ComplianceFinding(
+        id: 'no-report',
+        level: ComplianceLevel.warn,
+        message: 'No compliance manifest in response',
+      ),
+    ],
+    peakDbfs: double.negativeInfinity,
+    rmsDbfs: double.negativeInfinity,
+    dcOffset: 0.0,
+    clipCount: 0,
+    nanCount: 0,
+    silenceRatio: 0.0,
+    durationSeconds: 0.0,
+  );
+
   const GenerationMetadata({
     required this.backendId,
     required this.modelId,
@@ -155,6 +180,7 @@ class GenerationMetadata {
     required this.generatedAtUtc,
     required this.durationSeconds,
     required this.frameCount,
+    this.compliance = _legacyUnknown,
   });
 
   factory GenerationMetadata.fromJson(Map<String, dynamic> json) =>
@@ -165,7 +191,168 @@ class GenerationMetadata {
         generatedAtUtc: json['generated_at_utc'] as String? ?? '',
         durationSeconds: (json['duration_seconds'] as num?)?.toDouble() ?? 0.0,
         frameCount: (json['frame_count'] as num?)?.toInt() ?? 0,
+        compliance: json['compliance'] is Map<String, dynamic>
+            ? ComplianceReport.fromJson(
+                json['compliance'] as Map<String, dynamic>)
+            : ComplianceReport.unknown(),
       );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// FAZA 5.1.8 — Compliance manifest (Dart mirror of `rf_generative::compliance`)
+// ──────────────────────────────────────────────────────────────────────
+
+/// Ordered so `fail > warn > pass`. Mirrors the Rust derive order — keeping
+/// the comparison meaningful means callers can write `if (level >= warn)`.
+enum ComplianceLevel {
+  pass,
+  warn,
+  fail;
+
+  /// Parse a snake_case wire string (`"pass"` / `"warn"` / `"fail"`).
+  /// Unknown values fall back to `warn` so the UI surfaces a hint rather
+  /// than masquerading as Pass.
+  static ComplianceLevel parse(String? raw) {
+    switch (raw) {
+      case 'pass':
+        return ComplianceLevel.pass;
+      case 'warn':
+        return ComplianceLevel.warn;
+      case 'fail':
+        return ComplianceLevel.fail;
+      default:
+        return ComplianceLevel.warn;
+    }
+  }
+
+  String get label => switch (this) {
+        ComplianceLevel.pass => 'PASS',
+        ComplianceLevel.warn => 'WARN',
+        ComplianceLevel.fail => 'FAIL',
+      };
+}
+
+/// Single check outcome. `id` is a stable kebab-case key so UIs can filter
+/// without string-matching the message.
+class ComplianceFinding {
+  final String id;
+  final ComplianceLevel level;
+  final String message;
+  final double? value;
+
+  const ComplianceFinding({
+    required this.id,
+    required this.level,
+    required this.message,
+    this.value,
+  });
+
+  factory ComplianceFinding.fromJson(Map<String, dynamic> json) =>
+      ComplianceFinding(
+        id: json['id'] as String? ?? '',
+        level: ComplianceLevel.parse(json['level'] as String?),
+        message: json['message'] as String? ?? '',
+        value: (json['value'] as num?)?.toDouble(),
+      );
+}
+
+/// Full compliance manifest attached to every generated clip.
+class ComplianceReport {
+  final ComplianceLevel level;
+  final List<ComplianceFinding> findings;
+  final double peakDbfs;
+  final double rmsDbfs;
+  final double dcOffset;
+  final int clipCount;
+  final int nanCount;
+  final double silenceRatio;
+  final double durationSeconds;
+
+  const ComplianceReport({
+    required this.level,
+    required this.findings,
+    required this.peakDbfs,
+    required this.rmsDbfs,
+    required this.dcOffset,
+    required this.clipCount,
+    required this.nanCount,
+    required this.silenceRatio,
+    required this.durationSeconds,
+  });
+
+  factory ComplianceReport.fromJson(Map<String, dynamic> json) {
+    // Rust serializes `-inf` as `-Infinity` (serde_json). Dart's
+    // `jsonDecode` rejects it, so we accept both numeric forms and the
+    // bare `-Infinity` / `Infinity` strings via a helper. Backends that
+    // don't emit infinities at all still parse cleanly because `num`
+    // values land on the numeric branch.
+    final findingsRaw = json['findings'];
+    return ComplianceReport(
+      level: ComplianceLevel.parse(json['level'] as String?),
+      findings: findingsRaw is List
+          ? findingsRaw
+              .whereType<Map<String, dynamic>>()
+              .map(ComplianceFinding.fromJson)
+              .toList(growable: false)
+          : const <ComplianceFinding>[],
+      peakDbfs: _readDouble(json['peak_dbfs']),
+      rmsDbfs: _readDouble(json['rms_dbfs']),
+      dcOffset: _readDouble(json['dc_offset']),
+      clipCount: (json['clip_count'] as num?)?.toInt() ?? 0,
+      nanCount: (json['nan_count'] as num?)?.toInt() ?? 0,
+      silenceRatio: _readDouble(json['silence_ratio']),
+      durationSeconds: _readDouble(json['duration_seconds']),
+    );
+  }
+
+  /// Stub used when the FFI returned no compliance object (legacy buffer)
+  /// or when parsing fails. Renders as "?" in the UI — strictly more
+  /// honest than reporting a forged Pass.
+  factory ComplianceReport.unknown() => const ComplianceReport(
+        level: ComplianceLevel.warn,
+        findings: [
+          ComplianceFinding(
+            id: 'no-report',
+            level: ComplianceLevel.warn,
+            message: 'No compliance manifest in response',
+          ),
+        ],
+        peakDbfs: double.negativeInfinity,
+        rmsDbfs: double.negativeInfinity,
+        dcOffset: 0.0,
+        clipCount: 0,
+        nanCount: 0,
+        silenceRatio: 0.0,
+        durationSeconds: 0.0,
+      );
+
+  bool get isPass => level == ComplianceLevel.pass;
+  bool get isFail => level == ComplianceLevel.fail;
+
+  /// Findings of the report-level severity — what the UI summary line
+  /// should highlight. Empty if everything is clean.
+  List<ComplianceFinding> get worstFindings =>
+      findings.where((f) => f.level == level).toList(growable: false);
+}
+
+/// Permissive numeric parse: handles `num`, `String` ("Infinity" / "-Infinity"
+/// / "NaN" / "12.5"), and falls back to 0.0. Robustness here is cheap and
+/// stops a single weird response from blanking the whole compliance card.
+double _readDouble(dynamic v) {
+  if (v == null) return 0.0;
+  if (v is num) return v.toDouble();
+  if (v is String) {
+    switch (v) {
+      case 'Infinity':
+        return double.infinity;
+      case '-Infinity':
+        return double.negativeInfinity;
+      case 'NaN':
+        return double.nan;
+    }
+    return double.tryParse(v) ?? 0.0;
+  }
+  return 0.0;
 }
 
 /// Returned to UI callers. PCM is a *copy* of the native buffer — the
