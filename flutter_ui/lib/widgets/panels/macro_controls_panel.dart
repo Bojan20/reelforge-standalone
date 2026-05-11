@@ -9,7 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/macro_control_provider.dart';
-import '../../theme/fluxforge_theme.dart';
+import '../../theme/flux_forge_theme.dart';
 
 class MacroControlsPanel extends StatelessWidget {
   const MacroControlsPanel({super.key});
@@ -66,10 +66,10 @@ class MacroControlsPanel extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             'MACRO CONTROLS',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: provider.enabled ? _accentColor : FluxForgeTheme.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
@@ -90,10 +90,10 @@ class MacroControlsPanel extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'MIDI LEARN',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.accentOrange,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      weight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -108,9 +108,9 @@ class MacroControlsPanel extends StatelessWidget {
           // Macro count
           Text(
             '${provider.macros.length} Macros',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
             ),
           ),
         ],
@@ -175,9 +175,9 @@ class MacroControlsPanel extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           'Add Page',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
                             color: FluxForgeTheme.textSecondary,
-                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -219,19 +219,19 @@ class MacroControlsPanel extends StatelessWidget {
             Expanded(
               child: Text(
                 name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: isActive ? _accentColor : FluxForgeTheme.textPrimary,
-                  fontSize: 11,
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                  weight: isActive ? FontWeight.bold : FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             Text(
               '$count',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
               ),
             ),
           ],
@@ -256,17 +256,17 @@ class MacroControlsPanel extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               'No Macros',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 14,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 14,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Click "Add Macro" to create one',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                fontSize: 12,
               ),
             ),
           ],
@@ -317,9 +317,9 @@ class MacroControlsPanel extends StatelessWidget {
               child: Center(
                 child: Text(
                   'Select a macro to edit',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 12,
                   ),
                 ),
               ),
@@ -349,17 +349,17 @@ class MacroControlsPanel extends StatelessWidget {
                             children: [
                               Text(
                                 selectedMacro.name,
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
+                                  size: 13,
                                   color: FluxForgeTheme.textPrimary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
+                                  weight: FontWeight.bold,
                                 ),
                               ),
                               Text(
                                 '${selectedMacro.targets.length} targets',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
+                                  size: 11,
                                   color: FluxForgeTheme.textSecondary,
-                                  fontSize: 11,
                                 ),
                               ),
                             ],
@@ -375,10 +375,10 @@ class MacroControlsPanel extends StatelessWidget {
                             ),
                             child: Text(
                               'CC ${selectedMacro.midiCC}',
-                              style: TextStyle(
+                              style: FluxForgeTheme.dockSans(
+                                size: 10,
                                 color: FluxForgeTheme.accentCyan,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                                weight: FontWeight.bold,
                               ),
                             ),
                           ),
@@ -416,9 +416,9 @@ class MacroControlsPanel extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Text(
                                   'Add Target',
-                                  style: TextStyle(
+                                  style: FluxForgeTheme.dockSans(
+                                    size: 12,
                                     color: _accentColor,
-                                    fontSize: 12,
                                   ),
                                 ),
                               ],
@@ -480,11 +480,11 @@ class MacroControlsPanel extends StatelessWidget {
                 Expanded(
                   child: Text(
                     target.displayName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: target.enabled
                           ? FluxForgeTheme.textPrimary
                           : FluxForgeTheme.textSecondary,
-                      fontSize: 11,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -508,17 +508,17 @@ class MacroControlsPanel extends StatelessWidget {
               children: [
                 Text(
                   'Min: ${target.minValue.toStringAsFixed(2)}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   'Max: ${target.maxValue.toStringAsFixed(2)}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
                   ),
                 ),
               ],
@@ -531,9 +531,9 @@ class MacroControlsPanel extends StatelessWidget {
               children: [
                 Text(
                   'Curve:',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -560,9 +560,9 @@ class MacroControlsPanel extends StatelessWidget {
                       ),
                       child: Text(
                         _getCurveName(curve),
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
                           color: isSelected ? macro.color : FluxForgeTheme.textSecondary,
-                          fontSize: 9,
                         ),
                       ),
                     ),
@@ -602,9 +602,9 @@ class MacroControlsPanel extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         'Bipolar',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 10,
                         ),
                       ),
                     ],
@@ -702,10 +702,10 @@ class MacroControlsPanel extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: buttonColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+                weight: FontWeight.w500,
               ),
             ),
           ],
@@ -721,10 +721,10 @@ class MacroControlsPanel extends StatelessWidget {
       color: FluxForgeTheme.backgroundMid,
       child: Text(
         title,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 10,
           color: FluxForgeTheme.textSecondary,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+          weight: FontWeight.bold,
           letterSpacing: 1.0,
         ),
       ),
@@ -797,20 +797,20 @@ class _MacroKnobState extends State<_MacroKnob> {
             // Name
             Text(
               widget.macro.name,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+                weight: FontWeight.w500,
               ),
               overflow: TextOverflow.ellipsis,
             ),
             // Value
             Text(
               widget.macro.displayValue,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: widget.macro.color,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                weight: FontWeight.bold,
               ),
             ),
             // MIDI CC indicator
@@ -824,9 +824,9 @@ class _MacroKnobState extends State<_MacroKnob> {
                 ),
                 child: Text(
                   'CC ${widget.macro.midiCC}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
                     color: FluxForgeTheme.accentCyan,
-                    fontSize: 8,
                   ),
                 ),
               ),
@@ -990,7 +990,7 @@ class _AddTargetDialogState extends State<_AddTargetDialog> {
       backgroundColor: FluxForgeTheme.backgroundMid,
       title: Text(
         'Add Target',
-        style: TextStyle(color: FluxForgeTheme.textPrimary),
+        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
       ),
       content: SizedBox(
         width: 300,
@@ -1000,7 +1000,7 @@ class _AddTargetDialogState extends State<_AddTargetDialog> {
             // Track ID
             Row(
               children: [
-                Text('Track:', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+                Text('Track:', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButton<int>(
@@ -1008,9 +1008,9 @@ class _AddTargetDialogState extends State<_AddTargetDialog> {
                     isExpanded: true,
                     dropdownColor: FluxForgeTheme.backgroundMid,
                     items: [
-                      DropdownMenuItem(value: -1, child: Text('Master', style: TextStyle(color: FluxForgeTheme.textPrimary))),
+                      DropdownMenuItem(value: -1, child: Text('Master', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary))),
                       for (int i = 0; i < 16; i++)
-                        DropdownMenuItem(value: i, child: Text('Track ${i + 1}', style: TextStyle(color: FluxForgeTheme.textPrimary))),
+                        DropdownMenuItem(value: i, child: Text('Track ${i + 1}', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary))),
                     ],
                     onChanged: (v) => setState(() => _trackId = v ?? 0),
                   ),
@@ -1021,7 +1021,7 @@ class _AddTargetDialogState extends State<_AddTargetDialog> {
             // Parameter
             Row(
               children: [
-                Text('Parameter:', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+                Text('Parameter:', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButton<String>(
@@ -1030,7 +1030,7 @@ class _AddTargetDialogState extends State<_AddTargetDialog> {
                     dropdownColor: FluxForgeTheme.backgroundMid,
                     items: _parameters.map((p) => DropdownMenuItem(
                       value: p,
-                      child: Text(p, style: TextStyle(color: FluxForgeTheme.textPrimary)),
+                      child: Text(p, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
                     )).toList(),
                     onChanged: (v) => setState(() => _parameterName = v ?? 'Volume'),
                   ),
@@ -1041,7 +1041,7 @@ class _AddTargetDialogState extends State<_AddTargetDialog> {
             // Range
             Row(
               children: [
-                Text('Min:', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+                Text('Min:', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Slider(
@@ -1050,12 +1050,12 @@ class _AddTargetDialogState extends State<_AddTargetDialog> {
                     activeColor: MacroControlsPanel._accentColor,
                   ),
                 ),
-                Text(_minValue.toStringAsFixed(2), style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+                Text(_minValue.toStringAsFixed(2), style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary)),
               ],
             ),
             Row(
               children: [
-                Text('Max:', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+                Text('Max:', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Slider(
@@ -1064,7 +1064,7 @@ class _AddTargetDialogState extends State<_AddTargetDialog> {
                     activeColor: MacroControlsPanel._accentColor,
                   ),
                 ),
-                Text(_maxValue.toStringAsFixed(2), style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+                Text(_maxValue.toStringAsFixed(2), style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary)),
               ],
             ),
             // Bipolar
@@ -1075,7 +1075,7 @@ class _AddTargetDialogState extends State<_AddTargetDialog> {
                   onChanged: (v) => setState(() => _bipolar = v ?? false),
                   activeColor: MacroControlsPanel._accentColor,
                 ),
-                Text('Bipolar (center at 0.5)', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+                Text('Bipolar (center at 0.5)', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
               ],
             ),
           ],
@@ -1084,7 +1084,7 @@ class _AddTargetDialogState extends State<_AddTargetDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+          child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
         ),
         ElevatedButton(
           onPressed: () {

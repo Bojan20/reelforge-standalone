@@ -15,7 +15,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
-import '../../theme/fluxforge_theme.dart';
+import '../../theme/flux_forge_theme.dart';
 import 'gpu_spectrum.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -727,11 +727,11 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
       child: Row(
         children: [
           // Logo
-          const Text(
+          Text(
             'PRO-EQ',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w700,
               letterSpacing: 1.5,
               color: _Colors.curveMain,
             ),
@@ -778,7 +778,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(text, style: const TextStyle(fontSize: 11, color: _Colors.textPrimary)),
+          Text(text, style: FluxForgeTheme.dockSans(size: 11, color: _Colors.textPrimary)),
           const SizedBox(width: 4),
           Icon(icon, size: 14, color: _Colors.textSecondary),
         ],
@@ -828,9 +828,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               child: Center(
                 child: Text(
                   'A',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w700,
                     color: _isStateA ? _Colors.bg1 : _Colors.textDim,
                   ),
                 ),
@@ -848,9 +848,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               child: Center(
                 child: Text(
                   'B',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w700,
                     color: !_isStateA ? _Colors.bg1 : _Colors.textDim,
                   ),
                 ),
@@ -876,13 +876,13 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
         }
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'copy_a',
-          child: Text('Copy to A', style: TextStyle(fontSize: 12)),
+          child: Text('Copy to A', style: FluxForgeTheme.dockSans(size: 12)),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'copy_b',
-          child: Text('Copy to B', style: TextStyle(fontSize: 12)),
+          child: Text('Copy to B', style: FluxForgeTheme.dockSans(size: 12)),
         ),
       ],
       child: Container(
@@ -926,9 +926,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               child: Center(
                 child: Text(
                   '${labels[i]}dB',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: active ? FontWeight.w600 : FontWeight.w400,
                     color: active ? _Colors.curveMain : _Colors.textDim,
                   ),
                 ),
@@ -965,9 +965,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                 const SizedBox(width: 6),
                 Text(
                   'ANALYZER',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.w600,
                     color: _analyzerOn ? _Colors.curveMain : _Colors.textDim,
                   ),
                 ),
@@ -994,9 +994,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               child: Center(
                 child: Text(
                   _useGpuSpectrum ? 'G' : 'C',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w700,
                     color: _useGpuSpectrum ? const Color(0xFF40FF90) : _Colors.textDim,
                   ),
                 ),
@@ -1335,7 +1335,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: Text(
                         '${_selectedBand! + 1}/${_bands.length}',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: band.color),
+                        style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600, color: band.color),
                       ),
                     ),
                     _buildMiniIconButton(icon: Icons.chevron_right, onTap: () {
@@ -1414,9 +1414,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(band.shapeIcon, style: TextStyle(fontSize: 10, color: band.color, fontWeight: FontWeight.w700)),
+              Text(band.shapeIcon, style: FluxForgeTheme.dockSans(size: 10, color: band.color, weight: FontWeight.w700)),
               const SizedBox(width: 4),
-              Text(band.shapeName, style: const TextStyle(fontSize: 10, color: _Colors.textPrimary)),
+              Text(band.shapeName, style: FluxForgeTheme.dockSans(size: 10, color: _Colors.textPrimary)),
               Icon(Icons.unfold_more, size: 10, color: _Colors.textDim),
             ],
           ),
@@ -1445,7 +1445,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
             border: Border.all(color: _Colors.controlBorder),
           ),
           child: Center(
-            child: Text('${band.slope}dB', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: band.color)),
+            child: Text('${band.slope}dB', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: band.color)),
           ),
         ),
       ),
@@ -1467,7 +1467,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: _Colors.textDim, letterSpacing: 0.5)),
+              Text(label, style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.w600, color: _Colors.textDim, letterSpacing: 0.5)),
               const SizedBox(height: 2),
               Container(
                 width: 50,
@@ -1478,7 +1478,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                   border: Border.all(color: enabled ? color.withValues(alpha: 0.3) : _Colors.controlBorder),
                 ),
                 child: Center(
-                  child: Text(value, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'monospace', color: enabled ? color : _Colors.textDim)),
+                  child: Text(value, style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.w600, color: enabled ? color : _Colors.textDim)),
                 ),
               ),
             ],
@@ -1531,9 +1531,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                 const SizedBox(width: 4),
                 Text(
                   'DYN',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.w700,
                     color: dynColor,
                     letterSpacing: 0.5,
                   ),
@@ -1597,12 +1597,12 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
             children: [
               Text(
                 band.shapeIcon,
-                style: TextStyle(fontSize: 11, color: band.color, fontWeight: FontWeight.w700),
+                style: FluxForgeTheme.dockSans(size: 11, color: band.color, weight: FontWeight.w700),
               ),
               const SizedBox(width: 4),
               Text(
                 band.shapeName,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: _Colors.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500, color: _Colors.textPrimary),
               ),
               const SizedBox(width: 2),
               Icon(Icons.unfold_more, size: 12, color: _Colors.textDim),
@@ -1636,7 +1636,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           child: Center(
             child: Text(
               '${band.slope}dB',
-              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: band.color),
+              style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: band.color),
             ),
           ),
         ),
@@ -1666,9 +1666,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.w600,
                   letterSpacing: 0.5,
                   color: enabled ? _Colors.textSecondary : _Colors.textDim,
                 ),
@@ -1687,10 +1687,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                 child: Center(
                   child: Text(
                     value,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'monospace',
+                    style: FluxForgeTheme.dockMono(
+                      size: 11,
+                      weight: FontWeight.w600,
                       color: enabled ? color : _Colors.textDim,
                     ),
                   ),
@@ -1764,14 +1763,14 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                 child: Center(
                   child: Text(
                     band.shapeIcon,
-                    style: TextStyle(fontSize: 12, color: band.color, fontWeight: FontWeight.w700),
+                    style: FluxForgeTheme.dockSans(size: 12, color: band.color, weight: FontWeight.w700),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 band.shapeName,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: _Colors.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w500, color: _Colors.textPrimary),
               ),
               const SizedBox(width: 4),
               Icon(Icons.unfold_more, size: 14, color: _Colors.textDim),
@@ -1804,9 +1803,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           child: Center(
             child: Text(
               '${band.slope} dB/oct',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: band.color,
               ),
             ),
@@ -1839,9 +1838,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               // Label on top
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w600,
                   letterSpacing: 1,
                   color: enabled ? _Colors.textSecondary : _Colors.textDim,
                 ),
@@ -1869,10 +1868,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                 child: Center(
                   child: Text(
                     value,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'monospace',
+                    style: FluxForgeTheme.dockMono(
+                      size: 12,
+                      weight: FontWeight.w600,
                       color: enabled ? color : _Colors.textDim,
                     ),
                   ),
@@ -1924,9 +1922,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           const Spacer(),
 
           // Output gain
-          const Text('OUTPUT', style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w500,
+          Text('OUTPUT', style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w500,
             letterSpacing: 0.5,
             color: _Colors.textDim,
           )),
@@ -1949,9 +1947,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               child: Center(
                 child: Text(
                   '${_outputGain >= 0 ? '+' : ''}${_outputGain.toStringAsFixed(1)} dB',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w500,
                     color: _Colors.textPrimary,
                   ),
                 ),
@@ -2014,9 +2012,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               child: Center(
                 child: Text(
                   modes[i],
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.w600,
                     color: active ? _Colors.curveMain : _Colors.textDim,
                   ),
                 ),
@@ -2132,9 +2130,9 @@ class _DynamicEqPanelState extends State<_DynamicEqPanel> {
                       const SizedBox(width: 8),
                       Text(
                         'Dynamic EQ - Band ${band.id + 1}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
+                          weight: FontWeight.w600,
                           color: _Colors.textBright,
                         ),
                       ),
@@ -2156,9 +2154,9 @@ class _DynamicEqPanelState extends State<_DynamicEqPanel> {
                           ),
                           child: Text(
                             band.dynamicEnabled ? 'ON' : 'OFF',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
+                              weight: FontWeight.w700,
                               color: band.dynamicEnabled ? _dynColor : _Colors.textDim,
                             ),
                           ),
@@ -2260,8 +2258,8 @@ class _DynamicEqPanelState extends State<_DynamicEqPanel> {
                   child: Text(
                     'Dynamic EQ adjusts gain based on input level.\n'
                     'Below threshold: full boost/cut. Above threshold: reduced by ratio.',
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: _Colors.textDim,
                       height: 1.4,
                     ),
@@ -2302,19 +2300,18 @@ class _DynamicEqPanelState extends State<_DynamicEqPanel> {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
                 color: _Colors.textDim,
                 letterSpacing: 0.5,
               ),
             ),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.w600,
                 color: _dynColor,
               ),
             ),

@@ -6,6 +6,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/marketplace_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ============================================================================
 // MARKETPLACE STATUS BADGE
@@ -51,9 +52,9 @@ class MarketplaceStatusBadge extends StatelessWidget {
                       ),
                       child: Text(
                         '$updateCount',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: FontWeight.bold,
                           color: Colors.white,
                         ),
                       ),
@@ -163,15 +164,15 @@ class _MarketplacePanelState extends State<MarketplacePanel>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Marketplace',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: FluxForgeTheme.dockSans(weight: FontWeight.bold, size: 14),
                 ),
                 Text(
                   service.isAuthenticated
                       ? 'Welcome, ${service.userName}'
                       : 'Browse plugins & extensions',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[400]!),
                 ),
               ],
             ),
@@ -221,7 +222,7 @@ class _MarketplacePanelState extends State<MarketplacePanel>
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  style: const TextStyle(fontSize: 13),
+                  style: FluxForgeTheme.dockSans(size: 13),
                   onChanged: _search,
                 ),
               ),
@@ -291,7 +292,7 @@ class _MarketplacePanelState extends State<MarketplacePanel>
             Tab(text: 'Installed'),
             Tab(text: 'Updates'),
           ],
-          labelStyle: const TextStyle(fontSize: 12),
+          labelStyle: FluxForgeTheme.dockSans(size: 12),
           indicatorSize: TabBarIndicatorSize.tab,
         ),
 
@@ -331,23 +332,23 @@ class _MarketplacePanelState extends State<MarketplacePanel>
             ),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Center(
+          child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.auto_awesome, size: 32, color: Colors.white),
-                SizedBox(height: 8),
+                const Icon(Icons.auto_awesome, size: 32, color: Colors.white),
+                const SizedBox(height: 8),
                 Text(
                   'FluxForge Marketplace',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 18,
+                    weight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
                 Text(
                   'Plugins, Extensions & More',
-                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
                 ),
               ],
             ),
@@ -355,9 +356,9 @@ class _MarketplacePanelState extends State<MarketplacePanel>
         ),
 
         // Featured section
-        const Text(
+        Text(
           'Featured',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          style: FluxForgeTheme.dockSans(weight: FontWeight.bold, size: 14),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -381,9 +382,9 @@ class _MarketplacePanelState extends State<MarketplacePanel>
         const SizedBox(height: 16),
 
         // Recent section
-        const Text(
+        Text(
           'Recent',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          style: FluxForgeTheme.dockSans(weight: FontWeight.bold, size: 14),
         ),
         const SizedBox(height: 8),
         ...service.recentProducts.map(
@@ -409,7 +410,7 @@ class _MarketplacePanelState extends State<MarketplacePanel>
       return Center(
         child: Text(
           'No products found',
-          style: TextStyle(color: Colors.grey[500]),
+          style: FluxForgeTheme.dockSans(color: Colors.grey[500]!),
         ),
       );
     }
@@ -445,12 +446,12 @@ class _MarketplacePanelState extends State<MarketplacePanel>
             const SizedBox(height: 16),
             Text(
               'No Installed Products',
-              style: TextStyle(color: Colors.grey[400]),
+              style: FluxForgeTheme.dockSans(color: Colors.grey[400]!),
             ),
             const SizedBox(height: 8),
             Text(
               'Browse the marketplace to install plugins',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[600]!),
             ),
           ],
         ),
@@ -483,7 +484,7 @@ class _MarketplacePanelState extends State<MarketplacePanel>
             const SizedBox(height: 16),
             Text(
               'All Up to Date!',
-              style: TextStyle(color: Colors.grey[400]),
+              style: FluxForgeTheme.dockSans(color: Colors.grey[400]!),
             ),
           ],
         ),
@@ -499,7 +500,7 @@ class _MarketplacePanelState extends State<MarketplacePanel>
               Expanded(
                 child: Text(
                   '${updates.length} update${updates.length == 1 ? '' : 's'} available',
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                  style: FluxForgeTheme.dockSans(color: Colors.grey[400]!, size: 12),
                 ),
               ),
               ElevatedButton.icon(
@@ -622,7 +623,7 @@ class ProductCard extends StatelessWidget {
                     Center(
                       child: Text(
                         product.type.icon,
-                        style: const TextStyle(fontSize: 48),
+                        style: FluxForgeTheme.dockSans(size: 48),
                       ),
                     ),
                     // Price badge
@@ -642,9 +643,9 @@ class ProductCard extends StatelessWidget {
                         ),
                         child: Text(
                           product.formattedPrice,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                          style: FluxForgeTheme.dockSans(
+                            size: 10,
+                            weight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
@@ -665,9 +666,9 @@ class ProductCard extends StatelessWidget {
                     product.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
+                      weight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -675,7 +676,7 @@ class ProductCard extends StatelessWidget {
                     product.developerName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[500]!),
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -684,14 +685,14 @@ class ProductCard extends StatelessWidget {
                       const SizedBox(width: 2),
                       Text(
                         product.rating.toStringAsFixed(1),
-                        style: const TextStyle(fontSize: 11),
+                        style: FluxForgeTheme.dockSans(size: 11),
                       ),
                       const SizedBox(width: 8),
                       Icon(Icons.download, size: 12, color: Colors.grey[600]),
                       const SizedBox(width: 2),
                       Text(
                         _formatCount(product.downloadCount),
-                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[500]!),
                       ),
                     ],
                   ),
@@ -741,18 +742,18 @@ class ProductListTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
-            child: Text(product.type.icon, style: const TextStyle(fontSize: 24)),
+            child: Text(product.type.icon, style: FluxForgeTheme.dockSans(size: 24)),
           ),
         ),
         title: Text(
           product.name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          style: FluxForgeTheme.dockSans(size: 13, weight: FontWeight.w500),
         ),
         subtitle: Text(
           '${product.developerName} • ${product.category.displayName}',
-          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[500]!),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -766,9 +767,9 @@ class ProductListTile extends StatelessWidget {
               ),
               child: Text(
                 product.formattedPrice,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
@@ -781,7 +782,7 @@ class ProductListTile extends StatelessWidget {
                 const SizedBox(width: 2),
                 Text(
                   product.rating.toStringAsFixed(1),
-                  style: const TextStyle(fontSize: 10),
+                  style: FluxForgeTheme.dockSans(size: 10),
                 ),
               ],
             ),
@@ -830,19 +831,19 @@ class InstalledProductTile extends StatelessWidget {
           'Product ${installed.productId}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          style: FluxForgeTheme.dockSans(size: 13, weight: FontWeight.w500),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'v${installed.version}',
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[500]!),
             ),
             if (installed.hasUpdate)
               Text(
                 'Update available: v${installed.updateVersion}',
-                style: TextStyle(fontSize: 11, color: Colors.orange[400]),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.orange[400]!),
               ),
           ],
         ),
@@ -907,7 +908,7 @@ class ProductDetailsDialog extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Center(
-                      child: Text(product.type.icon, style: const TextStyle(fontSize: 32)),
+                      child: Text(product.type.icon, style: FluxForgeTheme.dockSans(size: 32)),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -917,14 +918,14 @@ class ProductDetailsDialog extends StatelessWidget {
                       children: [
                         Text(
                           product.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                          style: FluxForgeTheme.dockSans(
+                            size: 18,
+                            weight: FontWeight.bold,
                           ),
                         ),
                         Text(
                           product.developerName,
-                          style: TextStyle(color: Colors.grey[400]),
+                          style: FluxForgeTheme.dockSans(color: Colors.grey[400]!),
                         ),
                         const SizedBox(height: 4),
                         Row(
@@ -956,14 +957,14 @@ class ProductDetailsDialog extends StatelessWidget {
                   children: [
                     Text(
                       product.description,
-                      style: TextStyle(color: Colors.grey[300]),
+                      style: FluxForgeTheme.dockSans(color: Colors.grey[300]!),
                     ),
                     const SizedBox(height: 16),
                     Wrap(
                       spacing: 8,
                       runSpacing: 4,
                       children: product.tags.map((tag) => Chip(
-                        label: Text(tag, style: const TextStyle(fontSize: 11)),
+                        label: Text(tag, style: FluxForgeTheme.dockSans(size: 11)),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       )).toList(),
@@ -995,15 +996,15 @@ class ProductDetailsDialog extends StatelessWidget {
                     ),
                     child: Text(
                       product.formattedPrice,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockSans(
+                        weight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
                   ),
                   const Spacer(),
                   if (isInstalled)
-                    const Text('Installed', style: TextStyle(color: Colors.green))
+                    Text('Installed', style: FluxForgeTheme.dockSans(color: Colors.green))
                   else if (product.isFree || isPurchased)
                     ElevatedButton.icon(
                       onPressed: () => _install(context),
@@ -1037,7 +1038,7 @@ class ProductDetailsDialog extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: Colors.grey[500]),
+              style: FluxForgeTheme.dockSans(color: Colors.grey[500]!),
             ),
           ),
           Text(value),
@@ -1177,7 +1178,7 @@ class PurchasesDialog extends StatelessWidget {
             ? Center(
                 child: Text(
                   'No purchases yet',
-                  style: TextStyle(color: Colors.grey[500]),
+                  style: FluxForgeTheme.dockSans(color: Colors.grey[500]!),
                 ),
               )
             : ListView.builder(
@@ -1191,7 +1192,7 @@ class PurchasesDialog extends StatelessWidget {
                     ),
                     trailing: Text(
                       '\$${purchase.amount.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: FluxForgeTheme.dockSans(weight: FontWeight.bold),
                     ),
                   );
                 },

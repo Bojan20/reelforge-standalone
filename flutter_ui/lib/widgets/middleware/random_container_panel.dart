@@ -77,10 +77,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
         const SizedBox(width: 6),
         Text(
           'Random Containers',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -107,10 +107,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                     const SizedBox(width: 4),
                     Text(
                       'A/B',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.cyan,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        size: 11,
+                        weight: FontWeight.bold,
                       ),
                     ),
                   ],
@@ -138,10 +138,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   'Presets',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.amber,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    size: 11,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -165,10 +165,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   'New Container',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.orange,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    size: 11,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -195,7 +195,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
             const SizedBox(height: 8),
             Text(
               'No random containers',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
             ),
           ],
         ),
@@ -249,10 +249,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                       Expanded(
                         child: Text(
                           container.name,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: FluxForgeTheme.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            size: 12,
+                            weight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -277,18 +277,18 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                         ),
                         child: Text(
                           container.mode.displayName,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: _getModeColor(container.mode),
-                            fontSize: 9,
+                            size: 9,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         '${container.children.length} sounds',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 10,
+                          size: 10,
                         ),
                       ),
                     ],
@@ -366,7 +366,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
               const SizedBox(height: 8),
               Text(
                 'Select a container to edit',
-                style: TextStyle(color: FluxForgeTheme.textSecondary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               ),
             ],
           ),
@@ -414,10 +414,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                           const SizedBox(width: 4),
                           Text(
                             'Weight Distribution',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: Colors.amber,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                              size: 11,
+                              weight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -462,7 +462,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
             children: [
               Text(
                 'Selection Mode:',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
               ),
               const SizedBox(width: 12),
               ...RandomMode.values.map((mode) {
@@ -488,10 +488,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                       ),
                       child: Text(
                         mode.displayName,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isActive ? _getModeColor(mode) : FluxForgeTheme.textSecondary,
-                          fontSize: 10,
-                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                          size: 10,
+                          weight: isActive ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -508,7 +508,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
               children: [
                 Text(
                   'Avoid Repeat:',
-                  style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
                 ),
                 const SizedBox(width: 8),
                 SizedBox(
@@ -525,7 +525,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                       isExpanded: true,
                       underline: const SizedBox.shrink(),
                       dropdownColor: FluxForgeTheme.surfaceDark,
-                      style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
                       items: List.generate(6, (i) => i).map((count) {
                         return DropdownMenuItem(
                           value: count,
@@ -545,7 +545,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                 const SizedBox(width: 16),
                 Text(
                   'last sounds',
-                  style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
                 ),
               ],
             ),
@@ -553,10 +553,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
           // Global variation
           Text(
             'Global Variation',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -620,11 +620,11 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 10),
             ),
             Text(
               '${minValue.toStringAsFixed(1)} / +${maxValue.toStringAsFixed(1)} $unit',
-              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+              style: FluxForgeTheme.dockSans(color: color, size: 10, weight: FontWeight.bold),
             ),
           ],
         ),
@@ -682,7 +682,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                         const SizedBox(height: 8),
                         Text(
                           'No sounds added',
-                          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
                         ),
                         const SizedBox(height: 8),
                         GestureDetector(
@@ -696,7 +696,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                             ),
                             child: Text(
                               'Add Sound',
-                              style: TextStyle(color: Colors.green, fontSize: 11),
+                              style: FluxForgeTheme.dockSans(color: Colors.green, size: 11),
                             ),
                           ),
                         ),
@@ -745,9 +745,9 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                                     const SizedBox(width: 6),
                                     Text(
                                       child.name,
-                                      style: TextStyle(
+                                      style: FluxForgeTheme.dockSans(
                                         color: FluxForgeTheme.textPrimary,
-                                        fontSize: 11,
+                                        size: 11,
                                       ),
                                     ),
                                   ],
@@ -802,10 +802,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                                       width: 36,
                                       child: Text(
                                         '${(probability * 100).toStringAsFixed(0)}%',
-                                        style: TextStyle(
+                                        style: FluxForgeTheme.dockSans(
                                           color: Colors.amber,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
+                                          size: 10,
+                                          weight: FontWeight.bold,
                                         ),
                                       ),
                                     ),
@@ -852,7 +852,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                     const SizedBox(width: 4),
                     Text(
                       'Add Sound',
-                      style: TextStyle(color: Colors.green, fontSize: 11),
+                      style: FluxForgeTheme.dockSans(color: Colors.green, size: 11),
                     ),
                   ],
                 ),
@@ -866,10 +866,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
   Widget _listHeader(String label) {
     return Text(
       label,
-      style: TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: FluxForgeTheme.textSecondary,
-        fontSize: 10,
-        fontWeight: FontWeight.bold,
+        size: 10,
+        weight: FontWeight.bold,
       ),
     );
   }
@@ -894,10 +894,10 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
               const SizedBox(width: 8),
               Text(
                 'Per-Sound Variation: ${child.name}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -962,7 +962,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
           width: 100,
           child: Text(
             'Audio File',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
         ),
         Expanded(
@@ -977,9 +977,9 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
             ),
             child: Text(
               fileName,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: hasAudio ? Colors.green : FluxForgeTheme.textSecondary,
-                fontSize: 10,
+                size: 10,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -1009,7 +1009,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   'Browse',
-                  style: TextStyle(color: Colors.amber, fontSize: 10),
+                  style: FluxForgeTheme.dockSans(color: Colors.amber, size: 10),
                 ),
               ],
             ),
@@ -1044,7 +1044,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
         backgroundColor: FluxForgeTheme.surfaceDark,
         title: Text(
           'Add Sound',
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1053,7 +1053,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
               controller: controller,
               decoration: InputDecoration(
                 labelText: 'Sound Name',
-                labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+                labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: FluxForgeTheme.border),
                 ),
@@ -1061,7 +1061,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                   borderSide: BorderSide(color: Colors.amber),
                 ),
               ),
-              style: TextStyle(color: FluxForgeTheme.textPrimary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
               autofocus: true,
             ),
           ],
@@ -1069,7 +1069,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -1082,7 +1082,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
                 Navigator.pop(context);
               }
             },
-            child: Text('Add', style: TextStyle(color: Colors.amber)),
+            child: Text('Add', style: FluxForgeTheme.dockSans(color: Colors.amber)),
           ),
         ],
       ),
@@ -1138,10 +1138,10 @@ class _AddRandomContainerDialogState extends State<_AddRandomContainerDialog> {
         children: [
           Text(
             'New Random Container',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
@@ -1149,7 +1149,7 @@ class _AddRandomContainerDialogState extends State<_AddRandomContainerDialog> {
             controller: _nameController,
             decoration: InputDecoration(
               labelText: 'Container Name',
-              labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+              labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: FluxForgeTheme.border),
               ),
@@ -1157,7 +1157,7 @@ class _AddRandomContainerDialogState extends State<_AddRandomContainerDialog> {
                 borderSide: BorderSide(color: Colors.amber),
               ),
             ),
-            style: TextStyle(color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
             autofocus: true,
           ),
           const SizedBox(height: 16),
@@ -1175,7 +1175,7 @@ class _AddRandomContainerDialogState extends State<_AddRandomContainerDialog> {
                   ),
                   child: Text(
                     'Cancel',
-                    style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
                   ),
                 ),
               ),
@@ -1194,10 +1194,10 @@ class _AddRandomContainerDialogState extends State<_AddRandomContainerDialog> {
                   ),
                   child: Text(
                     'Create',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.black,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      size: 12,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),

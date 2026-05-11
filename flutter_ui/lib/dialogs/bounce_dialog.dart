@@ -11,7 +11,7 @@
 // - Mono/Stereo/Surround modes
 
 import 'package:flutter/material.dart';
-import '../theme/fluxforge_theme.dart';
+import '../theme/flux_forge_theme.dart';
 
 /// Bounce/Export options
 class BounceOptions {
@@ -294,19 +294,19 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Bounce / Mixdown',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 18,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   'Duration: ${_formatDuration(_endTime - _startTime + _tailTime)}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 12,
                   ),
                 ),
               ],
@@ -359,7 +359,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   onSelected: (_) => setState(() => _format = fmt),
                   backgroundColor: FluxForgeTheme.bgSurface,
                   selectedColor: FluxForgeTheme.accentBlue,
-                  labelStyle: TextStyle(
+                  labelStyle: FluxForgeTheme.dockSans(
                     color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                   ),
                 );
@@ -381,7 +381,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                     onSelected: (_) => setState(() => _bitDepth = bits),
                     backgroundColor: FluxForgeTheme.bgSurface,
                     selectedColor: FluxForgeTheme.accentBlue,
-                    labelStyle: TextStyle(
+                    labelStyle: FluxForgeTheme.dockSans(
                       color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                     ),
                   );
@@ -410,7 +410,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   onSelected: (_) => setState(() => _sampleRate = rate),
                   backgroundColor: FluxForgeTheme.bgSurface,
                   selectedColor: FluxForgeTheme.accentBlue,
-                  labelStyle: TextStyle(
+                  labelStyle: FluxForgeTheme.dockSans(
                     color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                   ),
                 );
@@ -429,7 +429,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   onChanged: (v) => setState(() => _channelMode = v!),
                   title: Text(
                     _getChannelModeName(mode),
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+                    style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
                   ),
                   activeColor: FluxForgeTheme.accentBlue,
                   dense: true,
@@ -458,11 +458,11 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                 onChanged: (v) => setState(() => _mp3UseVbr = v),
                 title: Text(
                   'Variable Bitrate (VBR)',
-                  style: TextStyle(color: FluxForgeTheme.textPrimary),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                 ),
                 subtitle: Text(
                   'Better quality at smaller file size',
-                  style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
                 ),
                 activeTrackColor: FluxForgeTheme.accentBlue,
                 contentPadding: EdgeInsets.zero,
@@ -473,19 +473,18 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   children: [
                     Text(
                       'VBR Quality',
-                      style: TextStyle(color: FluxForgeTheme.textSecondary),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '(0 = best, 9 = smallest)',
-                      style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+                      style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
                     ),
                     const Spacer(),
                     Text(
                       '$_mp3VbrQuality',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: FluxForgeTheme.textPrimary,
-                        fontFamily: 'JetBrains Mono',
                       ),
                     ),
                   ],
@@ -504,13 +503,13 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   children: [
                     Text(
                       'Bitrate',
-                      style: TextStyle(color: FluxForgeTheme.textSecondary),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
                     ),
                     const Spacer(),
                     DropdownButton<int>(
                       value: _mp3Bitrate,
                       dropdownColor: FluxForgeTheme.bgMid,
-                      style: TextStyle(color: FluxForgeTheme.textPrimary),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                       items: [128, 160, 192, 224, 256, 320].map((rate) {
                         return DropdownMenuItem(
                           value: rate,
@@ -545,19 +544,18 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                 children: [
                   Text(
                     'Compression Level',
-                    style: TextStyle(color: FluxForgeTheme.textSecondary),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     '(0 = fastest, 8 = smallest)',
-                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
                   ),
                   const Spacer(),
                   Text(
                     '$_flacCompression',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.textPrimary,
-                      fontFamily: 'JetBrains Mono',
                     ),
                   ),
                 ],
@@ -603,7 +601,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                       _format == AudioFormat.mp3 || _format == AudioFormat.ogg || _format == AudioFormat.opus
                           ? 'Dithering is not applicable for lossy formats'
                           : 'Dithering is only needed when reducing bit depth (32-bit float to 24/16-bit)',
-                      style: TextStyle(color: FluxForgeTheme.textPrimary),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                     ),
                   ),
                 ],
@@ -621,11 +619,11 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                     onChanged: (v) => setState(() => _ditherType = v!),
                     title: Text(
                       _getDitherName(type),
-                      style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+                      style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
                     ),
                     subtitle: Text(
                       _getDitherDescription(type),
-                      style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+                      style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
                     ),
                     activeColor: FluxForgeTheme.accentBlue,
                     dense: true,
@@ -646,11 +644,11 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                       onChanged: (v) => setState(() => _noiseShaping = v!),
                       title: Text(
                         _getNoiseShapingName(ns),
-                        style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+                        style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
                       ),
                       subtitle: Text(
                         _getNoiseShapingDescription(ns),
-                        style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+                        style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
                       ),
                       activeColor: FluxForgeTheme.accentBlue,
                       dense: true,
@@ -682,11 +680,11 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   onChanged: (v) => setState(() => _normalizeMode = v!),
                   title: Text(
                     _getNormalizeModeName(mode),
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+                    style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary),
                   ),
                   subtitle: Text(
                     _getNormalizeModeDescription(mode),
-                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
                   ),
                   activeColor: FluxForgeTheme.accentBlue,
                   dense: true,
@@ -720,9 +718,8 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                         width: 80,
                         child: Text(
                           '${_normalizeTarget.toStringAsFixed(1)} ${_normalizeMode == NormalizeMode.lufsIntegrated || _normalizeMode == NormalizeMode.lufsShortTerm ? 'LUFS' : 'dB'}',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
                             color: FluxForgeTheme.textPrimary,
-                            fontFamily: 'JetBrains Mono',
                           ),
                         ),
                       ),
@@ -737,9 +734,9 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                         label: Text('${preset.toStringAsFixed(0)} ${_normalizeMode == NormalizeMode.lufsIntegrated || _normalizeMode == NormalizeMode.lufsShortTerm ? 'LUFS' : 'dB'}'),
                         backgroundColor:
                             isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgSurface,
-                        labelStyle: TextStyle(
+                        labelStyle: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
-                          fontSize: 11,
                         ),
                         onPressed: () => setState(() => _normalizeTarget = preset),
                       );
@@ -775,7 +772,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
               children: [
                 Text(
                   'Add extra time for reverb/delay tails',
-                  style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -794,9 +791,8 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                       width: 60,
                       child: Text(
                         '${_tailTime.toStringAsFixed(1)}s',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
                           color: FluxForgeTheme.textPrimary,
-                          fontFamily: 'JetBrains Mono',
                         ),
                       ),
                     ),
@@ -816,11 +812,11 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   onChanged: (v) => setState(() => _addToPool = v),
                   title: Text(
                     'Add to Audio Pool',
-                    style: TextStyle(color: FluxForgeTheme.textPrimary),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                   ),
                   subtitle: Text(
                     'Import bounced file into project audio pool',
-                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
                   ),
                   activeColor: FluxForgeTheme.accentGreen,
                   contentPadding: EdgeInsets.zero,
@@ -830,11 +826,11 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   onChanged: (v) => setState(() => _exportMarkers = v),
                   title: Text(
                     'Export Markers',
-                    style: TextStyle(color: FluxForgeTheme.textPrimary),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                   ),
                   subtitle: Text(
                     'Create .txt file with marker positions',
-                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
                   ),
                   activeColor: FluxForgeTheme.accentGreen,
                   contentPadding: EdgeInsets.zero,
@@ -863,9 +859,9 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
               const SizedBox(width: 8),
               Text(
                 'Range',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -929,9 +925,9 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
       },
       backgroundColor: FluxForgeTheme.bgMid,
       selectedColor: FluxForgeTheme.accentBlue,
-      labelStyle: TextStyle(
+      labelStyle: FluxForgeTheme.dockSans(
+        size: 12,
         color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
-        fontSize: 12,
       ),
     );
   }
@@ -942,7 +938,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
       children: [
         Text(
           label,
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
         ),
         const SizedBox(height: 4),
         Container(
@@ -954,9 +950,8 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
           ),
           child: Text(
             _formatTime(value),
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textPrimary,
-              fontFamily: 'JetBrains Mono',
             ),
           ),
         ),
@@ -986,9 +981,9 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textPrimary,
-                    fontWeight: FontWeight.w600,
+                    weight: FontWeight.w600,
                   ),
                 ),
               ],

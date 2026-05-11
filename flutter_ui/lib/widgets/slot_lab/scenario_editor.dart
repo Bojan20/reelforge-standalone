@@ -155,10 +155,10 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgDeep,
-        title: const Text('Delete Scenario', style: TextStyle(color: Colors.white)),
+        title: Text('Delete Scenario', style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: Text(
           'Are you sure you want to delete "${info.name}"?',
-          style: const TextStyle(color: Colors.white70),
+          style: FluxForgeTheme.dockSans(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -222,10 +222,10 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
         children: [
           Icon(Icons.playlist_play, size: 18, color: FluxForgeTheme.accent),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Scenario Editor',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              weight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
@@ -237,9 +237,9 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
                 color: Colors.orange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
+              child: Text(
                 'Modified',
-                style: TextStyle(color: Colors.orange, fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: Colors.orange, size: 11),
               ),
             ),
           const SizedBox(width: 8),
@@ -269,7 +269,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
         unselectedLabelColor: FluxForgeTheme.textMuted,
         indicatorColor: FluxForgeTheme.accent,
         indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        labelStyle: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.w500),
         tabs: const [
           Tab(text: 'SCENARIOS'),
           Tab(text: 'EDITOR'),
@@ -310,7 +310,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
               const Spacer(),
               Text(
                 '${_scenarios.length} scenarios',
-                style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 12),
               ),
             ],
           ),
@@ -328,7 +328,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
                           const SizedBox(height: 8),
                           Text(
                             'No scenarios found',
-                            style: TextStyle(color: FluxForgeTheme.textMuted),
+                            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
                           ),
                           const SizedBox(height: 16),
                           ElevatedButton.icon(
@@ -391,17 +391,17 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
                   children: [
                     Text(
                       scenario.name,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.white,
-                        fontWeight: FontWeight.w500,
+                        weight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${scenario.spinCount} spins • ${scenario.loopMode}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.textMuted,
-                        fontSize: 11,
+                        size: 11,
                       ),
                     ),
                   ],
@@ -441,7 +441,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
             const SizedBox(height: 8),
             Text(
               'Select or create a scenario to edit',
-              style: TextStyle(color: FluxForgeTheme.textMuted),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
             ),
           ],
         ),
@@ -467,7 +467,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
                 onPressed: _exportScenario,
                 style: TextButton.styleFrom(
                   foregroundColor: FluxForgeTheme.textMuted,
-                  textStyle: const TextStyle(fontSize: 12),
+                  textStyle: FluxForgeTheme.dockSans(size: 12),
                 ),
               ),
               // Import
@@ -477,7 +477,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
                 onPressed: _importScenario,
                 style: TextButton.styleFrom(
                   foregroundColor: FluxForgeTheme.textMuted,
-                  textStyle: const TextStyle(fontSize: 12),
+                  textStyle: FluxForgeTheme.dockSans(size: 12),
                 ),
               ),
               const Spacer(),
@@ -541,7 +541,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
       children: [
         Text(
           'Loop Mode',
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 12),
         ),
         const SizedBox(height: 8),
         SegmentedButton<String>(
@@ -579,12 +579,12 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
               color: FluxForgeTheme.accent,
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.add, size: 16, color: Colors.white),
-                SizedBox(width: 4),
-                Text('Add Spin', style: TextStyle(color: Colors.white, fontSize: 12)),
+                const Icon(Icons.add, size: 16, color: Colors.white),
+                const SizedBox(width: 4),
+                Text('Add Spin', style: FluxForgeTheme.dockSans(color: Colors.white, size: 12)),
               ],
             ),
           ),
@@ -606,7 +606,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
         // Clear all
         TextButton.icon(
           icon: Icon(Icons.clear_all, size: 16, color: FluxForgeTheme.textMuted),
-          label: Text('Clear', style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12)),
+          label: Text('Clear', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 12)),
           onPressed: () {
             if (_editingScenario != null && _editingScenario!.sequence.isNotEmpty) {
               setState(() {
@@ -625,7 +625,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
         const Spacer(),
         Text(
           '${_editingScenario?.sequence.length ?? 0} spins',
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 12),
         ),
       ],
     );
@@ -650,12 +650,12 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
             const SizedBox(height: 8),
             Text(
               'No spins in sequence',
-              style: TextStyle(color: FluxForgeTheme.textMuted),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
             ),
             const SizedBox(height: 4),
             Text(
               'Click "Add Spin" to begin',
-              style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 11),
             ),
           ],
         ),
@@ -758,12 +758,12 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
           children: [
             Text(
               '#${index + 1}',
-              style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 11),
             ),
             const SizedBox(width: 8),
             Text(
               _outcomeLabel(outcomeType),
-              style: TextStyle(color: color, fontWeight: FontWeight.w500),
+              style: FluxForgeTheme.dockSans(color: color, weight: FontWeight.w500),
             ),
           ],
         ),
@@ -774,7 +774,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
               const SizedBox(width: 2),
               Text(
                 '${delay.toInt()}ms',
-                style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 10),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 10),
               ),
               const SizedBox(width: 8),
             ],
@@ -782,7 +782,7 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
               Expanded(
                 child: Text(
                   note,
-                  style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 10),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 10),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -898,10 +898,10 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: Colors.white,
-        fontSize: 14,
-        fontWeight: FontWeight.bold,
+        size: 14,
+        weight: FontWeight.bold,
       ),
     );
   }
@@ -917,12 +917,12 @@ class _ScenarioEditorPanelState extends State<ScenarioEditorPanel>
       children: [
         Text(
           label,
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 12),
         ),
         const SizedBox(height: 4),
         TextField(
           controller: controller,
-          style: const TextStyle(color: Colors.white),
+          style: FluxForgeTheme.dockSans(color: Colors.white),
           maxLines: maxLines,
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1030,20 +1030,20 @@ class _SpinEditDialogState extends State<_SpinEditDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: FluxForgeTheme.bgDeep,
-      title: const Text('Edit Spin', style: TextStyle(color: Colors.white)),
+      title: Text('Edit Spin', style: FluxForgeTheme.dockSans(color: Colors.white)),
       content: SizedBox(
         width: 300,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Outcome Type', style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12)),
+            Text('Outcome Type', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 12)),
             const SizedBox(height: 4),
             DropdownButton<String>(
               value: _outcomeType,
               isExpanded: true,
               dropdownColor: FluxForgeTheme.surface,
-              style: const TextStyle(color: Colors.white),
+              style: FluxForgeTheme.dockSans(color: Colors.white),
               items: const [
                 DropdownMenuItem(value: 'lose', child: Text('Lose')),
                 DropdownMenuItem(value: 'small_win', child: Text('Small Win')),
@@ -1061,24 +1061,24 @@ class _SpinEditDialogState extends State<_SpinEditDialog> {
             const SizedBox(height: 16),
             TextField(
               controller: _delayController,
-              style: const TextStyle(color: Colors.white),
+              style: FluxForgeTheme.dockSans(color: Colors.white),
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Delay Before (ms)',
-                labelStyle: TextStyle(color: FluxForgeTheme.textMuted),
+                labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
                 hintText: 'e.g., 500',
-                hintStyle: TextStyle(color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
+                hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _noteController,
-              style: const TextStyle(color: Colors.white),
+              style: FluxForgeTheme.dockSans(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Note',
-                labelStyle: TextStyle(color: FluxForgeTheme.textMuted),
+                labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
                 hintText: 'Optional note',
-                hintStyle: TextStyle(color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
+                hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
               ),
             ),
           ],
@@ -1133,18 +1133,18 @@ class _ImportScenarioDialogState extends State<_ImportScenarioDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: FluxForgeTheme.bgDeep,
-      title: const Text('Import Scenario', style: TextStyle(color: Colors.white)),
+      title: Text('Import Scenario', style: FluxForgeTheme.dockSans(color: Colors.white)),
       content: SizedBox(
         width: 400,
         height: 300,
         child: TextField(
           controller: _controller,
-          style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12),
+          style: FluxForgeTheme.dockMono(color: Colors.white, size: 12),
           maxLines: null,
           expands: true,
           decoration: InputDecoration(
             hintText: 'Paste scenario JSON here...',
-            hintStyle: TextStyle(color: FluxForgeTheme.textMuted),
+            hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
