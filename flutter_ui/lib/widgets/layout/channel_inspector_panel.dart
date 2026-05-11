@@ -16,6 +16,7 @@ import '../../models/layout_models.dart';
 import '../../models/timeline_models.dart' as timeline;
 import '../../src/rust/native_ffi.dart';
 import '../../utils/audio_math.dart';
+import '../common/flux_tooltip.dart';
 
 class ChannelInspectorPanel extends StatefulWidget {
   // Channel data
@@ -430,7 +431,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             // Stereo dual pan (Pro Tools style)
             Row(
               children: [
-                Tooltip(
+                FluxTooltip(
                   message: 'Stereo pan: L routes left input, R routes right input',
                   child: SizedBox(
                     width: 48,
@@ -445,7 +446,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       // Left channel pan
-                      Tooltip(
+                      FluxTooltip(
                         message: 'Left channel routing\nDefault: <100 (hard left)',
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -469,7 +470,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                         ),
                       ),
                       // Right channel pan
-                      Tooltip(
+                      FluxTooltip(
                         message: 'Right channel routing\nDefault: 100> (hard right)',
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -1929,7 +1930,7 @@ class _StateButtonState extends State<_StateButton> {
     );
 
     if (widget.tooltip != null) {
-      return Tooltip(message: widget.tooltip!, child: button);
+      return FluxTooltip(message: widget.tooltip!, child: button);
     }
     return button;
   }
@@ -1961,9 +1962,8 @@ class _EqQuickButton extends StatelessWidget {
         // EQ label — click to open editor
         GestureDetector(
           onTap: onTap,
-          child: Tooltip(
+          child: FluxTooltip(
             message: 'Open EQ editor',
-            waitDuration: const Duration(milliseconds: 600),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
@@ -2023,9 +2023,8 @@ class _EqQuickButton extends StatelessWidget {
         if (hasEq)
           GestureDetector(
             onTap: onBypassToggle,
-            child: Tooltip(
+            child: FluxTooltip(
               message: bypassed ? 'Enable EQ' : 'Bypass EQ',
-              waitDuration: const Duration(milliseconds: 600),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                 decoration: BoxDecoration(
@@ -2267,9 +2266,8 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
                     behavior: HitTestBehavior.opaque,
                     child: MouseRegion(
                       cursor: hasPlugin ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                      child: Tooltip(
+                      child: FluxTooltip(
                         message: hasPlugin ? (widget.insert.bypassed ? 'Enable' : 'Bypass') : '',
-                        waitDuration: const Duration(milliseconds: 500),
                         child: Container(
                           width: 14,
                           height: 14,
@@ -2369,9 +2367,8 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
                         padding: const EdgeInsets.only(left: 4),
                         child: MouseRegion(
                           cursor: SystemMouseCursors.click,
-                          child: Tooltip(
+                          child: FluxTooltip(
                             message: 'Open Editor',
-                            waitDuration: const Duration(milliseconds: 500),
                             child: Icon(
                               Icons.open_in_new,
                               size: 14,
@@ -2389,9 +2386,8 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
                         padding: const EdgeInsets.only(left: 4),
                         child: MouseRegion(
                           cursor: SystemMouseCursors.click,
-                          child: Tooltip(
+                          child: FluxTooltip(
                             message: 'Remove',
-                            waitDuration: const Duration(milliseconds: 500),
                             child: Icon(
                               Icons.close,
                               size: 14,

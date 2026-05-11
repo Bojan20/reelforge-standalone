@@ -174,6 +174,7 @@ import '../widgets/slot_lab/gad_panel.dart';
 import '../widgets/slot_lab/sss_panel.dart';
 import '../models/template_models.dart' show BuiltTemplate, FeatureModuleType;
 import '../services/cortex_eye_server.dart';
+import '../widgets/common/flux_tooltip.dart';
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
 // =============================================================================
@@ -4803,11 +4804,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Tooltip(
+                        FluxTooltip(
                           message: projectProvider.undoAudioDescription != null
                               ? 'Undo: ${projectProvider.undoAudioDescription}'
                               : 'Undo',
-                          waitDuration: const Duration(milliseconds: 300),
                           child: GestureDetector(
                             onTap: canUndo ? () {
                               final success = projectProvider.undoAudioAssignment();
@@ -4820,11 +4820,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                             ),
                           ),
                         ),
-                        Tooltip(
+                        FluxTooltip(
                           message: projectProvider.redoAudioDescription != null
                               ? 'Redo: ${projectProvider.redoAudioDescription}'
                               : 'Redo',
-                          waitDuration: const Duration(milliseconds: 300),
                           child: GestureDetector(
                             onTap: canRedo ? () {
                               final success = projectProvider.redoAudioAssignment();
@@ -4858,7 +4857,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Header icon button — clean, minimal, 26x26
   /// Center toolbar button — larger, with color accent and label
   Widget _buildCenterToolBtn(IconData icon, String label, Color color, VoidCallback onTap) {
-    return Tooltip(
+    return FluxTooltip(
       message: label,
       child: GestureDetector(
         onTap: onTap,
@@ -4886,7 +4885,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   Widget _buildHeaderIconBtn(IconData icon, VoidCallback onTap, String tooltip, {bool isActive = false}) {
-    return Tooltip(
+    return FluxTooltip(
       message: tooltip,
       child: GestureDetector(
         onTap: onTap,
@@ -4965,7 +4964,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // P3-15: Templates Gallery Button
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildTemplatesButton() {
-    return Tooltip(
+    return FluxTooltip(
       message: 'Template Gallery',
       child: Material(
         color: Colors.transparent,
@@ -5178,7 +5177,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           progressColor = const Color(0xFF40FF90); // Green
         }
 
-        return Tooltip(
+        return FluxTooltip(
           message: 'Audio Coverage: $assigned of $total slots assigned\nClick for breakdown',
           child: Material(
             color: Colors.transparent,
@@ -5286,7 +5285,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // M1 Task 4: Project Dashboard Button
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildDashboardButton() {
-    return Tooltip(
+    return FluxTooltip(
       message: 'Project Dashboard\nOverview, validation, and notes',
       child: Material(
         color: Colors.transparent,
@@ -5330,7 +5329,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // P13: Feature Builder Button
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildFeatureBuilderButton() {
-    return Tooltip(
+    return FluxTooltip(
       message: 'Feature Builder\nConfigure slot features and audio stages',
       child: Material(
         color: Colors.transparent,
@@ -6072,7 +6071,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
           // Clear loop region button
           if (_loopStart != null && _loopEnd != null)
-            Tooltip(
+            FluxTooltip(
               message: 'Clear loop region',
               child: InkWell(
                 onTap: _clearLoopRegion,
@@ -9535,9 +9534,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildResizeHandle({required bool isLeft}) {
-    return Tooltip(
+    return FluxTooltip(
       message: 'Drag to resize\nDouble-click to reset',
-      waitDuration: const Duration(milliseconds: 800),
       child: MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
       child: GestureDetector(
@@ -9744,9 +9742,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: List.generate(tabs.length, (i) {
           final isActive = _leftPanelTab == tabs[i];
           return Expanded(
-            child: Tooltip(
+            child: FluxTooltip(
               message: '${labels[i]}\nDouble-click to hide panel',
-              waitDuration: const Duration(milliseconds: 600),
               child: _InstantTapDetector(
               onTap: () { _leftPanelTab = tabs[i]; _savePanelLayout(); },
               onDoubleTap: _toggleLeftPanel,
@@ -10949,9 +10946,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: List.generate(tabs.length, (i) {
           final isActive = _rightPanelTab == tabs[i];
           return Expanded(
-            child: Tooltip(
+            child: FluxTooltip(
               message: '${labels[i]}\nDouble-click to hide panel',
-              waitDuration: const Duration(milliseconds: 600),
               child: _InstantTapDetector(
               onTap: () { _rightPanelTab = tabs[i]; _savePanelLayout(); },
               onDoubleTap: _toggleRightPanel,
@@ -11114,7 +11110,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               if (undo.canUndo || undo.canRedo)
                 GestureDetector(
                   onTap: undo.clear,
-                  child: const Tooltip(
+                  child: const FluxTooltip(
                     message: 'Clear undo history',
                     child: Icon(Icons.clear_all, size: 14, color: Color(0xFF505060)),
                   ),
@@ -11132,7 +11128,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     required bool enabled,
     required VoidCallback onTap,
   }) {
-    return Tooltip(
+    return FluxTooltip(
       message: tooltip,
       child: GestureDetector(
         onTap: enabled ? onTap : null,
@@ -14412,7 +14408,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
           const SizedBox(width: 8),
           // Play/Pause toggle
-          Tooltip(
+          FluxTooltip(
             message: isPaused ? 'Resume (Space)' : (isPlaying ? 'Pause (Space)' : 'No active stages'),
             child: InkWell(
               onTap: isActive
@@ -14444,7 +14440,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
           const SizedBox(width: 4),
           // Stop button
-          Tooltip(
+          FluxTooltip(
             message: 'Stop (Esc)',
             child: InkWell(
               onTap: isActive
@@ -14652,7 +14648,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
 
     if (tooltip != null) {
-      return Tooltip(message: tooltip, child: button);
+      return FluxTooltip(message: tooltip, child: button);
     }
     return button;
   }

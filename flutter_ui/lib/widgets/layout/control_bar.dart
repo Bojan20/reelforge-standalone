@@ -535,7 +535,7 @@ class _ModeSwitcher extends StatelessWidget {
       child: Row(
         children: modeConfigs.values.map((config) {
           final isActive = mode == config.mode;
-          return Tooltip(
+          return FluxTooltip(
             message: '${config.name} - ${config.description} (${config.shortcut})',
             child: GestureDetector(
               onTap: () => onChange(config.mode),
@@ -863,7 +863,7 @@ class _PdcButton extends StatelessWidget {
             ? FluxForgeTheme.warningOrange
             : FluxForgeTheme.accentGreen;
 
-    return Tooltip(
+    return FluxTooltip(
       message: 'Plugin Delay Compensation\n'
           '${latencyMs.toStringAsFixed(2)}ms\n'
           '${enabled ? "Enabled" : "Disabled"} - Click to toggle',
@@ -1132,7 +1132,7 @@ class _UltimateTransportBtnState extends State<_UltimateTransportBtn>
     final size = widget.large ? 36.0 : 30.0;
     final iconSize = widget.large ? 18.0 : 14.0;
 
-    return Tooltip(
+    return FluxTooltip(
       message: widget.tooltip,
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
@@ -1260,7 +1260,7 @@ class _IconBtnState extends State<_IconBtn> {
         ? widget.activeColor
         : (_isHovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary);
 
-    return Tooltip(
+    return FluxTooltip(
       message: widget.tooltip,
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
@@ -1394,7 +1394,7 @@ class _TempoDisplayState extends State<_TempoDisplay> {
         final delta = -d.delta.dy / 5;
         widget.onTempoChange?.call((widget.tempo + delta).clamp(20.0, 999.0));
       },
-      child: Tooltip(
+      child: FluxTooltip(
         message: 'Double-click to edit · Drag to adjust',
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -1571,7 +1571,7 @@ class _TimeDisplayState extends State<_TimeDisplay> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: Tooltip(
+        child: FluxTooltip(
           message: 'Click to change display mode',
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
@@ -1663,7 +1663,7 @@ class _ProjectInfo extends StatelessWidget {
               style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12)),
           if (onSave != null) ...[
             const SizedBox(width: 8),
-            Tooltip(
+            FluxTooltip(
               message: 'Save (Ctrl+S)',
               child: InkWell(
                 onTap: onSave,
@@ -1729,7 +1729,7 @@ class _ZoneBtnState extends State<_ZoneBtn> {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
+    return FluxTooltip(
       message: widget.tooltip,
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
@@ -1851,7 +1851,7 @@ class _CloudBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
+    return FluxTooltip(
       message: tooltip,
       child: InkWell(
         onTap: onTap,
@@ -1950,7 +1950,7 @@ class _CortexIntelligenceBadge extends StatelessWidget {
           icon = Icons.psychology;
         }
 
-        return Tooltip(
+        return FluxTooltip(
           message: _buildTooltip(loop, last),
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -2114,7 +2114,7 @@ class _KeyboardFocusButton extends StatelessWidget {
       builder: (context, provider, _) {
         final isActive = provider.isCommandsMode;
 
-        return Tooltip(
+        return FluxTooltip(
           message: isActive
               ? 'Commands Focus Mode (Cmd+Shift+A to exit)'
               : 'Normal Mode (Cmd+Shift+A for Commands)',
@@ -2178,7 +2178,7 @@ class _RazorEditButton extends StatelessWidget {
       builder: (context, provider, _) {
         final hasSelection = provider.hasSelection;
 
-        return Tooltip(
+        return FluxTooltip(
           message: 'Razor Edit (Alt+Drag to select range)\n'
               '${hasSelection ? "Selection active - Del to delete" : "No selection"}',
           child: GestureDetector(
@@ -2242,7 +2242,7 @@ class _ArrangerTrackButton extends StatelessWidget {
         final isEnabled = provider.enabled;
         final sectionCount = provider.sections.length;
 
-        return Tooltip(
+        return FluxTooltip(
           message: 'Arranger Track (Cubase-style)\n'
               '${isEnabled ? "Enabled" : "Disabled"} - $sectionCount sections',
           child: GestureDetector(
@@ -2307,7 +2307,7 @@ class _ChordTrackButton extends StatelessWidget {
         final chordCount = provider.events.length;
         final currentChord = provider.currentEvent?.displayName;
 
-        return Tooltip(
+        return FluxTooltip(
           message: 'Chord Track (Cubase-style)\n'
               '${isEnabled ? "Enabled" : "Disabled"} - $chordCount chords\n'
               '${currentChord != null ? "Playing: $currentChord" : ""}',
@@ -2375,7 +2375,7 @@ class ModulatorButton extends StatelessWidget {
         final lfoCount = provider.lfos.length;
         final envCount = provider.envelopes.length;
 
-        return Tooltip(
+        return FluxTooltip(
           message: 'Parameter Modulators\n'
               '${isEnabled ? "Enabled" : "Disabled"}\n'
               '$lfoCount LFOs, $envCount Envelopes',
@@ -2442,7 +2442,7 @@ class ExpressionMapButton extends StatelessWidget {
         final isEnabled = provider.enabled;
         final mapCount = provider.maps.length;
 
-        return Tooltip(
+        return FluxTooltip(
           message: 'Expression Maps (Cubase-style)\n'
               '${isEnabled ? "Enabled" : "Disabled"}\n'
               '$mapCount maps loaded',
@@ -2507,7 +2507,7 @@ class _ScaleAssistantButton extends StatelessWidget {
         final isEnabled = provider.showScaleNotes;
         final key = provider.globalKey;
 
-        return Tooltip(
+        return FluxTooltip(
           message: 'Scale Assistant\n'
               'Key: ${key.shortName}\n'
               'Mode: ${provider.constraintMode.name}',
@@ -2572,7 +2572,7 @@ class _GrooveQuantizeButton extends StatelessWidget {
         final isEnabled = provider.enabled;
         final templateName = provider.activeTemplate?.name ?? 'None';
 
-        return Tooltip(
+        return FluxTooltip(
           message: 'Groove Quantize\n'
               '${isEnabled ? "Enabled" : "Disabled"}\n'
               'Template: $templateName',
@@ -2637,7 +2637,7 @@ class _TrackVersionsButton extends StatelessWidget {
         final isEnabled = provider.enabled;
         final trackCount = provider.tracksWithVersions.length;
 
-        return Tooltip(
+        return FluxTooltip(
           message: 'Track Versions (Cubase-style)\n'
               '${isEnabled ? "Enabled" : "Disabled"}\n'
               '$trackCount tracks with versions',
@@ -2703,7 +2703,7 @@ class _MacroControlsButton extends StatelessWidget {
         final macroCount = provider.macros.length;
         final pageCount = provider.pages.length;
 
-        return Tooltip(
+        return FluxTooltip(
           message: 'Macro Controls\n'
               '${isEnabled ? "Enabled" : "Disabled"}\n'
               '$macroCount macros, $pageCount pages',
@@ -2892,7 +2892,7 @@ class _MoreToolsMenuState extends State<_MoreToolsMenu> {
         context.watch<TrackVersionsProvider>().showVersionLane ||
         context.watch<MacroControlProvider>().enabled;
 
-    return Tooltip(
+    return FluxTooltip(
       message: 'Advanced Tools',
       child: GestureDetector(
         key: _menuKey,
