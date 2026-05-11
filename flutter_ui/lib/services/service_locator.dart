@@ -71,6 +71,7 @@ import 'plugin_state_service.dart';
 import 'missing_plugin_detector.dart';
 import 'predictive/predictive_analyzer.dart';
 import 'predictive/routing_feedback_log.dart';
+import 'compliance/audio_compliance_guard.dart';
 import '../controllers/middleware_timeline_sync_controller.dart';
 import '../providers/event_folder_provider.dart';
 import '../providers/aurexis_provider.dart';
@@ -284,6 +285,13 @@ class ServiceLocator {
     // `recordSpin()` direktno iz spin executor-a.
     sl.registerLazySingleton<LiveComplianceProvider>(
       () => LiveComplianceProvider(),
+    );
+
+    // FAZA 4.2.4 — Audio Compliance Guard (pre-flight validator).
+    sl.registerLazySingleton<AudioComplianceGuard>(
+      () => AudioComplianceGuard(
+        liveProvider: sl<LiveComplianceProvider>(),
+      ),
     );
 
     sl.registerLazySingleton<StateGroupsProvider>(
