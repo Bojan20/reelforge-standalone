@@ -96,6 +96,7 @@ import '../widgets/helix/compliance_lights_badge.dart';
 import '../widgets/helix/session_recorder_panel.dart';
 import '../widgets/helix/stage_flow_strip.dart';
 import '../widgets/helix/stress_test_panel.dart';
+import '../widgets/helix/rtp_solver_dialog.dart';
 import '../widgets/helix/timeline_intelligence.dart';
 import '../widgets/helix/ai_composer_panel.dart'; // Model 3 — multi-provider AI Composer
 import '../providers/mixer_dsp_provider.dart';

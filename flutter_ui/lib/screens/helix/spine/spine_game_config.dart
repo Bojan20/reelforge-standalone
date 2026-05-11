@@ -1052,6 +1052,49 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         _gcPresetChip('Extreme', () { setState(() { _volatility = 9.5; _rtpTarget = 97.0; }); _applyMath(); }),
         _gcPresetChip('Studio', () { setState(() { _volatility = 5.0; _rtpTarget = 99.0; _deadSpins = 3; }); _applyMath(); }),
       ]),
+      const SizedBox(height: 14),
+      // 3.7.K — RTP Solver: auto-solve symbol probability tables.
+      // Opens RtpSolverDialog pre-filled with current RTP/vol/grid settings.
+      // User can view the solved symbol table and apply the MathConfig.
+      _gcSectionHeader('RTP SOLVER'),
+      const SizedBox(height: 6),
+      GestureDetector(
+        onTap: () async {
+          final applied = await showRtpSolverDialog(
+            context,
+            rtpTarget: _rtpTarget,
+            volatility: _volatility,
+            reels: _reels,
+            rows: _rows,
+            paylines: _paylines,
+          );
+          if (applied && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('MathConfig applied to engine.',
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white)),
+              backgroundColor: FluxForgeTheme.accentGreen.withValues(alpha: 0.9),
+              duration: const Duration(seconds: 2),
+            ));
+          }
+        },
+        child: Container(
+          height: 34,
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.accentOrange.withValues(alpha: 0.08),
+            border: Border.all(color: FluxForgeTheme.accentOrange.withValues(alpha: 0.4)),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.auto_fix_high_rounded,
+              size: 13, color: FluxForgeTheme.accentOrange),
+            const SizedBox(width: 6),
+            Text('⚡ SOLVE PAYTABLE',
+              style: FluxForgeTheme.dockMono(
+                size: 9, weight: FontWeight.w700,
+                color: FluxForgeTheme.accentOrange, letterSpacing: 0.5)),
+          ]),
+        ),
+      ),
     ]);
   }
 

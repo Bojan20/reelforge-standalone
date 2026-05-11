@@ -24,6 +24,7 @@ rf-stage = { path = "../rf-stage" }
 rf-ingest = { path = "../rf-ingest" }
 rf-slot-lab = { path = "../rf-slot-lab" }
 rf-ab-sim = { path = "../rf-ab-sim" }
+rf-slot-builder = { path = "../rf-slot-builder" }
 rf-slot-export = { path = "../rf-slot-export" }
 rf-neuro = { path = "../rf-neuro" }
 rf-copilot = { path = "../rf-copilot" }

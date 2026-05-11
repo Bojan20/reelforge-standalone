@@ -31881,4 +31881,51 @@ extension ClipEnvelopeFFI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 3.7.K: RTP SOLVER FFI WRAPPERS (rf-slot-builder)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Solve a paytable distribution for the given JSON config (RtpSolverConfig).
+  ///
+  /// Pass [configJson] as a JSON-encoded RtpSolverConfig, or null/empty to
+  /// use the default config (RTP=96.5%, vol=5, 6 symbols, 5x3, 20 paylines).
+  ///
+  /// Returns JSON string with schema:
+  ///   {"ok": true, "solution": {...RtpSolution...}, "math_config": {...MathConfig...}}
+  /// or on error:
+  ///   {"ok": false, "error": "reason"}
+  /// Returns null only on catastrophic FFI failure (library not loaded).
+  String? slotBuilderSolvePaytable(String? configJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_builder_solve_paytable');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_builder_free_string');
+
+      Pointer<Utf8> resultPtr;
+      if (configJson == null || configJson.isEmpty) {
+        // Pass null pointer -> Rust falls back to RtpSolverConfig::default()
+        resultPtr = fn(Pointer<Utf8>.fromAddress(0));
+      } else {
+        final configPtr = configJson.toNativeUtf8();
+        try {
+          resultPtr = fn(configPtr);
+        } finally {
+          malloc.free(configPtr);
+        }
+      }
+
+      if (resultPtr == nullptr) return null;
+      final result = resultPtr.toDartString();
+      freeFn(resultPtr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
   }
