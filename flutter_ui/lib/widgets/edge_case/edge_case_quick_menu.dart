@@ -73,17 +73,12 @@ class _EdgeCaseQuickMenuState extends State<EdgeCaseQuickMenu> {
     // Recent presets section
     final recent = _service.recentPresets;
     if (recent.isNotEmpty) {
-      items.add(const PopupMenuItem<EdgeCasePreset>(
+      items.add(PopupMenuItem<EdgeCasePreset>(
         enabled: false,
         height: 28,
         child: Text(
           'RECENT',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: Colors.white38,
-            letterSpacing: 1.2,
-          ),
+          style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white38, letterSpacing: 1.2),
         ),
       ));
       for (final preset in recent.take(3)) {
@@ -102,12 +97,7 @@ class _EdgeCaseQuickMenuState extends State<EdgeCaseQuickMenu> {
         height: 28,
         child: Text(
           category.label.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: Colors.white38,
-            letterSpacing: 1.2,
-          ),
+          style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white38, letterSpacing: 1.2),
         ),
       ));
 
@@ -122,11 +112,11 @@ class _EdgeCaseQuickMenuState extends State<EdgeCaseQuickMenu> {
     if (_service.activePreset != null) {
       items.add(PopupMenuItem<EdgeCasePreset>(
         value: null,
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.clear, size: 16, color: Color(0xFFFF4060)),
-            SizedBox(width: 8),
-            Text('Clear Active Preset', style: TextStyle(color: Color(0xFFFF4060))),
+            const Icon(Icons.clear, size: 16, color: Color(0xFFFF4060)),
+            const SizedBox(width: 8),
+            Text('Clear Active Preset', style: FluxForgeTheme.dockSans(color: Color(0xFFFF4060))),
           ],
         ),
       ));
@@ -155,15 +145,15 @@ class _EdgeCaseQuickMenuState extends State<EdgeCaseQuickMenu> {
               children: [
                 Text(
                   preset.name,
-                  style: TextStyle(
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                  style: FluxForgeTheme.dockSans(
+                    weight: isActive ? FontWeight.bold : FontWeight.normal,
                     color: isActive ? const Color(0xFF40FF90) : null,
                   ),
                 ),
                 if (showCategory)
                   Text(
                     preset.category.label,
-                    style: const TextStyle(fontSize: 10, color: Colors.white38),
+                    style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
                   ),
               ],
             ),
@@ -261,10 +251,10 @@ class EdgeCaseActiveBadge extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 preset.name,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF40FF90),
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  color: const Color(0xFF40FF90),
+                  weight: FontWeight.bold,
                 ),
               ),
               const SizedBox(width: 4),
@@ -363,14 +353,9 @@ class _EdgeCasePresetsPanelState extends State<EdgeCasePresetsPanel> {
         children: [
           const Icon(Icons.science, size: 16, color: Color(0xFF9370DB)),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'EDGE CASE PRESETS',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.white70,
-              letterSpacing: 1.2,
-            ),
+            style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold, color: Colors.white70, letterSpacing: 1.2),
           ),
           const Spacer(),
           if (_service.activePreset != null) ...[
@@ -382,10 +367,7 @@ class _EdgeCasePresetsPanelState extends State<EdgeCasePresetsPanel> {
               ),
               child: Text(
                 'Active: ${_service.activePreset!.name}',
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF40FF90),
-                ),
+                style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF40FF90)),
               ),
             ),
             const SizedBox(width: 8),
@@ -397,7 +379,7 @@ class _EdgeCasePresetsPanelState extends State<EdgeCasePresetsPanel> {
               onChanged: (v) => setState(() => _searchQuery = v),
               decoration: InputDecoration(
                 hintText: 'Search...',
-                hintStyle: const TextStyle(fontSize: 11),
+                hintStyle: FluxForgeTheme.dockSans(size: 11),
                 prefixIcon: const Icon(Icons.search, size: 14),
                 contentPadding: const EdgeInsets.symmetric(vertical: 4),
                 border: OutlineInputBorder(
@@ -405,7 +387,7 @@ class _EdgeCasePresetsPanelState extends State<EdgeCasePresetsPanel> {
                 ),
                 isDense: true,
               ),
-              style: const TextStyle(fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11),
             ),
           ),
         ],
@@ -442,7 +424,7 @@ class _EdgeCasePresetsPanelState extends State<EdgeCasePresetsPanel> {
       selected: isSelected,
       selectedTileColor: const Color(0xFF4A9EFF).withAlpha(50),
       leading: Icon(icon, size: 16),
-      title: Text(label, style: const TextStyle(fontSize: 11)),
+      title: Text(label, style: FluxForgeTheme.dockSans(size: 11)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
       visualDensity: VisualDensity.compact,
       onTap: () => setState(() => _selectedCategory = category),
@@ -474,8 +456,8 @@ class _EdgeCasePresetsPanelState extends State<EdgeCasePresetsPanel> {
     }
 
     if (presets.isEmpty) {
-      return const Center(
-        child: Text('No presets found', style: TextStyle(color: Colors.white38)),
+      return Center(
+        child: Text('No presets found', style: FluxForgeTheme.dockSans(color: Colors.white38)),
       );
     }
 
@@ -498,14 +480,14 @@ class _EdgeCasePresetsPanelState extends State<EdgeCasePresetsPanel> {
             ),
             title: Text(
               preset.name,
-              style: TextStyle(
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              style: FluxForgeTheme.dockSans(
+                weight: isActive ? FontWeight.bold : FontWeight.normal,
                 color: isActive ? const Color(0xFF40FF90) : null,
               ),
             ),
             subtitle: Text(
               preset.description,
-              style: const TextStyle(fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

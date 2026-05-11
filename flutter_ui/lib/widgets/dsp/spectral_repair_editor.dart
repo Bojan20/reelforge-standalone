@@ -131,12 +131,12 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
         children: [
           Icon(Icons.waves, color: FluxForgeTheme.accentOrange, size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'SPECTRAL REPAIR',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
@@ -145,9 +145,9 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
           if (_selections.isNotEmpty) ...[
             Text(
               '${_selections.length} selections',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
+                size: 12,
               ),
             ),
             const SizedBox(width: 16),
@@ -203,12 +203,12 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
           VerticalDivider(width: 1, color: FluxForgeTheme.borderMedium),
           const SizedBox(width: 24),
           // Repair mode
-          const Text(
+          Text(
             'MODE:',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textTertiary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              size: 10,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 8),
@@ -216,12 +216,12 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
           const SizedBox(width: 16),
           // Attenuation slider (for attenuate mode)
           if (_repairMode == SpectralRepairMode.attenuate) ...[
-            const Text(
+            Text(
               'LEVEL:',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
             const SizedBox(width: 8),
@@ -238,9 +238,9 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
             ),
             Text(
               '${_attenuationDb.toStringAsFixed(1)} dB',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
+                size: 11,
               ),
             ),
           ],
@@ -276,10 +276,10 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: isActive ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                size: 11,
+                weight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
@@ -309,7 +309,11 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+              style: FluxForgeTheme.dockSans(
+                color: color,
+                size: 11,
+                weight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -329,7 +333,7 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
         value: _repairMode,
         underline: const SizedBox(),
         dropdownColor: FluxForgeTheme.bgMid,
-        style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
         items: const [
           DropdownMenuItem(
             value: SpectralRepairMode.attenuate,
@@ -419,12 +423,12 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'SELECTION',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textTertiary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              size: 10,
+              weight: FontWeight.bold,
               letterSpacing: 1,
             ),
           ),
@@ -432,12 +436,12 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
           _buildInfoRow('Time', '${(selection.startSample / widget.sampleRate * 1000).toStringAsFixed(1)}ms - ${(selection.endSample / widget.sampleRate * 1000).toStringAsFixed(1)}ms'),
           _buildInfoRow('Freq', '${selection.minFreq.toStringAsFixed(0)}Hz - ${selection.maxFreq.toStringAsFixed(0)}Hz'),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'REPAIR MODE',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textTertiary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              size: 10,
+              weight: FontWeight.bold,
               letterSpacing: 1,
             ),
           ),
@@ -482,8 +486,8 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
-          Text(value, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+          Text(label, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11)),
+          Text(value, style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textSecondary, size: 11)),
         ],
       ),
     );
@@ -520,9 +524,9 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
                 Expanded(
                   child: Text(
                     _getModeName(mode),
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
-                      fontSize: 11,
+                      size: 11,
                     ),
                   ),
                 ),

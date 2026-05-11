@@ -139,22 +139,22 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
         children: [
           const Icon(Icons.graphic_eq, color: FluxForgeTheme.accentOrange, size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'ANALOG EQ',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              size: 14,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
           const Spacer(),
           Text(
             _modelName(_model),
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.accentOrange,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              size: 12,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 16),
@@ -184,10 +184,10 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
         ),
         child: Text(
           _bypassed ? 'BYPASS' : 'ACTIVE',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: _bypassed ? FluxForgeTheme.accentRed : FluxForgeTheme.accentGreen,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            size: 10,
+            weight: FontWeight.bold,
           ),
         ),
       ),
@@ -225,10 +225,10 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
                   child: Center(
                     child: Text(
                       _modelShortName(model),
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        size: 11,
+                        weight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -472,13 +472,12 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
           }),
 
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Proportional Q: narrower at higher gain settings',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textTertiary,
-              fontSize: 11,
-              fontStyle: FontStyle.italic,
-            ),
+              size: 11,
+            ).copyWith(fontStyle: FontStyle.italic),
           ),
         ],
       ),
@@ -552,12 +551,12 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
                   ),
                   child: Text(
                     _neve1073HpEnabled ? 'ON' : 'OFF',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: _neve1073HpEnabled
                           ? FluxForgeTheme.accentOrange
                           : FluxForgeTheme.textTertiary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      size: 12,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -626,13 +625,12 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
           }),
 
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Inductor-based EQ with transformer coloration',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textTertiary,
-              fontSize: 11,
-              fontStyle: FontStyle.italic,
-            ),
+              size: 11,
+            ).copyWith(fontStyle: FontStyle.italic),
           ),
         ],
       ),
@@ -673,10 +671,10 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: FluxForgeTheme.textTertiary,
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
+        size: 11,
+        weight: FontWeight.bold,
         letterSpacing: 1.0,
       ),
     );
@@ -694,10 +692,10 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            size: 10,
+            weight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 4),
@@ -723,10 +721,10 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
                 ),
                 child: Text(
                   formatter(v),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    size: 10,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -756,19 +754,19 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textTertiary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  size: 11,
+                  weight: FontWeight.bold,
                   letterSpacing: 1.0,
                 ),
               ),
               Text(
                 '${value.toStringAsFixed(1)} $unit',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: FluxForgeTheme.accentOrange,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -840,10 +838,10 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
               // Value text
               Text(
                 knob.value.toStringAsFixed(1),
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                  size: 10,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -852,10 +850,10 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
         const SizedBox(height: 8),
         Text(
           knob.label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            size: 10,
+            weight: FontWeight.bold,
           ),
         ),
         // Hidden slider for interaction

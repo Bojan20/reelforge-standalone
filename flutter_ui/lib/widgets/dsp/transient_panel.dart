@@ -112,11 +112,7 @@ class _TransientPanelState extends State<TransientPanel> {
         const SizedBox(width: 8),
         Text(
           'Transient',
-          style: TextStyle(
-            color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 16, weight: FontWeight.bold),
         ),
         const Spacer(),
         GestureDetector(
@@ -134,10 +130,10 @@ class _TransientPanelState extends State<TransientPanel> {
             ),
             child: Text(
               'BYPASS',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -153,9 +149,9 @@ class _TransientPanelState extends State<TransientPanel> {
           ),
           child: Text(
             _initialized ? 'Ready' : 'Init...',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: _initialized ? Colors.green : Colors.red,
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ),
@@ -201,12 +197,7 @@ class _TransientPanelState extends State<TransientPanel> {
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-          ),
+          style: FluxForgeTheme.dockSans(color: color, size: 11, weight: FontWeight.bold, letterSpacing: 1),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -226,18 +217,11 @@ class _TransientPanelState extends State<TransientPanel> {
                   children: [
                     Text(
                       '${value >= 0 ? "+" : ""}${value.toStringAsFixed(0)}%',
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: FluxForgeTheme.dockMono(color: color, size: 16, weight: FontWeight.bold),
                     ),
                     Text(
                       value > 0 ? 'Boost' : (value < 0 ? 'Cut' : ''),
-                      style: TextStyle(
-                        color: FluxForgeTheme.textSecondary,
-                        fontSize: 9,
-                      ),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 9),
                     ),
                   ],
                 ),
@@ -267,9 +251,9 @@ class _TransientPanelState extends State<TransientPanel> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Attack', style: TextStyle(color: Colors.orange, fontSize: 10)),
+                    Text('Attack', style: FluxForgeTheme.dockSans(color: Colors.orange, size: 10)),
                     Text('${(_attackEnvelope * 100).toStringAsFixed(0)}%',
-                        style: TextStyle(color: Colors.orange, fontSize: 10)),
+                        style: FluxForgeTheme.dockMono(color: Colors.orange, size: 10)),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -294,9 +278,9 @@ class _TransientPanelState extends State<TransientPanel> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Sustain', style: TextStyle(color: Colors.cyan, fontSize: 10)),
+                    Text('Sustain', style: FluxForgeTheme.dockSans(color: Colors.cyan, size: 10)),
                     Text('${(_sustainEnvelope * 100).toStringAsFixed(0)}%',
-                        style: TextStyle(color: Colors.cyan, fontSize: 10)),
+                        style: FluxForgeTheme.dockMono(color: Colors.cyan, size: 10)),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -390,7 +374,7 @@ class _TransientPanelState extends State<TransientPanel> {
       children: [
         Text(
           'Presets',
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -434,10 +418,10 @@ class _TransientPanelState extends State<TransientPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-            fontSize: 11,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            size: 11,
+            weight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ),
@@ -455,7 +439,7 @@ class _TransientPanelState extends State<TransientPanel> {
           width: 90,
           child: Text(
             label,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
           ),
         ),
         Expanded(child: child),
@@ -463,11 +447,7 @@ class _TransientPanelState extends State<TransientPanel> {
           width: 60,
           child: Text(
             value,
-            style: TextStyle(
-              color: FluxForgeTheme.accentBlue,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
+            style: FluxForgeTheme.dockMono(color: FluxForgeTheme.accentBlue, size: 12, weight: FontWeight.bold),
             textAlign: TextAlign.right,
           ),
         ),

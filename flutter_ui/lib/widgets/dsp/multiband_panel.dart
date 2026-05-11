@@ -179,10 +179,10 @@ class _MultibandPanelState extends State<MultibandPanel> {
         const SizedBox(width: 8),
         Text(
           'Multiband',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            size: 16,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -201,10 +201,10 @@ class _MultibandPanelState extends State<MultibandPanel> {
             ),
             child: Text(
               'BYPASS',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -220,9 +220,9 @@ class _MultibandPanelState extends State<MultibandPanel> {
           ),
           child: Text(
             _initialized ? 'Ready' : 'Init...',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: _initialized ? Colors.green : Colors.red,
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ),
@@ -238,7 +238,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
           children: [
             Text(
               'Bands',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
             ),
             const SizedBox(width: 16),
             ...List.generate(5, (i) => _buildBandCountButton(i + 2)),
@@ -275,10 +275,10 @@ class _MultibandPanelState extends State<MultibandPanel> {
                     const SizedBox(height: 4),
                     Text(
                       _getBandLabel(i),
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: _selectedBand == i ? _bandColors[i] : FluxForgeTheme.textSecondary,
-                        fontSize: 9,
-                        fontWeight: _selectedBand == i ? FontWeight.bold : FontWeight.normal,
+                        size: 9,
+                        weight: _selectedBand == i ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -318,10 +318,10 @@ class _MultibandPanelState extends State<MultibandPanel> {
         child: Center(
           child: Text(
             '$count',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              size: 11,
+              weight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
           ),
         ),
@@ -399,9 +399,9 @@ class _MultibandPanelState extends State<MultibandPanel> {
                   padding: const EdgeInsets.all(2),
                   child: Text(
                     '${gr.toStringAsFixed(0)}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 8,
+                      size: 8,
                     ),
                   ),
                 ),
@@ -439,10 +439,10 @@ class _MultibandPanelState extends State<MultibandPanel> {
               const SizedBox(width: 8),
               Text(
                 'Band ${_selectedBand + 1}: ${_getBandLabel(_selectedBand)}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: _bandColors[_selectedBand],
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -561,10 +561,10 @@ class _MultibandPanelState extends State<MultibandPanel> {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: active ? activeColor : FluxForgeTheme.textSecondary,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+              size: 9,
+              weight: FontWeight.bold,
             ),
           ),
         ),
@@ -580,7 +580,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
           children: [
             Text(
               'Crossover',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -596,7 +596,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
                   isExpanded: true,
                   dropdownColor: FluxForgeTheme.surfaceDark,
                   underline: const SizedBox(),
-                  style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 11),
                   items: const [
                     DropdownMenuItem(value: CrossoverType.butterworth12, child: Text('Butterworth 12dB')),
                     DropdownMenuItem(value: CrossoverType.linkwitzRiley24, child: Text('L-R 24dB')),
@@ -644,7 +644,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
           width: 65,
           child: Text(
             label,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
         ),
         Expanded(child: child),
@@ -652,10 +652,10 @@ class _MultibandPanelState extends State<MultibandPanel> {
           width: 60,
           child: Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.accentBlue,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
             textAlign: TextAlign.right,
           ),

@@ -326,18 +326,16 @@ class _CommandPaletteState extends State<CommandPalette>
             child: TextField(
               controller: _searchController,
               autofocus: true,
-              style: const TextStyle(
-                fontSize: 14,
+              style: FluxForgeTheme.dockSans(
+                size: 14,
                 color: FluxForgeTheme.textPrimary,
-                fontFamily: FluxForgeTheme.fontFamily,
               ),
               decoration: InputDecoration(
                 hintText: _activeCategory != null
                     ? 'Search ${_activeCategory!.label} commands...'
                     : 'Type a command...',
-                hintStyle: TextStyle(
+                hintStyle: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
-                  fontFamily: FluxForgeTheme.fontFamily,
                 ),
                 border: InputBorder.none,
                 isDense: true,
@@ -353,10 +351,9 @@ class _CommandPaletteState extends State<CommandPalette>
           const SizedBox(width: 8),
           Text(
             '$commandCount',
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockMono(
+              size: 11,
               color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
-              fontFamily: FluxForgeTheme.monoFontFamily,
             ),
           ),
         ],
@@ -423,11 +420,10 @@ class _CommandPaletteState extends State<CommandPalette>
                 const SizedBox(width: 4),
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: isActive ? color : FluxForgeTheme.textDisabled,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                    fontFamily: FluxForgeTheme.fontFamily,
+                    weight: isActive ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ],
@@ -456,10 +452,9 @@ class _CommandPaletteState extends State<CommandPalette>
               const SizedBox(height: 8),
               Text(
                 'No commands found',
-                style: TextStyle(
-                  fontSize: 13,
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
                   color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
-                  fontFamily: FluxForgeTheme.fontFamily,
                 ),
               ),
             ],
@@ -488,12 +483,11 @@ class _CommandPaletteState extends State<CommandPalette>
       padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 2),
       child: Text(
         title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
+        style: FluxForgeTheme.dockSans(
+          size: 9,
+          weight: FontWeight.w700,
           color: FluxForgeTheme.textDisabled,
           letterSpacing: 1.2,
-          fontFamily: FluxForgeTheme.fontFamily,
         ),
       ),
     );
@@ -558,10 +552,9 @@ class _CommandPaletteState extends State<CommandPalette>
                     if (cmd.description != null)
                       Text(
                         cmd.description!,
-                        style: TextStyle(
-                          fontSize: 10,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: FluxForgeTheme.textDisabled.withValues(alpha: isSelected ? 0.8 : 0.6),
-                          fontFamily: FluxForgeTheme.fontFamily,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -579,11 +572,10 @@ class _CommandPaletteState extends State<CommandPalette>
                 ),
                 child: Text(
                   cmd.category.label,
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: catColor.withValues(alpha: 0.6),
-                    fontWeight: FontWeight.w500,
-                    fontFamily: FluxForgeTheme.fontFamily,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -600,13 +592,12 @@ class _CommandPaletteState extends State<CommandPalette>
                   ),
                   child: Text(
                     cmd.shortcut!,
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
                       color: isSelected
                           ? FluxForgeTheme.textSecondary
                           : FluxForgeTheme.textDisabled,
-                      fontFamily: FluxForgeTheme.monoFontFamily,
-                      fontWeight: FontWeight.w500,
+                      weight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -626,11 +617,10 @@ class _CommandPaletteState extends State<CommandPalette>
     if (matchedIndices == null || matchedIndices.isEmpty) {
       return Text(
         text,
-        style: TextStyle(
-          fontSize: 13,
+        style: FluxForgeTheme.dockSans(
+          size: 13,
           color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
-          fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-          fontFamily: FluxForgeTheme.fontFamily,
+          weight: isSelected ? FontWeight.w500 : FontWeight.normal,
         ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -644,13 +634,12 @@ class _CommandPaletteState extends State<CommandPalette>
       final isMatch = matchSet.contains(i);
       spans.add(TextSpan(
         text: text[i],
-        style: TextStyle(
-          fontSize: 13,
+        style: FluxForgeTheme.dockSans(
+          size: 13,
           color: isMatch
               ? matchColor
               : (isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary),
-          fontWeight: isMatch ? FontWeight.w700 : (isSelected ? FontWeight.w500 : FontWeight.normal),
-          fontFamily: FluxForgeTheme.fontFamily,
+          weight: isMatch ? FontWeight.w700 : (isSelected ? FontWeight.w500 : FontWeight.normal),
         ),
       ));
     }
@@ -690,10 +679,9 @@ class _CommandPaletteState extends State<CommandPalette>
           const Spacer(),
           Text(
             'FluxForge Command Palette',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: FluxForgeTheme.textDisabled.withValues(alpha: 0.4),
-              fontFamily: FluxForgeTheme.fontFamily,
             ),
           ),
         ],
@@ -714,20 +702,18 @@ class _CommandPaletteState extends State<CommandPalette>
           ),
           child: Text(
             key,
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: FluxForgeTheme.textDisabled,
-              fontFamily: FluxForgeTheme.monoFontFamily,
             ),
           ),
         ),
         const SizedBox(width: 3),
         Text(
           action,
-          style: TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: FluxForgeTheme.textDisabled.withValues(alpha: 0.6),
-            fontFamily: FluxForgeTheme.fontFamily,
           ),
         ),
       ],

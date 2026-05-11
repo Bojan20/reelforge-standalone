@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../services/cloud_sync_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CLOUD SYNC STATUS BADGE
@@ -51,9 +52,9 @@ class CloudSyncStatusBadge extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     _getStatusText(service),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.w500,
                       color: _getBackgroundColor(service),
                     ),
                   ),
@@ -202,21 +203,21 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Cloud Sync',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.bold,
                     color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   service.isAuthenticated
                       ? service.userEmail ?? 'Signed in'
                       : 'Not signed in',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 11,
                   ),
                 ),
               ],
@@ -254,9 +255,9 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
             const SizedBox(height: 16),
             Text(
               'Sign in to sync your projects',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 14,
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
               ),
             ),
             const SizedBox(height: 24),
@@ -291,9 +292,9 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
               const SizedBox(height: 12),
               Text(
                 'No projects synced yet',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
                   color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 13,
                 ),
               ),
               const SizedBox(height: 16),
@@ -345,9 +346,9 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
                   Expanded(
                     child: Text(
                       service.currentOperation ?? 'Syncing...',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: Colors.white70,
-                        fontSize: 11,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -359,9 +360,9 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
             Expanded(
               child: Text(
                 '${service.projects.length} project(s)',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 11,
                 ),
               ),
             ),
@@ -505,17 +506,17 @@ class _CloudProjectTile extends StatelessWidget {
         leading: _buildStatusIcon(),
         title: Text(
           project.name,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 13,
+            weight: FontWeight.w500,
             color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
           ),
         ),
         subtitle: Text(
           '${_formatSize(project.sizeBytes)} • ${_formatDate(project.updatedAt)}',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 11,
           ),
         ),
         trailing: PopupMenuButton<String>(
@@ -524,9 +525,9 @@ class _CloudProjectTile extends StatelessWidget {
             const PopupMenuItem(value: 'sync', child: Text('Sync')),
             const PopupMenuItem(value: 'share', child: Text('Share')),
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'delete',
-              child: Text('Delete', style: TextStyle(color: Colors.red)),
+              child: Text('Delete', style: FluxForgeTheme.dockSans(color: Colors.red)),
             ),
           ],
           onSelected: (value) {
@@ -672,7 +673,7 @@ class _CloudAuthDialogState extends State<CloudAuthDialog> {
               const SizedBox(height: 16),
               Text(
                 _error!,
-                style: const TextStyle(color: Colors.red, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.red),
               ),
             ],
           ],
@@ -774,9 +775,9 @@ class _ShareProjectDialogState extends State<_ShareProjectDialog> {
             const SizedBox(height: 16),
             Text(
               'The user will receive view access to this project.',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 12,
               ),
             ),
           ],
@@ -856,18 +857,18 @@ class CloudSyncProgressDialog extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 service.currentOperation ?? service.status.displayName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
                   color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 13,
                 ),
               ),
               if (service.progress > 0) ...[
                 const SizedBox(height: 8),
                 Text(
                   '${(service.progress * 100).toInt()}%',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                  style: FluxForgeTheme.dockSans(
+                    weight: FontWeight.bold,
+                    size: 14,
                   ),
                 ),
               ],

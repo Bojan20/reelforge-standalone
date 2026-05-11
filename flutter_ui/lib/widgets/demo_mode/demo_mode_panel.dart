@@ -64,9 +64,9 @@ class DemoModeButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'DEMO',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.bold,
                       color: isActive ? const Color(0xFF40FF90) : Colors.white70,
                       letterSpacing: 1.0,
                     ),
@@ -113,9 +113,9 @@ class DemoModeStatusBadge extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 _getStateLabel(service),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: _getStateColor(service.state),
                 ),
               ),
@@ -123,8 +123,8 @@ class DemoModeStatusBadge extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   '${service.currentStepIndex + 1}/${service.currentSequence!.totalSteps}',
-                  style: const TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: Colors.white54,
                   ),
                 ),
@@ -251,11 +251,11 @@ class _DemoModePanelState extends State<DemoModePanel> {
       children: [
         const Icon(Icons.play_circle, size: 16, color: Color(0xFF40FF90)),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'DEMO MODE',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.bold,
             color: Colors.white70,
             letterSpacing: 1.2,
           ),
@@ -285,7 +285,7 @@ class _DemoModePanelState extends State<DemoModePanel> {
             ),
             label: Text(
               service.isPlaying || service.isPaused ? 'STOP' : 'START',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: FluxForgeTheme.dockSans(weight: FontWeight.bold),
             ),
             onPressed: () {
               if (service.isPlaying || service.isPaused) {
@@ -334,11 +334,11 @@ class _DemoModePanelState extends State<DemoModePanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'SEQUENCE',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: Colors.white38,
             letterSpacing: 1.0,
           ),
@@ -357,7 +357,7 @@ class _DemoModePanelState extends State<DemoModePanel> {
               isExpanded: true,
               isDense: true,
               dropdownColor: FluxForgeTheme.bgSurface,
-              style: const TextStyle(fontSize: 12, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
               items: [
                 const DropdownMenuItem<DemoSequence>(
                   value: null,
@@ -378,11 +378,11 @@ class _DemoModePanelState extends State<DemoModePanel> {
           const SizedBox(height: 4),
           Text(
             _selectedSequence!.description,
-            style: const TextStyle(fontSize: 10, color: Colors.white38),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
           ),
           Text(
             '${_selectedSequence!.totalSteps} steps • ~${_formatDuration(_selectedSequence!.estimatedDuration)}',
-            style: const TextStyle(fontSize: 10, color: Colors.white24),
+            style: FluxForgeTheme.dockMono(size: 10, color: Colors.white24),
           ),
         ],
       ],
@@ -397,11 +397,11 @@ class _DemoModePanelState extends State<DemoModePanel> {
       children: [
         Row(
           children: [
-            const Text(
+            Text(
               'STATISTICS',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: Colors.white38,
                 letterSpacing: 1.0,
               ),
@@ -409,7 +409,7 @@ class _DemoModePanelState extends State<DemoModePanel> {
             const Spacer(),
             TextButton(
               onPressed: service.resetStatistics,
-              child: const Text('Reset', style: TextStyle(fontSize: 10)),
+              child: Text('Reset', style: FluxForgeTheme.dockSans(size: 10)),
             ),
           ],
         ),
@@ -444,11 +444,11 @@ class _DemoModePanelState extends State<DemoModePanel> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 10, color: Colors.white54),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54),
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500),
+            style: FluxForgeTheme.dockMono(size: 10, color: Colors.white, weight: FontWeight.w500),
           ),
         ],
       ),
@@ -552,14 +552,14 @@ class DemoModeQuickMenu extends StatelessWidget {
                 ),
               ));
               items.add(const PopupMenuDivider());
-              items.add(const PopupMenuItem<Object>(
+              items.add(PopupMenuItem<Object>(
                 enabled: false,
                 height: 24,
                 child: Text(
                   'SEQUENCES',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: Colors.white38,
                     letterSpacing: 1.0,
                   ),
