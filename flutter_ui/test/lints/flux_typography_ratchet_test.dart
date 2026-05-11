@@ -76,7 +76,8 @@ import 'package:flutter_test/flutter_test.dart';
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 4) -59 za intel/
 // audio/audio_dna/bt/math/timeline/cloud/spine_chrome paneli.
 // Ukupan Sprint 15 B.2 pad: -255.
-const int _kRawTextStyleBaseline = 9002;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 5) -101 za spine_game_config.dart — agent migration.
+const int _kRawTextStyleBaseline = 8901;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -104,7 +105,8 @@ const int _kRawTextStyleBaseline = 9002;
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 4) -53 za intel/
 // audio/audio_dna/bt/math/timeline/cloud/spine_chrome paneli.
 // Ukupan Sprint 15 B.2 pad: -229.
-const int _kRawFontFamilyBaseline = 1001;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 5) -104 za spine_game_config.dart — agent migration.
+const int _kRawFontFamilyBaseline = 897;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -130,7 +132,8 @@ const int _kRawFontFamilyBaseline = 1001;
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 4) -59 za intel/
 // audio/audio_dna/bt/math/timeline/cloud/spine_chrome paneli.
 // Ukupan Sprint 15 B.2 pad: -255.
-const int _kRawFontSizeBaseline = 8559;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 5) -110 za spine_game_config.dart — agent migration.
+const int _kRawFontSizeBaseline = 8449;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

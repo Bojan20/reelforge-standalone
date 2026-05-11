@@ -494,10 +494,10 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
                   ),
                   borderRadius: BorderRadius.circular(3),
                 ),
-                child: Text(t.label, style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.5,
+                child: Text(t.label, style: FluxForgeTheme.dockMono(
+                  size: 8, letterSpacing: 0.5,
                   color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                  weight: active ? FontWeight.w700 : FontWeight.w400,
                 )),
               ),
             );
@@ -545,18 +545,17 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(children: [
-              Text(t.icon, style: const TextStyle(fontSize: 14)),
+              Text(t.icon, style: FluxForgeTheme.dockSans(size: 14)),
               const SizedBox(width: 6),
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t.label, style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 9,
+                  Text(t.label, style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textPrimary,
-                    fontWeight: FontWeight.w700)),
-                  Text(t.description, style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 7,
-                    color: FluxForgeTheme.textTertiary)),
+                    weight: FontWeight.w700)),
+                  Text(t.description, style: FluxForgeTheme.dockMono(
+                    size: 7, color: FluxForgeTheme.textTertiary)),
                 ],
               )),
               if (active) const Icon(Icons.check_rounded, size: 10,
@@ -598,8 +597,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
       _gcApplyButton('Apply Grid', _applyGrid),
       if (_gridStatus != null) Padding(
         padding: const EdgeInsets.only(top: 4),
-        child: Text(_gridStatus!, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 8,
+        child: Text(_gridStatus!, style: FluxForgeTheme.dockMono(
+          size: 8,
           color: _gridStatus!.startsWith('✓')
               ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange)),
       ),
@@ -629,12 +628,11 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(wm.label, style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 9,
+                  Text(wm.label, style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textPrimary)),
-                  Text(wm.description, style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 7,
-                    color: FluxForgeTheme.textTertiary)),
+                  Text(wm.description, style: FluxForgeTheme.dockMono(
+                    size: 7, color: FluxForgeTheme.textTertiary)),
                 ],
               )),
             ]),
@@ -696,12 +694,12 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Text('MEGAWAYS PER-REEL', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.6,
-            color: Color(0xFFFF9800), fontWeight: FontWeight.w700)),
+          Text('MEGAWAYS PER-REEL', style: FluxForgeTheme.dockMono(
+            size: 8, letterSpacing: 0.6,
+            color: const Color(0xFFFF9800), weight: FontWeight.w700)),
           const Spacer(),
-          Text('${_megaways.totalWays} ways', style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 8, color: Color(0xFFFF9800))),
+          Text('${_megaways.totalWays} ways', style: FluxForgeTheme.dockMono(
+            size: 8, color: const Color(0xFFFF9800))),
         ]),
         const SizedBox(height: 4),
         ...List.generate(_megaways.rowsPerReel.length, (idx) {
@@ -709,8 +707,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           return Padding(
             padding: const EdgeInsets.only(bottom: 3),
             child: Row(children: [
-              SizedBox(width: 26, child: Text('R${idx + 1}', style: const TextStyle(
-                fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary))),
+              SizedBox(width: 26, child: Text('R${idx + 1}', style: FluxForgeTheme.dockMono(
+                size: 8, color: FluxForgeTheme.textTertiary))),
               Expanded(child: SliderTheme(
                 data: const SliderThemeData(
                   trackHeight: 2,
@@ -733,16 +731,16 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
                   },
                 ),
               )),
-              SizedBox(width: 22, child: Text('$v', style: const TextStyle(
-                fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textPrimary,
-                fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
+              SizedBox(width: 22, child: Text('$v', style: FluxForgeTheme.dockMono(
+                size: 9, color: FluxForgeTheme.textPrimary,
+                weight: FontWeight.w600), textAlign: TextAlign.right)),
             ]),
           );
         }),
         if (issue != null) Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text('${issue.severity.label} · ${issue.message}',
-            style: TextStyle(fontFamily: 'monospace', fontSize: 7, color: issue.severity.color)),
+            style: FluxForgeTheme.dockMono(size: 7, color: issue.severity.color)),
         ),
       ]),
     );
@@ -763,9 +761,9 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('CLUSTER PAYS', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.6,
-          color: Color(0xFF4CAF50), fontWeight: FontWeight.w700)),
+        Text('CLUSTER PAYS', style: FluxForgeTheme.dockMono(
+          size: 8, letterSpacing: 0.6,
+          color: const Color(0xFF4CAF50), weight: FontWeight.w700)),
         const SizedBox(height: 4),
         _gcSpinnerRow('MIN SIZE', _cluster.minSize, 4, 9, (v) {
           setState(() => _cluster = _cluster.copyWith(minSize: v));
@@ -795,8 +793,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
                       : FluxForgeTheme.borderSubtle),
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: Text(s.label, style: TextStyle(
-                fontFamily: 'monospace', fontSize: 8,
+              child: Text(s.label, style: FluxForgeTheme.dockMono(
+                size: 8,
                 color: active ? const Color(0xFF4CAF50) : FluxForgeTheme.textSecondary)),
             ),
           );
@@ -804,7 +802,7 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         if (issue != null) Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text('${issue.severity.label} · ${issue.message}',
-            style: TextStyle(fontFamily: 'monospace', fontSize: 7, color: issue.severity.color)),
+            style: FluxForgeTheme.dockMono(size: 7, color: issue.severity.color)),
         ),
       ]),
     );
@@ -820,9 +818,9 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('INFINITY REELS', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.6,
-          color: Color(0xFF00BCD4), fontWeight: FontWeight.w700)),
+        Text('INFINITY REELS', style: FluxForgeTheme.dockMono(
+          size: 8, letterSpacing: 0.6,
+          color: const Color(0xFF00BCD4), weight: FontWeight.w700)),
         const SizedBox(height: 4),
         _gcSpinnerRow('START', _infinity.startReels, 2, 6, (v) {
           setState(() => _infinity = _infinity.copyWith(startReels: v));
@@ -832,12 +830,12 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         }),
         const SizedBox(height: 3),
         Row(children: [
-          const Text('TRIGGER', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+          Text('TRIGGER', style: FluxForgeTheme.dockMono(
+            size: 8, color: FluxForgeTheme.textTertiary)),
           const SizedBox(width: 6),
           Expanded(child: TextField(
             controller: TextEditingController(text: _infinity.expandTriggerSymbolId),
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 9),
+            style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textPrimary),
             decoration: const InputDecoration(
               isDense: true,
               contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -872,11 +870,11 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.35)),
           borderRadius: BorderRadius.circular(3),
         ),
-        child: const Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.style_rounded, size: 9, color: FluxForgeTheme.accentCyan),
-          SizedBox(width: 3),
-          Text('PRESET ▾', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.accentCyan)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.style_rounded, size: 9, color: FluxForgeTheme.accentCyan),
+          const SizedBox(width: 3),
+          Text('PRESET ▾', style: FluxForgeTheme.dockMono(
+            size: 7, color: FluxForgeTheme.accentCyan)),
         ]),
       ),
       itemBuilder: (_) => SymbolPreset.values.map((p) => PopupMenuItem<SymbolPreset>(
@@ -886,11 +884,11 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(p.label, style: const TextStyle(
-              fontFamily: 'monospace', fontSize: 9,
-              color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.w600)),
-            Text(p.description, style: const TextStyle(
-              fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary)),
+            Text(p.label, style: FluxForgeTheme.dockMono(
+              size: 9,
+              color: FluxForgeTheme.textPrimary, weight: FontWeight.w600)),
+            Text(p.description, style: FluxForgeTheme.dockMono(
+              size: 7, color: FluxForgeTheme.textTertiary)),
           ],
         ),
       )).toList(),
@@ -974,7 +972,7 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
       _gcSectionHeader('VOLATILITY'),
       const SizedBox(height: 6),
       Row(children: [
-        const Text('LOW', style: TextStyle(fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary)),
+        Text('LOW', style: FluxForgeTheme.dockMono(size: 7, color: FluxForgeTheme.textTertiary)),
         Expanded(
           child: Slider(
             value: _volatility,
@@ -987,11 +985,11 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
             onChangeEnd: (_) => _applyMath(),
           ),
         ),
-        const Text('EXT', style: TextStyle(fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary)),
+        Text('EXT', style: FluxForgeTheme.dockMono(size: 7, color: FluxForgeTheme.textTertiary)),
       ]),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text('${_volatility.toStringAsFixed(1)} / 10  ', style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary)),
+        Text('${_volatility.toStringAsFixed(1)} / 10  ', style: FluxForgeTheme.dockMono(
+          size: 10, color: FluxForgeTheme.textPrimary)),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
           decoration: BoxDecoration(
@@ -999,8 +997,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
             borderRadius: BorderRadius.circular(3),
             border: Border.all(color: _volatilityColor.withValues(alpha: 0.4)),
           ),
-          child: Text(_volatilityLabel, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 8, color: _volatilityColor)),
+          child: Text(_volatilityLabel, style: FluxForgeTheme.dockMono(
+            size: 8, color: _volatilityColor)),
         ),
       ]),
       const SizedBox(height: 12),
@@ -1031,8 +1029,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
                 color: active ? FluxForgeTheme.accentPurple.withValues(alpha: 0.5) : FluxForgeTheme.borderSubtle),
               borderRadius: BorderRadius.circular(3),
             ),
-            child: Text(cap.label, style: TextStyle(
-              fontFamily: 'monospace', fontSize: 8,
+            child: Text(cap.label, style: FluxForgeTheme.dockMono(
+              size: 8,
               color: active ? FluxForgeTheme.accentPurple : FluxForgeTheme.textSecondary)),
           ),
         );
@@ -1042,8 +1040,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
       const SizedBox(height: 4),
       _gcSpinnerRow('MAX', _deadSpins, 10, 200, (v) { setState(() => _deadSpins = v); _runValidation(); }),
       const SizedBox(height: 4),
-      const Text('Max consecutive non-winning spins (MGA default: 50)',
-        style: TextStyle(fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary)),
+      Text('Max consecutive non-winning spins (MGA default: 50)',
+        style: FluxForgeTheme.dockMono(size: 7, color: FluxForgeTheme.textTertiary)),
       const SizedBox(height: 12),
       _gcSectionHeader('MATH PRESETS'),
       const SizedBox(height: 4),
@@ -1115,8 +1113,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               ),
             ),
             const SizedBox(width: 8),
-            Expanded(child: Text(m.displayName, style: TextStyle(
-              fontFamily: 'monospace', fontSize: 9,
+            Expanded(child: Text(m.displayName, style: FluxForgeTheme.dockMono(
+              size: 9,
               color: enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary))),
             if (suggested && !enabled) Tooltip(
               message: 'Suggested for ${_slotType.label}',
@@ -1263,22 +1261,22 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
             ),
           ),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Feature Buy', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textPrimary))),
+          Expanded(child: Text('Feature Buy', style: FluxForgeTheme.dockMono(
+            size: 9, color: FluxForgeTheme.textPrimary))),
           if (issue != null) Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             decoration: BoxDecoration(
               color: issue.severity.color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(2),
             ),
-            child: Text(issue.severity.label, style: TextStyle(
-              fontFamily: 'monospace', fontSize: 6, color: issue.severity.color)),
+            child: Text(issue.severity.label, style: FluxForgeTheme.dockMono(
+              size: 6, color: issue.severity.color)),
           ),
         ]),
         if (issue != null) Padding(
           padding: const EdgeInsets.only(top: 3),
-          child: Text(issue.message, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 7, color: issue.severity.color)),
+          child: Text(issue.message, style: FluxForgeTheme.dockMono(
+            size: 7, color: issue.severity.color)),
         ),
       ]),
     );
@@ -1299,8 +1297,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         }),
       )).toList()),
       const SizedBox(height: 3),
-      Text(_anticTip.description, style: const TextStyle(
-        fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary)),
+      Text(_anticTip.description, style: FluxForgeTheme.dockMono(
+        size: 7, color: FluxForgeTheme.textTertiary)),
       // Custom reel selection
       if (_anticTip == AnticipationTip.custom) ...[
         const SizedBox(height: 6),
@@ -1329,16 +1327,16 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
                       : FluxForgeTheme.borderSubtle),
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: Text('R${idx + 1}', style: TextStyle(
-                fontFamily: 'monospace', fontSize: 8,
+              child: Text('R${idx + 1}', style: FluxForgeTheme.dockMono(
+                size: 8,
                 color: selected ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary)),
             ),
           );
         })),
         if (customIssue != null) Padding(
           padding: const EdgeInsets.only(top: 3),
-          child: Text(customIssue.message, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 7, color: customIssue.severity.color)),
+          child: Text(customIssue.message, style: FluxForgeTheme.dockMono(
+            size: 7, color: customIssue.severity.color)),
         ),
       ],
       const SizedBox(height: 8),
@@ -1357,15 +1355,15 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               color: nmIssue.severity.color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(2),
             ),
-            child: Text(nmIssue.severity.label, style: TextStyle(
-              fontFamily: 'monospace', fontSize: 6, color: nmIssue.severity.color)),
+            child: Text(nmIssue.severity.label, style: FluxForgeTheme.dockMono(
+              size: 6, color: nmIssue.severity.color)),
           ),
         ),
       ]),
       const SizedBox(height: 4),
       // Tension level orbs + audio bind
-      const Text('TENSION → AUDIO', style: TextStyle(
-        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+      Text('TENSION → AUDIO', style: FluxForgeTheme.dockMono(
+        size: 8, color: FluxForgeTheme.textTertiary)),
       const SizedBox(height: 4),
       _buildTensionAudioRow('L1', const Color(0xFFFFD700), 'ANTICIPATION_LOW'),
       _buildTensionAudioRow('L2', const Color(0xFFFFA500), 'ANTICIPATION_MED'),
@@ -1387,10 +1385,10 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           ),
         ),
         const SizedBox(width: 6),
-        SizedBox(width: 22, child: Text(label, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 7, color: color))),
-        Expanded(child: Text(stageId, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary))),
+        SizedBox(width: 22, child: Text(label, style: FluxForgeTheme.dockMono(
+          size: 7, color: color))),
+        Expanded(child: Text(stageId, style: FluxForgeTheme.dockMono(
+          size: 8, color: FluxForgeTheme.textTertiary))),
         GestureDetector(
           onTap: () => _bindOrAuditionStage(stageId),
           child: Container(
@@ -1400,8 +1398,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.4)),
               borderRadius: BorderRadius.circular(3),
             ),
-            child: const Text('bind ▸', style: TextStyle(
-              fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.accentCyan)),
+            child: Text('bind ▸', style: FluxForgeTheme.dockMono(
+              size: 7, color: FluxForgeTheme.accentCyan)),
           ),
         ),
       ]),
@@ -1420,7 +1418,7 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           duration: const Duration(milliseconds: 1400),
           content: Text(hasEvent ? '▶ Auditioning $stageId' : 'No audio bound to $stageId yet',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
+            style: FluxForgeTheme.dockMono(size: 11)),
           backgroundColor: const Color(0xFF1A1A2E),
         ));
       }
@@ -1470,9 +1468,9 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Header — title + summary + filter toggle.
         Row(children: [
-          Text('DIFF', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.6,
-            color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w700)),
+          Text('DIFF', style: FluxForgeTheme.dockMono(
+            size: 8, letterSpacing: 0.6,
+            color: FluxForgeTheme.accentCyan, weight: FontWeight.w700)),
           const SizedBox(width: 10),
           _DiffStatChip(label: '~', count: changedN, color: FluxForgeTheme.accentYellow),
           const SizedBox(width: 4),
@@ -1500,9 +1498,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               ),
               child: Text(
                 _diffShowUnchanged ? '◉ unchanged' : '○ unchanged',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 7,
+                style: FluxForgeTheme.dockMono(
+                  size: 7,
                   color: _diffShowUnchanged
                       ? FluxForgeTheme.accentCyan
                       : FluxForgeTheme.textTertiary,
@@ -1514,25 +1511,25 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         const SizedBox(height: 4),
         // Side-by-side column headers.
         Row(children: [
-          const SizedBox(width: 80, child: Text('FIELD',
-            style: TextStyle(
-              fontFamily: 'monospace', fontSize: 7,
-              fontWeight: FontWeight.w700,
+          SizedBox(width: 80, child: Text('FIELD',
+            style: FluxForgeTheme.dockMono(
+              size: 7,
+              weight: FontWeight.w700,
               color: FluxForgeTheme.textTertiary,
               letterSpacing: 0.6))),
           Expanded(child: Text('  $leftName',
-            style: const TextStyle(
-              fontFamily: 'monospace', fontSize: 7,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockMono(
+              size: 7,
+              weight: FontWeight.w700,
               color: FluxForgeTheme.accentBlue,
               letterSpacing: 0.4))),
-          const SizedBox(width: 14, child: Text('→',
+          SizedBox(width: 14, child: Text('→',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary))),
+            style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textTertiary))),
           Expanded(child: Text('  $rightName',
-            style: const TextStyle(
-              fontFamily: 'monospace', fontSize: 7,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockMono(
+              size: 7,
+              weight: FontWeight.w700,
               color: FluxForgeTheme.accentPurple,
               letterSpacing: 0.4))),
         ]),
@@ -1545,8 +1542,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               changedN + addedN + removedN == 0
                   ? '✓ Snapshots are identical'
                   : 'No changes match current filter',
-              style: TextStyle(
-                fontFamily: 'monospace', fontSize: 8,
+              style: FluxForgeTheme.dockMono(
+                size: 8,
                 color: changedN + addedN + removedN == 0
                     ? FluxForgeTheme.accentGreen
                     : FluxForgeTheme.textTertiary,
@@ -1595,12 +1592,12 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         SizedBox(width: 80, child: Row(children: [
-          SizedBox(width: 12, child: Text(prefix, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 8, color: accentColor,
-            fontWeight: FontWeight.w800))),
-          Expanded(child: Text(e.field, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 7,
-            color: accentColor, fontWeight: FontWeight.w600),
+          SizedBox(width: 12, child: Text(prefix, style: FluxForgeTheme.dockMono(
+            size: 8, color: accentColor,
+            weight: FontWeight.w800))),
+          Expanded(child: Text(e.field, style: FluxForgeTheme.dockMono(
+            size: 7,
+            color: accentColor, weight: FontWeight.w600),
             maxLines: 1, overflow: TextOverflow.ellipsis)),
         ])),
         // LEFT value (before) — relevant for changed + removed; empty for added.
@@ -1611,9 +1608,9 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               : (e.kind == DiffChangeKind.removed ? accentColor : FluxForgeTheme.textTertiary),
           highlight: e.kind == DiffChangeKind.removed,
         )),
-        const SizedBox(width: 14, child: Text('→',
+        SizedBox(width: 14, child: Text('→',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary))),
+          style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textTertiary))),
         // RIGHT value (after) — relevant for changed + added; empty for removed.
         Expanded(child: _diffValueBox(
           value: e.kind == DiffChangeKind.removed ? null : e.after,
@@ -1644,8 +1641,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
             width: 0.4,
           ),
         ),
-        child: Text('∅', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 7,
+        child: Text('∅', style: FluxForgeTheme.dockMono(
+          size: 7,
           color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
         )),
       );
@@ -1659,9 +1656,9 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
             ? Border.all(color: color.withValues(alpha: 0.45), width: 0.5)
             : null,
       ),
-      child: Text(_diffVal(value), style: TextStyle(
-        fontFamily: 'monospace', fontSize: 7, color: color,
-        fontWeight: highlight ? FontWeight.w600 : FontWeight.w400),
+      child: Text(_diffVal(value), style: FluxForgeTheme.dockMono(
+        size: 7, color: color,
+        weight: highlight ? FontWeight.w600 : FontWeight.w400),
         maxLines: 2, overflow: TextOverflow.ellipsis,
       ),
     );
@@ -1685,36 +1682,36 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setStateD) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A2E),
-          title: const Text('Import Blueprint',
-            style: TextStyle(color: FluxForgeTheme.accentBlue, fontFamily: 'monospace', fontSize: 14)),
+          title: Text('Import Blueprint',
+            style: FluxForgeTheme.dockMono(size: 14, color: FluxForgeTheme.accentBlue)),
           content: SizedBox(
             width: 480,
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Paste a .flux blueprint JSON below:',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontFamily: 'monospace', fontSize: 10)),
+              Text('Paste a .flux blueprint JSON below:',
+                style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textSecondary)),
               const SizedBox(height: 6),
               TextField(
                 controller: controller,
                 maxLines: 10,
-                style: const TextStyle(color: FluxForgeTheme.textPrimary, fontFamily: 'monospace', fontSize: 10),
-                decoration: const InputDecoration(
+                style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textPrimary),
+                decoration: InputDecoration(
                   isDense: true,
                   filled: true,
-                  fillColor: Color(0xFF0F0F1A),
+                  fillColor: const Color(0xFF0F0F1A),
                   hintText: '{ "version": "3.7", "type": "slot_blueprint", ... }',
-                  hintStyle: TextStyle(color: FluxForgeTheme.textTertiary, fontFamily: 'monospace', fontSize: 9),
-                  border: OutlineInputBorder(),
+                  hintStyle: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               if (errorMessage != null) Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(errorMessage!,
-                  style: const TextStyle(color: FluxForgeTheme.accentRed, fontFamily: 'monospace', fontSize: 9)),
+                  style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.accentRed)),
               ),
               if (parsed != null) Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text('✓ Valid: ${parsed!['type']} v${parsed!['version']}',
-                  style: const TextStyle(color: FluxForgeTheme.accentGreen, fontFamily: 'monospace', fontSize: 9)),
+                  style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.accentGreen)),
               ),
             ]),
           ),
@@ -1806,11 +1803,11 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
       _applyMath();
       _runValidation();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          duration: Duration(milliseconds: 1600),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(milliseconds: 1600),
           content: Text('✓ Blueprint imported',
-            style: TextStyle(fontFamily: 'monospace', fontSize: 11)),
-          backgroundColor: Color(0xFF1A1A2E),
+            style: FluxForgeTheme.dockMono(size: 11)),
+          backgroundColor: const Color(0xFF1A1A2E),
         ));
       }
     });
@@ -1845,8 +1842,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 11, color: color),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 8, color: color)),
+        Text(label, style: FluxForgeTheme.dockMono(
+          size: 8, color: color)),
       ]),
     );
   }
@@ -1862,8 +1859,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         ),
       ),
       const SizedBox(height: 2),
-      Text(label, style: TextStyle(
-        fontFamily: 'monospace', fontSize: 6, color: color)),
+      Text(label, style: FluxForgeTheme.dockMono(
+        size: 6, color: color)),
     ]);
   }
 
@@ -1902,19 +1899,19 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               borderRadius: BorderRadius.circular(3),
             ),
             child: Row(children: [
-              Text(j.flag, style: const TextStyle(fontSize: 12)),
+              Text(j.flag, style: FluxForgeTheme.dockSans(size: 12)),
               const SizedBox(width: 6),
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(j.label, style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 9,
+                  Text(j.label, style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: active ? j.color : FluxForgeTheme.textPrimary,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w400)),
+                    weight: active ? FontWeight.w700 : FontWeight.w400)),
                   Text('Min RTP ${j.minRtp.toStringAsFixed(0)}%'
                       '${j.maxBetAmount > 0 ? ' · Max bet ${j.maxBetCurrency}${j.maxBetAmount.toStringAsFixed(0)}' : ''}'
                       '${j.allowsFeatureBuy ? '' : ' · No Feature Buy'}',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary)),
+                    style: FluxForgeTheme.dockMono(size: 7, color: FluxForgeTheme.textTertiary)),
                 ],
               )),
               if (active) Icon(Icons.check_rounded, size: 10, color: j.color),
@@ -1937,7 +1934,7 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         _gcConstraintRow('Win report required', strictest.requiresMaxWinReport),
         const SizedBox(height: 4),
         Text('Min RTP: ${strictest.minRtp.toStringAsFixed(0)}%',
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textSecondary)),
+          style: FluxForgeTheme.dockMono(size: 8)),
       ],
       const SizedBox(height: 8),
       // Violations summary
@@ -1956,12 +1953,12 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               decoration: BoxDecoration(
                 color: issue.severity.color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2)),
-              child: Text(issue.severity.label, style: TextStyle(
-                fontFamily: 'monospace', fontSize: 6, color: issue.severity.color)),
+              child: Text(issue.severity.label, style: FluxForgeTheme.dockMono(
+                size: 6, color: issue.severity.color)),
             ),
             const SizedBox(width: 4),
-            Expanded(child: Text(issue.message, style: const TextStyle(
-              fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textSecondary))),
+            Expanded(child: Text(issue.message, style: FluxForgeTheme.dockMono(
+              size: 7))),
           ]),
         )),
       ],
@@ -1978,10 +1975,10 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           color: allowed ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange,
         ),
         const SizedBox(width: 4),
-        Expanded(child: Text(label, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textSecondary))),
-        if (detail != null) Text(detail, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+        Expanded(child: Text(label, style: FluxForgeTheme.dockMono(
+          size: 8))),
+        if (detail != null) Text(detail, style: FluxForgeTheme.dockMono(
+          size: 8, color: FluxForgeTheme.textTertiary)),
       ]),
     );
   }
@@ -1996,8 +1993,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
       _gcSectionHeader('INTEGRITY (${_issues.length} issues)'),
       const SizedBox(height: 4),
       if (_issues.isEmpty)
-        const Text('✓ No issues detected', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentGreen))
+        Text('✓ No issues detected', style: FluxForgeTheme.dockMono(
+          size: 8, color: FluxForgeTheme.accentGreen))
       else
         ..._issues.map((issue) => Padding(
           padding: const EdgeInsets.only(bottom: 4),
@@ -2007,18 +2004,18 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               decoration: BoxDecoration(
                 color: issue.severity.color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2)),
-              child: Text(issue.severity.label, style: TextStyle(
-                fontFamily: 'monospace', fontSize: 6, color: issue.severity.color)),
+              child: Text(issue.severity.label, style: FluxForgeTheme.dockMono(
+                size: 6, color: issue.severity.color)),
             ),
             const SizedBox(width: 4),
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(issue.message, style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 7.5, color: FluxForgeTheme.textSecondary)),
+                Text(issue.message, style: FluxForgeTheme.dockMono(
+                  size: 7.5)),
                 if (issue.autoFixDescription != null)
-                  Text('Fix: ${issue.autoFixDescription}', style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 6.5, color: FluxForgeTheme.accentCyan)),
+                  Text('Fix: ${issue.autoFixDescription}', style: FluxForgeTheme.dockMono(
+                    size: 6.5, color: FluxForgeTheme.accentCyan)),
               ],
             )),
           ]),
@@ -2031,10 +2028,10 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         Expanded(
           child: TextField(
             controller: _snapNameCtrl,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textPrimary),
             decoration: InputDecoration(
               hintText: 'Snapshot name...',
-              hintStyle: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary),
+              hintStyle: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
               filled: true,
@@ -2059,15 +2056,15 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.4)),
               borderRadius: BorderRadius.circular(3),
             ),
-            child: const Text('Save', style: TextStyle(
-              fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentCyan)),
+            child: Text('Save', style: FluxForgeTheme.dockMono(
+              size: 8, color: FluxForgeTheme.accentCyan)),
           ),
         ),
       ]),
       const SizedBox(height: 6),
       if (_snapshots.isEmpty)
-        const Text('No snapshots yet', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary))
+        Text('No snapshots yet', style: FluxForgeTheme.dockMono(
+          size: 7, color: FluxForgeTheme.textTertiary))
       else
         ..._snapshots.map((snap) {
           final isLeft = _diffLeft == snap.name;
@@ -2086,16 +2083,16 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: Text(snap.name, style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textPrimary,
-                  fontWeight: FontWeight.w700))),
-                Text(snap.timestampStr, style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary)),
+                Expanded(child: Text(snap.name, style: FluxForgeTheme.dockMono(
+                  size: 9, color: FluxForgeTheme.textPrimary,
+                  weight: FontWeight.w700))),
+                Text(snap.timestampStr, style: FluxForgeTheme.dockMono(
+                  size: 7, color: FluxForgeTheme.textTertiary)),
                 const SizedBox(width: 6),
                 GestureDetector(
                   onTap: () => _loadSnapshot(snap),
-                  child: const Text('LOAD', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.accentCyan)),
+                  child: Text('LOAD', style: FluxForgeTheme.dockMono(
+                    size: 7, color: FluxForgeTheme.accentCyan)),
                 ),
                 const SizedBox(width: 4),
                 GestureDetector(
@@ -2124,8 +2121,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
                     ),
                     child: Text(
                       isLeft ? 'L' : isRight ? 'R' : 'diff',
-                      style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.accentCyan)),
+                      style: FluxForgeTheme.dockMono(
+                        size: 7, color: FluxForgeTheme.accentCyan)),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -2137,8 +2134,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
                   }),
                   child: const Icon(Icons.close_rounded, size: 10, color: FluxForgeTheme.textTertiary)),
               ]),
-              Text(snap.summaryLine, style: const TextStyle(
-                fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary)),
+              Text(snap.summaryLine, style: FluxForgeTheme.dockMono(
+                size: 7, color: FluxForgeTheme.textTertiary)),
             ]),
           );
         }),
@@ -2160,11 +2157,11 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
             border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3)),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.download_rounded, size: 12, color: FluxForgeTheme.accentBlue),
-            SizedBox(width: 6),
-            Text('Import Blueprint (paste JSON)', style: TextStyle(
-              fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentBlue)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.download_rounded, size: 12, color: FluxForgeTheme.accentBlue),
+            const SizedBox(width: 6),
+            Text('Import Blueprint (paste JSON)', style: FluxForgeTheme.dockMono(
+              size: 8, color: FluxForgeTheme.accentBlue)),
           ]),
         ),
       ),
@@ -2178,11 +2175,11 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           await Clipboard.setData(ClipboardData(text: json));
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Text('Blueprint JSON copied to clipboard',
-                  style: TextStyle(fontFamily: 'monospace', fontSize: 11)),
-                duration: Duration(seconds: 2),
-                backgroundColor: Color(0xFF1A1A2E),
+                  style: FluxForgeTheme.dockMono(size: 11)),
+                duration: const Duration(seconds: 2),
+                backgroundColor: const Color(0xFF1A1A2E),
               ),
             );
           }
@@ -2197,15 +2194,15 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             const Icon(Icons.upload_rounded, size: 12, color: FluxForgeTheme.accentPurple),
             const SizedBox(width: 6),
-            const Text('Export Blueprint (copy JSON)', style: TextStyle(
-              fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentPurple)),
+            Text('Export Blueprint (copy JSON)', style: FluxForgeTheme.dockMono(
+              size: 8, color: FluxForgeTheme.accentPurple)),
           ]),
         ),
       ),
       const SizedBox(height: 4),
-      const Text(
+      Text(
         'Copies full slot config as JSON to clipboard.\nPaste into any text editor to save as .flux file.',
-        style: TextStyle(fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary),
+        style: FluxForgeTheme.dockMono(size: 7, color: FluxForgeTheme.textTertiary),
       ),
     ]);
   }
@@ -2223,11 +2220,11 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           color: FluxForgeTheme.accentGreen.withValues(alpha: 0.07),
           border: Border(top: BorderSide(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2))),
         ),
-        child: const Row(children: [
-          Icon(Icons.check_circle_outline_rounded, size: 10, color: FluxForgeTheme.accentGreen),
-          SizedBox(width: 4),
-          Text('All checks pass', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 7.5, color: FluxForgeTheme.accentGreen)),
+        child: Row(children: [
+          const Icon(Icons.check_circle_outline_rounded, size: 10, color: FluxForgeTheme.accentGreen),
+          const SizedBox(width: 4),
+          Text('All checks pass', style: FluxForgeTheme.dockMono(
+            size: 7.5, color: FluxForgeTheme.accentGreen)),
         ]),
       );
     }
@@ -2262,7 +2259,7 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     duration: const Duration(milliseconds: 1400),
                     content: Text('🔧 Applied $n auto-fix${n == 1 ? "" : "es"}',
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
+                      style: FluxForgeTheme.dockMono(size: 11)),
                     backgroundColor: const Color(0xFF1A1A2E),
                   ));
                 }
@@ -2274,15 +2271,15 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
                   border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5)),
                   borderRadius: BorderRadius.circular(3),
                 ),
-                child: const Text('🔧 fix all', style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.accentCyan)),
+                child: Text('🔧 fix all', style: FluxForgeTheme.dockMono(
+                  size: 7, color: FluxForgeTheme.accentCyan)),
               ),
             ),
           ),
         GestureDetector(
           onTap: () => setState(() => _tab = _GcTab.snap),
-          child: const Text('view →', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.accentCyan)),
+          child: Text('view →', style: FluxForgeTheme.dockMono(
+            size: 7, color: FluxForgeTheme.accentCyan)),
         ),
       ]),
     );
@@ -2296,8 +2293,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         borderRadius: BorderRadius.circular(3),
         border: Border.all(color: sev.color.withValues(alpha: 0.4)),
       ),
-      child: Text('$count ${sev.label}', style: TextStyle(
-        fontFamily: 'monospace', fontSize: 6.5, color: sev.color)),
+      child: Text('$count ${sev.label}', style: FluxForgeTheme.dockMono(
+        size: 6.5, color: sev.color)),
     );
   }
 
@@ -2306,18 +2303,18 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _gcSectionHeader(String label) {
-    return Text(label, style: const TextStyle(
-      fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.8,
-      color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600));
+    return Text(label, style: FluxForgeTheme.dockMono(
+      size: 8, letterSpacing: 0.8,
+      color: FluxForgeTheme.textTertiary, weight: FontWeight.w600));
   }
 
   Widget _gcRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
       child: Row(children: [
-        Text(label, style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+        Text(label, style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary)),
         const Spacer(),
-        Text(value, style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textSecondary)),
+        Text(value, style: FluxForgeTheme.dockMono(size: 8)),
       ]),
     );
   }
@@ -2326,8 +2323,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
       child: Row(children: [
-        SizedBox(width: 50, child: Text(label, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary))),
+        SizedBox(width: 50, child: Text(label, style: FluxForgeTheme.dockMono(
+          size: 8, color: FluxForgeTheme.textTertiary))),
         const Spacer(),
         GestureDetector(
           onTap: () { if (value > min) onChanged(value - 1); },
@@ -2341,9 +2338,9 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text('$value', style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 14, color: FluxForgeTheme.textPrimary,
-            fontWeight: FontWeight.w600))),
+          child: Text('$value', style: FluxForgeTheme.dockMono(
+            size: 14, color: FluxForgeTheme.textPrimary,
+            weight: FontWeight.w600))),
         GestureDetector(
           onTap: () { if (value < max) onChanged(value + 1); },
           child: Container(
@@ -2367,16 +2364,16 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
     required ValueChanged<double> onChanged,
   }) {
     return Row(children: [
-      Text(label, style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+      Text(label, style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary)),
       const Spacer(),
       GestureDetector(
         onTap: () => onChanged((value - step).clamp(min, max)),
         child: const Icon(Icons.remove_rounded, size: 14, color: FluxForgeTheme.textSecondary)),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text(value.toStringAsFixed(1), style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 14, color: FluxForgeTheme.textPrimary,
-          fontWeight: FontWeight.w600))),
+        child: Text(value.toStringAsFixed(1), style: FluxForgeTheme.dockMono(
+          size: 14, color: FluxForgeTheme.textPrimary,
+          weight: FontWeight.w600))),
       GestureDetector(
         onTap: () => onChanged((value + step).clamp(min, max)),
         child: const Icon(Icons.add_rounded, size: 14, color: FluxForgeTheme.textSecondary)),
@@ -2392,8 +2389,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           color: FluxForgeTheme.accentCyan.withValues(alpha: 0.08),
           border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.35)),
           borderRadius: BorderRadius.circular(4)),
-        child: Text(label, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan)),
+        child: Text(label, style: FluxForgeTheme.dockMono(
+          size: 9, color: FluxForgeTheme.accentCyan)),
       ),
     );
   }
@@ -2408,8 +2405,7 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           border: Border.all(color: FluxForgeTheme.borderSubtle),
           borderRadius: BorderRadius.circular(3),
         ),
-        child: Text(label, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textSecondary)),
+        child: Text(label, style: FluxForgeTheme.dockMono(size: 8)),
       ),
     );
   }
@@ -2425,8 +2421,8 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
             color: active ? FluxForgeTheme.accentCyan.withValues(alpha: 0.4) : FluxForgeTheme.borderSubtle),
           borderRadius: BorderRadius.circular(3),
         ),
-        child: Text(label, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 8,
+        child: Text(label, style: FluxForgeTheme.dockMono(
+          size: 8,
           color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary)),
       ),
     );
@@ -2436,8 +2432,7 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
       child: Row(children: [
-        Expanded(child: Text(label, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textSecondary))),
+        Expanded(child: Text(label, style: FluxForgeTheme.dockMono(size: 8))),
         GestureDetector(
           onTap: () => onChanged(!value),
           child: Container(
@@ -2653,8 +2648,8 @@ class _GridVisualizerWidgetState extends State<_GridVisualizerWidget>
             const SizedBox(width: 4),
             Text(
               'LINE ${_highlightedPayline + 1}/${widget.paylines}',
-              style: const TextStyle(
-                fontFamily: 'monospace', fontSize: 7,
+              style: FluxForgeTheme.dockMono(
+                size: 7,
                 color: FluxForgeTheme.textTertiary,
               ),
             ),
@@ -2664,17 +2659,17 @@ class _GridVisualizerWidgetState extends State<_GridVisualizerWidget>
           ] else if (widget.winMech == WinMechanismType.megaways && widget.megaways != null)
             Text(
               '${_formatWays(widget.megaways!.totalWays)} WAYS',
-              style: const TextStyle(
-                fontFamily: 'monospace', fontSize: 7,
-                color: Color(0xFFFF9800),
+              style: FluxForgeTheme.dockMono(
+                size: 7,
+                color: const Color(0xFFFF9800),
               ),
             )
           else if (widget.winMech == WinMechanismType.ways)
             Text(
               'ALL ${widget.reels * widget.rows} POSITIONS',
-              style: const TextStyle(
-                fontFamily: 'monospace', fontSize: 7,
-                color: Color(0xFF9C27B0),
+              style: FluxForgeTheme.dockMono(
+                size: 7,
+                color: const Color(0xFF9C27B0),
               ),
             )
           else
@@ -2698,8 +2693,8 @@ class _GridVisualizerWidgetState extends State<_GridVisualizerWidget>
               ),
               child: Text(
                 _isSpinning ? '◌ SPINNING' : '⚡ SPIN',
-                style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 7,
+                style: FluxForgeTheme.dockMono(
+                  size: 7,
                   color: _isSpinning
                       ? const Color(0xFFFF9800)
                       : FluxForgeTheme.accentCyan,
@@ -2723,9 +2718,8 @@ class _GridVisualizerWidgetState extends State<_GridVisualizerWidget>
       ),
       child: Center(
         child: Text(label,
-          style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 7,
-            color: FluxForgeTheme.textSecondary,
+          style: FluxForgeTheme.dockMono(
+            size: 7,
           )),
       ),
     ),
@@ -2910,7 +2904,7 @@ class _GridVisualizerPainter extends CustomPainter {
   void _paintSymbol(Canvas canvas, Rect rect, String emoji, double cellH) {
     final fontSize = (cellH * 0.48).clamp(6.0, 13.0);
     final tp = TextPainter(
-      text: TextSpan(text: emoji, style: TextStyle(fontSize: fontSize)),
+      text: TextSpan(text: emoji, style: FluxForgeTheme.dockSans(size: fontSize)),
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: rect.width);
     canvas.save();
@@ -3168,7 +3162,7 @@ class _GridVisualizerPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(fontFamily: 'monospace', fontSize: 6, color: color),
+        style: FluxForgeTheme.dockMono(size: 6, color: color),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -3247,14 +3241,13 @@ class _SymbolEditorRowState extends State<_SymbolEditorRow> {
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(children: [
         // Emoji / tier indicator
-        Text(widget.symbol.emoji, style: const TextStyle(fontSize: 13)),
+        Text(widget.symbol.emoji, style: FluxForgeTheme.dockSans(size: 13)),
         const SizedBox(width: 4),
         // Editable name
         Expanded(
           child: TextField(
             controller: _nameCtrl,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
-              color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textPrimary),
             decoration: const InputDecoration(
               isDense: true,
               contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -3278,8 +3271,8 @@ class _SymbolEditorRowState extends State<_SymbolEditorRow> {
           child: const Icon(Icons.remove_rounded, size: 10, color: FluxForgeTheme.textTertiary)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 3),
-          child: Text('${pay}x', style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentYellow))),
+          child: Text('${pay}x', style: FluxForgeTheme.dockMono(
+            size: 9, color: FluxForgeTheme.accentYellow))),
         GestureDetector(
           onTap: () => widget.onPayChanged(pay + 1),
           child: const Icon(Icons.add_rounded, size: 10, color: FluxForgeTheme.textTertiary)),
