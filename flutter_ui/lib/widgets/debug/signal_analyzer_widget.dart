@@ -11,6 +11,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../theme/flux_forge_theme.dart';
 import '../../src/rust/native_ffi.dart';
 import '../dsp/internal_processor_editor_window.dart';
 
@@ -152,10 +153,10 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
           const SizedBox(width: 8),
           Text(
             'Signal Analyzer — Track ${widget.trackId}${widget.trackId == 0 ? " (MASTER)" : ""}',
-            style: const TextStyle(
-              color: Color(0xFF40C8FF),
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              color: const Color(0xFF40C8FF),
+              size: 12,
+              weight: FontWeight.bold,
             ),
           ),
           const Spacer(),
@@ -173,10 +174,10 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
                 ),
                 child: Text(
                   chain.bypass ? 'BYPASSED' : 'ACTIVE',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: chain.bypass ? const Color(0xFFFF8040) : const Color(0xFF40FF90),
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+                    size: 9,
+                    weight: FontWeight.bold,
                   ),
                 ),
               );
@@ -202,10 +203,10 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF808090),
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                color: const Color(0xFF808090),
+                size: 9,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -228,10 +229,9 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               '${math.max(peakL, peakR).toStringAsFixed(1)} dB',
-              style: const TextStyle(
-                color: Color(0xFFE0E0F0),
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                color: const Color(0xFFE0E0F0),
+                size: 9,
               ),
             ),
           ),
@@ -245,9 +245,9 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
       children: [
         Text(
           channel,
-          style: const TextStyle(
-            color: Color(0xFF606070),
-            fontSize: 8,
+          style: FluxForgeTheme.dockSans(
+            color: const Color(0xFF606070),
+            size: 8,
           ),
         ),
         const SizedBox(height: 2),
@@ -344,24 +344,24 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
               style: BorderStyle.solid,
             ),
           ),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add_circle_outline, color: Color(0xFF606070), size: 24),
-              SizedBox(height: 8),
+              const Icon(Icons.add_circle_outline, color: Color(0xFF606070), size: 24),
+              const SizedBox(height: 8),
               Text(
                 'No processors loaded',
-                style: TextStyle(
-                  color: Color(0xFF606070),
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  color: const Color(0xFF606070),
+                  size: 11,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
                 'Add EQ, Compressor, Limiter, etc.',
-                style: TextStyle(
-                  color: Color(0xFF404050),
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  color: const Color(0xFF404050),
+                  size: 9,
                 ),
               ),
             ],
@@ -428,10 +428,10 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
             ),
             child: Text(
               'SLOT $slotIndex',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: color,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
+                size: 8,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -450,10 +450,10 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
           // Processor name
           Text(
             node.type.shortName,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: isActive ? Colors.white : const Color(0xFF606070),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              size: 10,
+              weight: FontWeight.bold,
             ),
           ),
 
@@ -471,10 +471,10 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
             ),
             child: Text(
               node.bypass ? 'BYP' : 'ON',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: node.bypass ? const Color(0xFFFF8040) : const Color(0xFF40FF90),
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
+                size: 8,
+                weight: FontWeight.bold,
               ),
             ),
           ),

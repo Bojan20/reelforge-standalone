@@ -200,13 +200,13 @@ class _DebugConsoleState extends State<DebugConsole> {
                 children: [
                   const Icon(Icons.terminal, color: FluxForgeTheme.accentGreen, size: 18),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'DEBUG CONSOLE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.bold,
                       letterSpacing: 1.2,
+                      color: Colors.white,
                     ),
                   ),
                   const Spacer(),
@@ -214,7 +214,7 @@ class _DebugConsoleState extends State<DebugConsole> {
                   ...LogLevel.values.map((level) => Padding(
                     padding: const EdgeInsets.only(left: 4),
                     child: FilterChip(
-                      label: Text(_levelLabel(level), style: const TextStyle(fontSize: 10)),
+                      label: Text(_levelLabel(level), style: FluxForgeTheme.dockSans(size: 10)),
                       selected: _enabledLevels.contains(level),
                       onSelected: (selected) {
                         setState(() {
@@ -229,7 +229,7 @@ class _DebugConsoleState extends State<DebugConsole> {
                       selectedColor: _levelColor(level).withValues(alpha: 0.3),
                       checkmarkColor: _levelColor(level),
                       backgroundColor: FluxForgeTheme.bgDeep,
-                      labelStyle: TextStyle(
+                      labelStyle: FluxForgeTheme.dockSans(
                         color: _enabledLevels.contains(level) ? _levelColor(level) : Colors.white54,
                       ),
                       visualDensity: VisualDensity.compact,
@@ -286,10 +286,10 @@ class _DebugConsoleState extends State<DebugConsole> {
                   Expanded(
                     child: TextField(
                       controller: _filterController,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                      decoration: const InputDecoration(
+                      style: FluxForgeTheme.dockSans(color: Colors.white, size: 12),
+                      decoration: InputDecoration(
                         hintText: 'Filter logs...',
-                        hintStyle: TextStyle(color: Colors.white38, fontSize: 12),
+                        hintStyle: FluxForgeTheme.dockSans(color: Colors.white38, size: 12),
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: EdgeInsets.zero,
@@ -302,7 +302,7 @@ class _DebugConsoleState extends State<DebugConsole> {
                   ),
                   Text(
                     '${_filteredLogs.length} entries',
-                    style: const TextStyle(color: Colors.white38, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(color: Colors.white38, size: 10),
                   ),
                 ],
               ),
@@ -343,10 +343,9 @@ class _LogEntryWidget extends StatelessWidget {
           // Timestamp
           Text(
             log.formattedTime,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.white38,
-              fontSize: 10,
-              fontFamily: 'JetBrains Mono',
+              size: 10,
             ),
           ),
           const SizedBox(width: 8),
@@ -359,11 +358,10 @@ class _LogEntryWidget extends StatelessWidget {
             ),
             child: Text(
               log.level.name.substring(0, 1).toUpperCase(),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: levelColor,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'JetBrains Mono',
+                size: 9,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -372,10 +370,9 @@ class _LogEntryWidget extends StatelessWidget {
           if (log.source != null) ...[
             Text(
               '[${log.source}]',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: levelColor.withValues(alpha: 0.7),
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
+                size: 10,
               ),
             ),
             const SizedBox(width: 4),
@@ -384,10 +381,9 @@ class _LogEntryWidget extends StatelessWidget {
           Expanded(
             child: SelectableText(
               log.message,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: log.level == LogLevel.error ? levelColor : Colors.white70,
-                fontSize: 11,
-                fontFamily: 'JetBrains Mono',
+                size: 11,
               ),
             ),
           ),

@@ -13,6 +13,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
@@ -478,9 +479,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
                       child: Center(
                         child: Text(
                           'B${b + 1}',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: selected ? color : FabFilterColors.textTertiary,
-                            fontSize: 9, fontWeight: FontWeight.bold,
+                            size: 9, weight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -665,7 +666,7 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
             width: 32,
             child: Text(
               corr.toStringAsFixed(2),
-              style: TextStyle(color: corrColor, fontSize: 8, fontWeight: FontWeight.bold),
+              style: FluxForgeTheme.dockMono(color: corrColor, size: 8, weight: FontWeight.bold),
               textAlign: TextAlign.right,
             ),
           ),
@@ -867,9 +868,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
                       child: Center(
                         child: Text(
                           _crossoverLabels[i],
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: active ? FabFilterColors.cyan : FabFilterColors.textTertiary,
-                            fontSize: 7, fontWeight: FontWeight.bold,
+                            size: 7, weight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -902,9 +903,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
         child: Center(
           child: Text(
             _msMode ? 'M/S MODE' : 'L/R MODE',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: _msMode ? FabFilterColors.orange : FabFilterColors.textTertiary,
-              fontSize: 8, fontWeight: FontWeight.bold,
+              size: 8, weight: FontWeight.bold,
             ),
           ),
         ),
@@ -930,9 +931,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
         child: Center(
           child: Text(
             _bandLink ? 'BAND LINK' : 'BAND LINK',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: _bandLink ? FabFilterColors.green : FabFilterColors.textTertiary,
-              fontSize: 8, fontWeight: FontWeight.bold,
+              size: 8, weight: FontWeight.bold,
             ),
           ),
         ),
@@ -962,9 +963,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
             child: Center(
               child: Text(
                 'STEREOIZE',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: _stereoizeEnabled ? FabFilterColors.pink : FabFilterColors.textTertiary,
-                  fontSize: 8, fontWeight: FontWeight.bold,
+                  size: 8, weight: FontWeight.bold,
                 ),
               ),
             ),
@@ -1094,10 +1095,10 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
           // Band correlation readout
           Text(
             'Corr: ${_bandCorrelations[_selectedBand].clamp(-1.0, 1.0).toStringAsFixed(2)}',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: _bandCorrelations[_selectedBand] < 0 ? FabFilterColors.red : FabFilterColors.green,
-              fontSize: 8,
-              fontWeight: FontWeight.w600,
+              size: 8,
+              weight: FontWeight.w600,
             ),
           ),
         ],
@@ -1199,10 +1200,10 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
             width: 28,
             child: Text(
               '${(_bands[_selectedBand].width * 100).toStringAsFixed(0)}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: _bandColor,
-                fontSize: 7,
-                fontWeight: FontWeight.bold,
+                size: 7,
+                weight: FontWeight.bold,
               ),
               textAlign: TextAlign.right,
             ),
@@ -1222,13 +1223,13 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
       child: Row(
         children: [
           Text('FF-MBI  Multiband Imager',
-            style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 8)),
+            style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary, size: 8)),
           const Spacer(),
           Text(
             '${_numBands}B  ${_crossoverLabels[_crossoverType]}  ${_msMode ? "M/S" : "L/R"}'
             '${_bandLink ? "  LINK" : ""}'
             '${_stereoizeEnabled ? "  STZ" : ""}',
-            style: TextStyle(color: FabFilterColors.cyan, fontSize: 8, fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockMono(color: FabFilterColors.cyan, size: 8, weight: FontWeight.w600),
           ),
         ],
       ),

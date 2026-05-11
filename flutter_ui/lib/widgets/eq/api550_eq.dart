@@ -201,12 +201,11 @@ class _Api550EqState extends State<Api550Eq> {
               color: _apiBlue,
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Text(
+            child: Text(
               'FF 550',
-              style: TextStyle(
-                fontFamily: 'sans-serif',
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
+              style: FluxForgeTheme.dockSans(
+                size: 18,
+                weight: FontWeight.w900,
                 color: FluxForgeTheme.textPrimary,
                 letterSpacing: 2,
               ),
@@ -215,11 +214,11 @@ class _Api550EqState extends State<Api550Eq> {
 
           const SizedBox(width: 12),
 
-          const Text(
+          Text(
             '550A',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -272,8 +271,8 @@ class _Api550EqState extends State<Api550Eq> {
         const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 7,
+          style: FluxForgeTheme.dockSans(
+            size: 7,
             color: FluxForgeTheme.textTertiary,
           ),
         ),
@@ -303,9 +302,9 @@ class _Api550EqState extends State<Api550Eq> {
           // Band label
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.bold,
               color: _apiBlue,
               letterSpacing: 2,
             ),
@@ -337,9 +336,9 @@ class _Api550EqState extends State<Api550Eq> {
                       child: Center(
                         child: Text(
                           display,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          style: FluxForgeTheme.dockMono(
+                            size: 9,
+                            weight: isSelected ? FontWeight.bold : FontWeight.normal,
                             color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                           ),
                         ),
@@ -376,9 +375,8 @@ class _Api550EqState extends State<Api550Eq> {
             ),
             child: Text(
               '${gain >= 0 ? '+' : ''}${gain.toStringAsFixed(1)}',
-              style: const TextStyle(
-                fontSize: 10,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -434,11 +432,11 @@ class _Api550EqState extends State<Api550Eq> {
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: const Color(0xFF4A4A50)),
               ),
-              child: const Text(
+              child: Text(
                 'BYPASS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textSecondary,
                 ),
               ),
@@ -451,9 +449,9 @@ class _Api550EqState extends State<Api550Eq> {
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'DRIVE',
-                style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary, letterSpacing: 1),
+                style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textTertiary, letterSpacing: 1),
               ),
               const SizedBox(height: 1),
               SizedBox(
@@ -475,9 +473,9 @@ class _Api550EqState extends State<Api550Eq> {
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'OUT',
-                style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary, letterSpacing: 1),
+                style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textTertiary, letterSpacing: 1),
               ),
               const SizedBox(height: 1),
               SizedBox(
@@ -497,9 +495,8 @@ class _Api550EqState extends State<Api550Eq> {
             width: 40,
             child: Text(
               '${_params.outputLevel >= 0 ? '+' : ''}${_params.outputLevel.toStringAsFixed(1)}',
-              style: const TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),

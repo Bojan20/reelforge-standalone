@@ -13,6 +13,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../services/granular_synth_service.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -143,8 +144,8 @@ class _GranularSynthPanelState extends State<GranularSynthPanel> {
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         children: [
-          SizedBox(width: 48, child: Text(label, style: const TextStyle(
-            fontSize: 10, color: FabFilterColors.textTertiary))),
+          SizedBox(width: 48, child: Text(label, style: FluxForgeTheme.dockSans(
+            size: 10, color: FabFilterColors.textTertiary))),
           Expanded(
             child: SliderTheme(
               data: SliderTheme.of(context).copyWith(
@@ -165,7 +166,7 @@ class _GranularSynthPanelState extends State<GranularSynthPanel> {
           ),
           SizedBox(width: 44, child: Text('$displayVal$unit',
             textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 9, color: FabFilterColors.textSecondary))),
+            style: FluxForgeTheme.dockMono(size: 9, color: FabFilterColors.textSecondary))),
         ],
       ),
     );
@@ -186,8 +187,8 @@ class _GranularSynthPanelState extends State<GranularSynthPanel> {
           Icon(Icons.ac_unit, size: 10,
             color: frozen ? FabFilterColors.cyan : FabFilterColors.textTertiary),
           const SizedBox(width: 3),
-          Text('FREEZE', style: TextStyle(
-            fontSize: 9, fontWeight: FontWeight.w600,
+          Text('FREEZE', style: FluxForgeTheme.dockSans(
+            size: 9, weight: FontWeight.w600,
             color: frozen ? FabFilterColors.cyan : FabFilterColors.textTertiary,
           )),
         ]),
@@ -229,8 +230,8 @@ class _GranularSynthPanelState extends State<GranularSynthPanel> {
               border: Border.all(
                 color: active ? FabFilterColors.orange : FabFilterColors.border),
             ),
-            child: Text(shape.label, style: TextStyle(
-              fontSize: 9,
+            child: Text(shape.label, style: FluxForgeTheme.dockSans(
+              size: 9,
               color: active ? FabFilterColors.orange : FabFilterColors.textTertiary,
             )),
           ),
@@ -271,17 +272,17 @@ class _GranularSynthPanelState extends State<GranularSynthPanel> {
   }
 
   Widget _voiceHeader() {
-    const style = TextStyle(fontSize: 9, color: FabFilterColors.textTertiary,
-      fontWeight: FontWeight.w600);
+    final style = FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.textTertiary,
+      weight: FontWeight.w600);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(children: [
         const SizedBox(width: 24), // active toggle
-        const SizedBox(width: 30, child: Text('Voice', style: style)),
-        const Expanded(flex: 2, child: Text('Level', style: style)),
-        const Expanded(flex: 2, child: Text('Pan', style: style)),
-        const Expanded(flex: 2, child: Text('Pitch', style: style)),
-        const Expanded(flex: 2, child: Text('Delay', style: style)),
+        SizedBox(width: 30, child: Text('Voice', style: style)),
+        Expanded(flex: 2, child: Text('Level', style: style)),
+        Expanded(flex: 2, child: Text('Pan', style: style)),
+        Expanded(flex: 2, child: Text('Pitch', style: style)),
+        Expanded(flex: 2, child: Text('Delay', style: style)),
       ]),
     );
   }
@@ -313,8 +314,8 @@ class _GranularSynthPanelState extends State<GranularSynthPanel> {
                 color: voice.active ? color.withValues(alpha: 0.3) : FabFilterColors.bgMid,
                 border: Border.all(color: voice.active ? color : FabFilterColors.border),
               ),
-              child: Center(child: Text('${index + 1}', style: TextStyle(
-                fontSize: 8, fontWeight: FontWeight.w600,
+              child: Center(child: Text('${index + 1}', style: FluxForgeTheme.dockMono(
+                size: 8, weight: FontWeight.w600,
                 color: voice.active ? color : FabFilterColors.textDisabled,
               ))),
             ),
@@ -413,7 +414,7 @@ class _GranularSynthPanelState extends State<GranularSynthPanel> {
                 ? Center(child: Text(
                     'No presets saved.\n\nTap + to save current\nsettings as a preset.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary),
                   ))
                 : ListView.builder(
                     padding: EdgeInsets.zero,
@@ -428,9 +429,9 @@ class _GranularSynthPanelState extends State<GranularSynthPanel> {
           // Current preset info
           FabSectionLabel('CURRENT'),
           const SizedBox(height: 4),
-          Text(_service.current.name, style: const TextStyle(
-            fontSize: 11, color: FabFilterColors.textPrimary,
-            fontWeight: FontWeight.w600)),
+          Text(_service.current.name, style: FluxForgeTheme.dockSans(
+            size: 11, color: FabFilterColors.textPrimary,
+            weight: FontWeight.w600)),
           const SizedBox(height: 2),
           Text(
             'Size: ${_service.current.grainSizeMinMs.toInt()}-${_service.current.grainSizeMaxMs.toInt()} ms\n'
@@ -438,7 +439,7 @@ class _GranularSynthPanelState extends State<GranularSynthPanel> {
             'Window: ${_service.current.windowShape.label}\n'
             'Voices: ${_service.voices.where((v) => v.active).length}/4\n'
             'Freeze: ${_service.current.frozen ? "ON" : "OFF"}',
-            style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary, height: 1.4),
+            style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textTertiary).copyWith(height: 1.4),
           ),
         ],
       ),
@@ -456,8 +457,8 @@ class _GranularSynthPanelState extends State<GranularSynthPanel> {
           color: FabFilterColors.bgMid,
         ),
         child: Row(children: [
-          Expanded(child: Text(preset.name, style: const TextStyle(
-            fontSize: 10, color: FabFilterColors.textPrimary),
+          Expanded(child: Text(preset.name, style: FluxForgeTheme.dockSans(
+            size: 10, color: FabFilterColors.textPrimary),
             overflow: TextOverflow.ellipsis)),
           if (preset.frozen)
             Padding(

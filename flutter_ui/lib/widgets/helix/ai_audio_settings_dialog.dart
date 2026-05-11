@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/ai_composer.dart';
 import '../../services/ai_composer_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class AiAudioSettingsDialog extends StatefulWidget {
   const AiAudioSettingsDialog({super.key, required this.service});
@@ -85,16 +86,16 @@ class _AiAudioSettingsDialogState extends State<AiAudioSettingsDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Audio Backends · Routing & Credentials',
-                style: TextStyle(
+            Text('Audio Backends · Routing & Credentials',
+                style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    size: 16,
+                    weight: FontWeight.w600,
                     letterSpacing: 0.6)),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Choose which backend produces SFX, voice, and music. Keys are stored in the OS keychain.',
-              style: TextStyle(color: Colors.white60, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: Colors.white60, size: 11),
             ),
             const SizedBox(height: 16),
             _buildRoutingRow('SFX', AudioKind.sfx),
@@ -107,8 +108,8 @@ class _AiAudioSettingsDialogState extends State<AiAudioSettingsDialog> {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 icon: const Icon(Icons.security, size: 14),
-                label: const Text('Switch to Air-Gapped (all Local)',
-                    style: TextStyle(fontSize: 11)),
+                label: Text('Switch to Air-Gapped (all Local)',
+                    style: FluxForgeTheme.dockSans(size: 11)),
                 onPressed: _switchAirGapped,
                 style: TextButton.styleFrom(foregroundColor: Colors.white70),
               ),
@@ -153,8 +154,7 @@ class _AiAudioSettingsDialogState extends State<AiAudioSettingsDialog> {
                 if (_statusMsg != null)
                   Expanded(
                     child: Text(_statusMsg!,
-                        style:
-                            TextStyle(color: _statusColor, fontSize: 11)),
+                        style: FluxForgeTheme.dockSans(color: _statusColor, size: 11)),
                   )
                 else
                   const Spacer(),
@@ -186,7 +186,7 @@ class _AiAudioSettingsDialogState extends State<AiAudioSettingsDialog> {
         SizedBox(
           width: 60,
           child: Text(label,
-              style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              style: FluxForgeTheme.dockSans(color: Colors.white70, size: 12)),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -196,10 +196,10 @@ class _AiAudioSettingsDialogState extends State<AiAudioSettingsDialog> {
               final selected = current == b;
               return ChoiceChip(
                 label: Text(b.displayLabel,
-                    style: TextStyle(
-                        fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: selected ? Colors.black : Colors.white70,
-                        fontWeight: FontWeight.w600)),
+                        weight: FontWeight.w600)),
                 selected: selected,
                 onSelected: (_) =>
                     setState(() => _routing = _routing.copyWithKind(kind, b)),
@@ -230,9 +230,9 @@ class _AiAudioSettingsDialogState extends State<AiAudioSettingsDialog> {
         Row(
           children: [
             Text(label,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                     color: Colors.white60,
-                    fontSize: 11,
+                    size: 11,
                     letterSpacing: 0.4)),
             const SizedBox(width: 8),
             if (hasKey)
@@ -243,11 +243,11 @@ class _AiAudioSettingsDialogState extends State<AiAudioSettingsDialog> {
                   color: const Color(0xFF44DD66).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text('IN KEYCHAIN',
-                    style: TextStyle(
-                        color: Color(0xFF44DD66),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700)),
+                child: Text('IN KEYCHAIN',
+                    style: FluxForgeTheme.dockSans(
+                        color: const Color(0xFF44DD66),
+                        size: 9,
+                        weight: FontWeight.w700)),
               ),
           ],
         ),
@@ -258,11 +258,11 @@ class _AiAudioSettingsDialogState extends State<AiAudioSettingsDialog> {
               child: TextField(
                 controller: controller,
                 obscureText: obscure,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: FluxForgeTheme.dockMono(color: Colors.white, size: 12),
                 decoration: InputDecoration(
                   hintText: hint,
                   hintStyle:
-                      const TextStyle(color: Colors.white38, fontSize: 11),
+                      FluxForgeTheme.dockMono(color: Colors.white38, size: 11),
                   isDense: true,
                   border: const OutlineInputBorder(),
                   contentPadding: const EdgeInsets.symmetric(

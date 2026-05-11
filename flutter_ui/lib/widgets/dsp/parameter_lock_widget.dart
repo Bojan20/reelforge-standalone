@@ -7,6 +7,7 @@
 /// - Reset operations
 
 import 'package:flutter/material.dart';
+import '../../theme/flux_forge_theme.dart';
 
 /// Locked parameter info
 class LockedParameter {
@@ -267,8 +268,8 @@ class ParameterLockToolbar extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             '$lockedCount/$totalCount locked',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: lockedCount > 0 ? const Color(0xFFFF9040) : const Color(0xFF808090),
             ),
           ),
@@ -377,12 +378,12 @@ class LockedParametersDialog extends StatelessWidget {
                 children: [
                   const Icon(Icons.lock, size: 16, color: Color(0xFFFF9040)),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Locked Parameters',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFE0E0E8),
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
+                      weight: FontWeight.bold,
+                      color: const Color(0xFFE0E0E8),
                     ),
                   ),
                   const Spacer(),
@@ -394,10 +395,10 @@ class LockedParametersDialog extends StatelessWidget {
                     ),
                     child: Text(
                       '${lockedParameters.length}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFFF9040),
+                      style: FluxForgeTheme.dockMono(
+                        size: 11,
+                        weight: FontWeight.bold,
+                        color: const Color(0xFFFF9040),
                       ),
                     ),
                   ),
@@ -407,18 +408,18 @@ class LockedParametersDialog extends StatelessWidget {
             // Content
             Flexible(
               child: lockedParameters.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(32),
+                  ? Padding(
+                      padding: const EdgeInsets.all(32),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.lock_open, size: 32, color: Color(0xFF404050)),
-                          SizedBox(height: 8),
+                          const Icon(Icons.lock_open, size: 32, color: Color(0xFF404050)),
+                          const SizedBox(height: 8),
                           Text(
                             'No parameters locked',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF606070),
+                            style: FluxForgeTheme.dockSans(
+                              size: 12,
+                              color: const Color(0xFF606070),
                             ),
                           ),
                         ],
@@ -443,9 +444,11 @@ class LockedParametersDialog extends StatelessWidget {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text(
+                    child: Text(
                       'Close',
-                      style: TextStyle(color: Color(0xFF808090)),
+                      style: FluxForgeTheme.dockSans(
+                        color: const Color(0xFF808090),
+                      ),
                     ),
                   ),
                 ],
@@ -466,10 +469,10 @@ class LockedParametersDialog extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 6, top: 8),
             child: Text(
               category.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF606070),
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.bold,
+                color: const Color(0xFF606070),
                 letterSpacing: 1,
               ),
             ),
@@ -500,17 +503,17 @@ class LockedParametersDialog extends StatelessWidget {
               children: [
                 Text(
                   param.displayName,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFFE0E0E8),
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w500,
+                    color: const Color(0xFFE0E0E8),
                   ),
                 ),
                 Text(
                   'Value: ${param.lockedValue.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: Color(0xFF808090),
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
+                    color: const Color(0xFF808090),
                   ),
                 ),
               ],
@@ -581,8 +584,8 @@ class LockableSlider extends StatelessWidget {
             width: 80,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: isLocked ? const Color(0xFFFF9040) : const Color(0xFFB0B0B8),
               ),
               overflow: TextOverflow.ellipsis,
@@ -614,9 +617,8 @@ class LockableSlider extends StatelessWidget {
             width: 50,
             child: Text(
               '${value.toStringAsFixed(1)}${suffix ?? ''}',
-              style: TextStyle(
-                fontSize: 10,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: isLocked ? const Color(0xFFFF9040) : const Color(0xFF808090),
               ),
               textAlign: TextAlign.right,

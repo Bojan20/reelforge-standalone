@@ -6,6 +6,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Panel types that support opacity control
 enum OpacityPanel {
@@ -286,20 +287,20 @@ class _PanelOpacityControlPanelState extends State<PanelOpacityControlPanel> {
       children: [
         const Icon(Icons.opacity, size: 18, color: Color(0xFF4A9EFF)),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'Panel Opacity',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 14,
+            weight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
         const Spacer(),
         TextButton(
           onPressed: () => provider.resetToDefaults(),
-          child: const Text(
+          child: Text(
             'Reset',
-            style: TextStyle(fontSize: 12, color: Color(0xFF808080)),
+            style: FluxForgeTheme.dockSans(size: 12, color: const Color(0xFF808080)),
           ),
         ),
       ],
@@ -315,14 +316,14 @@ class _PanelOpacityControlPanelState extends State<PanelOpacityControlPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Enable Opacity Control',
-                    style: TextStyle(fontSize: 12, color: Colors.white),
+                    style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                   ),
                   Text(
                     config.globalEnabled ? 'Active' : 'Disabled',
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: config.globalEnabled
                           ? const Color(0xFF40FF90)
                           : const Color(0xFF808080),
@@ -343,16 +344,15 @@ class _PanelOpacityControlPanelState extends State<PanelOpacityControlPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Global Multiplier',
-                style: TextStyle(fontSize: 12, color: Color(0xFF808080)),
+                style: FluxForgeTheme.dockSans(size: 12, color: const Color(0xFF808080)),
               ),
               Text(
                 '${(config.globalMultiplier * 100).toInt()}%',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                  color: Color(0xFF4A9EFF),
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
+                  color: const Color(0xFF4A9EFF),
                 ),
               ),
             ],
@@ -381,9 +381,9 @@ class _PanelOpacityControlPanelState extends State<PanelOpacityControlPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Panel Settings',
-          style: TextStyle(fontSize: 12, color: Color(0xFF808080)),
+          style: FluxForgeTheme.dockSans(size: 12, color: const Color(0xFF808080)),
         ),
         const SizedBox(height: 12),
         ...OpacityPanel.values.map(
@@ -411,7 +411,7 @@ class _PanelOpacityControlPanelState extends State<PanelOpacityControlPanel> {
               const SizedBox(width: 8),
               Text(
                 panel.displayName,
-                style: const TextStyle(fontSize: 12, color: Colors.white),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
               ),
               const Spacer(),
               Container(
@@ -425,9 +425,9 @@ class _PanelOpacityControlPanelState extends State<PanelOpacityControlPanel> {
                 alignment: Alignment.center,
                 child: Text(
                   '${(effectiveOpacity * 100).toInt()}%',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
@@ -492,7 +492,7 @@ class OpacityPresetButtons extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF808080)),
+              style: FluxForgeTheme.dockSans(size: 11, color: const Color(0xFF808080)),
             ),
           ],
         ),
