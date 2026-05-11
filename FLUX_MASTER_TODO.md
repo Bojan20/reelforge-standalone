@@ -1,7 +1,14 @@
 # FluxForge Studio — MASTER TODO (definitive)
 
-> Ažurirano: 2026-05-06 · Grana: `fix/ci-infra`
+> Ažurirano: 2026-05-11 (Sprint 16 zatvoren) · Grana: `main`
 > Sinhronizovano sa `FLUX_MASTER_VISION_2026.md` (1,689 linija, 18,057 reči).
+>
+> **STATUS QUICK GLANCE (2026-05-11):**
+> - Sprint 14 ✅ DONE — duboki audit close-out (A.1–A.7, B.1/B.3–B.7, D.1/D.2, E, F.1, G)
+> - Sprint 15 ✅ DONE — monolith split (-79%), F.2–F.7 Rust API, D.3 async tests, B.2 typography (62 batch-eva)
+> - Sprint 16 ✅ DONE — C.4/C.5 polish, I.1–I.3 FluxTooltip, G.2/G.3/G.4/G.8–G.14/G.20 wire-up, A.1 Material Colors close-out, H.4/H.6, E.2 (3.6.G), 3.6.H, 3.7.K, C.1, FAZA 4.1
+> - Detalj: `HELIX_QA_MASTER_TODO.md` — sve faze sa commit hash-evima.
+> - Testovi: **1113/1113 Flutter, 613/613 rf-engine, 13/13 rf-copilot, 0 analyze errors.**
 
 ---
 
@@ -131,7 +138,7 @@
 | H.1 | **1.5.2 Phase 3 — Real subprocess plugin host binary** — `flux-plugin-host` binary, mmap shared buffer, cmd channel pipes. Trenutno `Command::new("true")` placeholder. | `crates/rf-plugin/src/sandbox.rs` + new binary crate | XL (2 ned) | 🔴 OPEN |
 | H.2 | **2.3.2 — slot_lab_screen.dart split** (15K LOC) — zahteva prethodni `TimelineProvider`/`GameFlowProvider` extract. | `lib/screens/slot_lab_screen.dart` | XL (2 ned) | 🔴 BLOCKED on Provider extract |
 | H.3 | **2.3.3 — premium_slot_preview.dart split** (7.7K LOC) — zahteva `AnimationController` graph extract. | `lib/widgets/slot_lab/premium_slot_preview.dart` | L (1 ned) | 🔴 BLOCKED on AnimationGraph |
-| H.4 | **2B.3.7 — Context menu "Explain this"** — zavisi od FAZA 4 (rf-copilot + lokalni LLM). | — | — | 🔴 BLOCKED on FAZA 4 |
+| H.4 | **2B.3.7 — Context menu "Explain this"** — zavisi od FAZA 4 (rf-copilot + lokalni LLM). | `lib/services/copilot/copilot_explainer.dart` (NEW 895 LOC) + `lib/widgets/copilot/explain_this_overlay.dart` (NEW 459 LOC) | L (1 dan) | ✅ DONE 2026-05-11 (`762db9f9`) — rule-based param explainer registry sa 46 slot audio parametara (description / typical values / compliance note / rule chip / tips); fuzzy lookup; extensible. Right-click + long-press → glassmorphism bottom sheet overlay. Registered u `service_locator.dart`. FAZA 4 dependency razrešen kroz curated rule-set umesto live LLM-a — instant response, deterministički, 0 latency. |
 | H.5 | **3.5.3 — Personalized HRTF (HRTFformer / graph NN)** | `crates/rf-spatial/src/hrtf/personalized.rs` (novi) | XL (1 mes) | 🔴 OPEN |
 | H.6 | **MIX dock cross-link state** (3.6.B follow-up) — klik na clash ribbon → otvara MIX dock-tab sa offending layer-ima već selected. | `widgets/helix/timeline_intelligence.dart` + MIX panel | M (3 h) | ✅ DONE — `_Pill` → `StatefulWidget` sa `onTap`/`MouseRegion`/hover glow/pointer cursor + `_ClashBadge.onTap` wired na `SlotLabLowerZoneController.instance.setSuperTab(SlotLabSuperTab.mix)`; tooltip shows "▶ Tap to open MIX dock" hint; `open_in_new_rounded` icon na tappable pill-u. flutter analyze 0 errors, 33/33 testovi zeleni. |
 
