@@ -309,6 +309,29 @@ class SlotLabCoordinator extends ChangeNotifier {
   List<ScenarioInfo> get availableScenarios => engineProvider.availableScenarios;
   String? get loadedScenarioId => engineProvider.loadedScenarioId;
 
+  // ─── 3.6.H Reference Stage Cache ─────────────────────────────────────────
+  // Stores a frozen snapshot of any spin's stages so the Per-Spin Profile
+  // Compare UI can overlay REF vs LIVE in StageFlowStrip dual-track mode.
+  List<SlotLabStageEvent>? _referenceStages;
+
+  /// Frozen reference snapshot saved by the user via "⊞ REF" action.
+  List<SlotLabStageEvent>? get referenceStages => _referenceStages;
+
+  /// Saves the current [lastStages] snapshot as the reference profile.
+  /// Triggers a notifyListeners so StageFlowStrip rebuilds with compare UI.
+  void saveAsReference() {
+    final current = stageProvider.lastStages;
+    if (current.isEmpty) return;
+    _referenceStages = List<SlotLabStageEvent>.from(current);
+    notifyListeners();
+  }
+
+  /// Clears the saved reference profile and exits compare mode.
+  void clearReference() {
+    _referenceStages = null;
+    notifyListeners();
+  }
+
   // --- Stage State ---
   List<SlotLabStageEvent> get lastStages => stageProvider.lastStages;
   List<PooledStageEvent> get pooledStages => stageProvider.pooledStages;
