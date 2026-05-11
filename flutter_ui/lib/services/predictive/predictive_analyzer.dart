@@ -25,6 +25,7 @@ library;
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get_it/get_it.dart';
 
 import '../../providers/slot_lab/spectral_dna_classifier.dart';
@@ -112,6 +113,13 @@ class PredictiveAnalyzer {
 
   PredictiveAnalyzer(NativeFFI ffi)
       : _classifier = SpectralDnaClassifier(ffi);
+
+  /// Test factory — koristi pravi `NativeFFI.instance` koji se NIKAD ne
+  /// poziva jer testovi pristupaju samo `recordFeedback` / `feedbackStream`
+  /// (no FFI). NE koristi se u production kodu.
+  @visibleForTesting
+  PredictiveAnalyzer.forTest()
+      : _classifier = SpectralDnaClassifier(NativeFFI.instance);
 
   /// Convenience za GetIt: `sl<PredictiveAnalyzer>()`
   static PredictiveAnalyzer get instance =>

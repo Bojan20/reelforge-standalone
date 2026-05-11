@@ -70,6 +70,7 @@ import 'recent_favorites_service.dart';
 import 'plugin_state_service.dart';
 import 'missing_plugin_detector.dart';
 import 'predictive/predictive_analyzer.dart';
+import 'predictive/routing_feedback_log.dart';
 import '../controllers/middleware_timeline_sync_controller.dart';
 import '../providers/event_folder_provider.dart';
 import '../providers/aurexis_provider.dart';
@@ -213,6 +214,14 @@ class ServiceLocator {
     sl.registerLazySingleton<PredictiveAnalyzer>(
       () => PredictiveAnalyzer(sl<NativeFFI>()),
     );
+
+    // FAZA 4.4.5 — Feedback log singleton. Attach na analyzer rano da ne
+    // propusti event-e iz prve interakcije.
+    sl.registerLazySingleton<RoutingFeedbackLog>(() {
+      final log = RoutingFeedbackLog.instance;
+      log.attach(sl<PredictiveAnalyzer>());
+      return log;
+    });
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 1b: Hook Graph Engine (initialized immediately after FFI)
@@ -1028,6 +1037,10 @@ class ServiceLocator {
 
     // Initialize plugin alternatives registry
     PluginAlternativesRegistry.instance.initBuiltInAlternatives();
+
+    // FAZA 4.4.5 — eager-init feedback log tako da listenuje od prvog
+    // dropa (lazy bi propustio rane event-e).
+    sl<RoutingFeedbackLog>();
 
     _initialized = true;
   }
