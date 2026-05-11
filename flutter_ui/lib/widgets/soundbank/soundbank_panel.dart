@@ -144,11 +144,11 @@ class _SoundbankPanelState extends State<SoundbankPanel>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgSurface,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.library_add, color: FluxForgeTheme.accentBlue, size: 24),
-            SizedBox(width: 12),
-            Text('Create Soundbank', style: TextStyle(color: Colors.white)),
+            const Icon(Icons.library_add, color: FluxForgeTheme.accentBlue, size: 24),
+            const SizedBox(width: 12),
+            Text('Create Soundbank', style: FluxForgeTheme.dockSans(color: Colors.white)),
           ],
         ),
         content: SizedBox(
@@ -207,13 +207,13 @@ class _SoundbankPanelState extends State<SoundbankPanel>
           children: [
             const Icon(Icons.warning_amber, color: FluxForgeTheme.accentRed, size: 24),
             const SizedBox(width: 12),
-            Text('Delete "${bank.manifest.name}"?', style: const TextStyle(color: Colors.white)),
+            Text('Delete "${bank.manifest.name}"?', style: FluxForgeTheme.dockSans(color: Colors.white)),
           ],
         ),
         content: Text(
           'This will permanently delete the soundbank and all its configuration.\n'
           'Audio files will not be deleted.',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+          style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7)),
         ),
         actions: [
           TextButton(
@@ -239,10 +239,10 @@ class _SoundbankPanelState extends State<SoundbankPanel>
     return TextField(
       controller: controller,
       autofocus: autofocus,
-      style: const TextStyle(color: Colors.white),
+      style: FluxForgeTheme.dockSans(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+        labelStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7)),
         filled: true,
         fillColor: FluxForgeTheme.bgDeepest,
         border: OutlineInputBorder(
@@ -449,9 +449,9 @@ class _BankListPanel extends StatelessWidget {
                 const PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
                 const PopupMenuItem(value: 'export', child: Text('Export...')),
                 const PopupMenuDivider(),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
-                  child: Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
+                  child: Text('Delete', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed)),
                 ),
               ],
               onSelected: (action) {
@@ -663,7 +663,7 @@ class _AssetsTab extends StatelessWidget {
                   style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                   decoration: InputDecoration(
                     hintText: 'Search assets...',
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                    hintStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3)),
                     prefixIcon: Icon(Icons.search, size: 16, color: Colors.white.withValues(alpha: 0.5)),
                     filled: true,
                     fillColor: FluxForgeTheme.bgDeepest,

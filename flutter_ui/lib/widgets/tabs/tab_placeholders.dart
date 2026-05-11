@@ -36,17 +36,17 @@ class _TabPlaceholder extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 18,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               description,
-              style: TextStyle(
-                fontSize: 12,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -274,8 +274,8 @@ class ConsoleTabPlaceholder extends StatelessWidget {
               children: [
                 Text(
                   'Console',
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.textSecondary,
                   ),
                 ),
@@ -297,8 +297,8 @@ class ConsoleTabPlaceholder extends StatelessWidget {
                 ? Center(
                     child: Text(
                       'No messages',
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
                         color: FluxForgeTheme.textTertiary,
                       ),
                     ),
@@ -311,9 +311,8 @@ class ConsoleTabPlaceholder extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 2),
                         child: Text(
                           messages[index],
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontFamily: 'monospace',
+                          style: FluxForgeTheme.dockMono(
+                            size: 11,
                             color: FluxForgeTheme.textSecondary,
                           ),
                         ),
@@ -347,17 +346,17 @@ class ValidationTabPlaceholder extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               'Project Validation',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 18,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'No issues found',
-              style: TextStyle(
-                fontSize: 12,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.accentGreen,
               ),
             ),

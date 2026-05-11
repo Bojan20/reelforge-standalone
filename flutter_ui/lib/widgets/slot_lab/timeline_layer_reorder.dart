@@ -10,6 +10,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../theme/fluxforge_theme.dart';
+
 // =============================================================================
 // LAYER ITEM MODEL (simplified for reorder widget)
 // =============================================================================
@@ -104,14 +106,14 @@ class _TimelineLayerReorderState extends State<TimelineLayerReorder> {
         children: [
           const Icon(Icons.layers, size: 16, color: Color(0xFF4A9EFF)),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Layer Order',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold),
           ),
           const Spacer(),
           Text(
             '${widget.layers.length} layers',
-            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            style: FluxForgeTheme.dockMono(size: 10, color: Colors.grey[600]!),
           ),
         ],
       ),
@@ -128,7 +130,7 @@ class _TimelineLayerReorderState extends State<TimelineLayerReorder> {
             const SizedBox(height: 8),
             Text(
               'No layers',
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[600]!),
             ),
           ],
         ),
@@ -188,7 +190,7 @@ class _TimelineLayerReorderState extends State<TimelineLayerReorder> {
                   Expanded(
                     child: Text(
                       layer.name,
-                      style: const TextStyle(fontSize: 11, color: Colors.white),
+                      style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -269,7 +271,7 @@ class _TimelineLayerReorderState extends State<TimelineLayerReorder> {
               child: Center(
                 child: Text(
                   '${index + 1}',
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.bold),
                 ),
               ),
             ),
@@ -290,12 +292,11 @@ class _TimelineLayerReorderState extends State<TimelineLayerReorder> {
             Expanded(
               child: Text(
                 layer.name,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   color: layer.isMuted ? Colors.grey : Colors.white,
-                  decoration: layer.isMuted ? TextDecoration.lineThrough : null,
-                ),
+                ).copyWith(decoration: layer.isMuted ? TextDecoration.lineThrough : null),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -309,7 +310,7 @@ class _TimelineLayerReorderState extends State<TimelineLayerReorder> {
               ),
               child: Text(
                 _formatDuration(layer.durationMs),
-                style: TextStyle(fontSize: 9, color: Colors.grey[500]),
+                style: FluxForgeTheme.dockMono(size: 9, color: Colors.grey[500]!),
               ),
             ),
 

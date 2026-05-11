@@ -367,12 +367,12 @@ class EventDependencyGraphState extends State<EventDependencyGraph>
         children: [
           Icon(Icons.account_tree, size: 16, color: widget.accentColor),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Event Dependency Graph',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -380,9 +380,9 @@ class EventDependencyGraphState extends State<EventDependencyGraph>
             '${_nodes.where((n) => n.type == EventNodeType.stage).length} stages  '
             '${_nodes.where((n) => n.type == EventNodeType.event).length} events  '
             '${_nodes.where((n) => n.type == EventNodeType.audio).length} audio',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
             ),
           ),
           const SizedBox(width: 12),
@@ -396,7 +396,10 @@ class EventDependencyGraphState extends State<EventDependencyGraph>
           ),
           Text(
             '${(_scale * 100).round()}%',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              color: FluxForgeTheme.textSecondary,
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.zoom_in, size: 16),
@@ -427,10 +430,10 @@ class EventDependencyGraphState extends State<EventDependencyGraph>
       top: 8,
       child: Text(
         label,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 10 * _scale,
+          weight: FontWeight.w500,
           color: FluxForgeTheme.textSecondary,
-          fontSize: 10 * _scale,
-          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -504,10 +507,10 @@ class EventDependencyGraphState extends State<EventDependencyGraph>
                 Expanded(
                   child: Text(
                     node.label,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10 * _scale,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       color: Colors.white,
-                      fontSize: 10 * _scale,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -549,9 +552,9 @@ class EventDependencyGraphState extends State<EventDependencyGraph>
           const Spacer(),
           Text(
             'Drag to reposition  |  Click to select',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
             ),
           ),
         ],
@@ -567,7 +570,10 @@ class EventDependencyGraphState extends State<EventDependencyGraph>
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            color: FluxForgeTheme.textSecondary,
+          ),
         ),
       ],
     );

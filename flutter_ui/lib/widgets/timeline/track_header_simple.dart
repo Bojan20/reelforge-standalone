@@ -143,10 +143,10 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
                         width: 18,
                         child: Text(
                           '${widget.trackNumber}',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
+                            size: 10,
+                            weight: FontWeight.w600,
                             color: FluxForgeTheme.textTertiary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -178,8 +178,8 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     '${track.childTrackIds.length} track${track.childTrackIds.length == 1 ? '' : 's'}',
-                    style: TextStyle(
-                      fontSize: 9,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
                       color: FluxForgeTheme.textTertiary,
                     ),
                   ),
@@ -258,10 +258,10 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
         controller: _nameController,
         focusNode: _focusNode,
         autofocus: true,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 11,
+          weight: FontWeight.w500,
           color: FluxForgeTheme.textPrimary,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
         ),
         decoration: const InputDecoration(
           border: InputBorder.none,
@@ -275,11 +275,11 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
 
     return Text(
       widget.track.name,
-      style: TextStyle(
+      style: FluxForgeTheme.dockSans(
+        size: 11,
+        weight: FontWeight.w600,
         color: widget.track.muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary,
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-      ),
+      ).copyWith(overflow: TextOverflow.ellipsis),
       overflow: TextOverflow.ellipsis,
     );
   }
@@ -295,7 +295,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
   Widget _buildVolumeRow() {
     return Row(
       children: [
-        Text('Vol', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
+        Text('Vol', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary)),
         const SizedBox(width: 6),
         Expanded(
           child: _VolumeSlider(
@@ -308,9 +308,8 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
           width: 28,
           child: Text(
             _formatDb(widget.track.volume),
-            style: TextStyle(
-              fontSize: 9,
-              fontFamily: 'JetBrains Mono',
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: FluxForgeTheme.textSecondary,
             ),
             textAlign: TextAlign.right,
@@ -375,9 +374,9 @@ class _MiniButton extends StatelessWidget {
           child: Center(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w700,
                 color: active ? Colors.white : FluxForgeTheme.textTertiary,
               ),
             ),

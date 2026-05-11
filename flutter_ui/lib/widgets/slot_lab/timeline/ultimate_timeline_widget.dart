@@ -16,6 +16,7 @@ import 'package:flutter/gestures.dart';
 import '../../../models/timeline/timeline_state.dart';
 import '../../../models/timeline/audio_region.dart';
 import '../../../controllers/slot_lab/timeline_controller.dart';
+import '../../../theme/fluxforge_theme.dart';
 import 'timeline_ruler.dart';
 import 'timeline_grid_painter.dart';
 import 'timeline_waveform_painter.dart';
@@ -191,9 +192,9 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
               ),
               child: Text(
                 marker.label,
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w600,
                   color: Colors.white,
                 ),
               ),
@@ -263,9 +264,9 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
           // Track name
           Text(
             track.name,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               color: Colors.white,
             ),
             maxLines: 1,
@@ -301,10 +302,14 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
             color: track.isMuted ? const Color(0xFFFF9040) : Colors.white.withValues(alpha: 0.3),
           ),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
             'M',
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
       ),
@@ -327,9 +332,9 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
         child: Center(
           child: Text(
             'S',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
               color: track.isSoloed ? Colors.black : Colors.white,
             ),
           ),
@@ -351,10 +356,14 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
             color: track.isRecordArmed ? const Color(0xFFFF4060) : Colors.white.withValues(alpha: 0.3),
           ),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
             'R',
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
       ),
@@ -409,7 +418,10 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
                 Center(
                   child: Text(
                     region.audioPath.split('/').last,
-                    style: const TextStyle(fontSize: 9, color: Colors.white54),
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
+                      color: Colors.white54,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -550,12 +562,11 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
           // Playhead time display
           Text(
             _formatPlayheadTime(state.playheadPosition, state.timeDisplayMode),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockMono(
+              size: 11,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
+            ).copyWith(fontFeatures: [const FontFeature.tabularFigures()]),
           ),
 
           const Spacer(),

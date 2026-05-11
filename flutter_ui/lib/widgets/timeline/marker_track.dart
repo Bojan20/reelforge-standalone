@@ -188,9 +188,13 @@ class _MarkerTrackState extends State<MarkerTrack> {
               children: [
                 const Icon(Icons.bookmark, size: 16, color: FluxForgeTheme.accentOrange),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Markers',
-                  style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
                 const Spacer(),
                 PopupMenuButton<MarkerType>(
@@ -199,33 +203,33 @@ class _MarkerTrackState extends State<MarkerTrack> {
                   color: FluxForgeTheme.bgMid,
                   onSelected: (type) => widget.onAddMarker?.call(0, type),
                   itemBuilder: (ctx) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: MarkerType.position,
                       child: Row(
                         children: [
-                          Icon(Icons.place, size: 14, color: FluxForgeTheme.accentBlue),
-                          SizedBox(width: 8),
-                          Text('Position Marker', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          const Icon(Icons.place, size: 14, color: FluxForgeTheme.accentBlue),
+                          const SizedBox(width: 8),
+                          Text('Position Marker', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white)),
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: MarkerType.cycle,
                       child: Row(
                         children: [
-                          Icon(Icons.loop, size: 14, color: FluxForgeTheme.accentGreen),
-                          SizedBox(width: 8),
-                          Text('Cycle Region', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          const Icon(Icons.loop, size: 14, color: FluxForgeTheme.accentGreen),
+                          const SizedBox(width: 8),
+                          Text('Cycle Region', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white)),
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: MarkerType.arrangement,
                       child: Row(
                         children: [
-                          Icon(Icons.view_column, size: 14, color: FluxForgeTheme.accentOrange),
-                          SizedBox(width: 8),
-                          Text('Arrangement', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          const Icon(Icons.view_column, size: 14, color: FluxForgeTheme.accentOrange),
+                          const SizedBox(width: 8),
+                          Text('Arrangement', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white)),
                         ],
                       ),
                     ),

@@ -3,6 +3,7 @@
 
 import 'dart:ffi' as ffi;
 import 'package:flutter/material.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // FFI bindings for freeze operations
 typedef TrackFreezeNative = ffi.Int32 Function(
@@ -263,10 +264,10 @@ class FreezeContextMenu extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             'Track ${trackId + 1}',
-            style: const TextStyle(
-              color: Color(0xFFe0e0e0),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
+              color: const Color(0xFFe0e0e0),
             ),
           ),
           const Spacer(),
@@ -280,12 +281,12 @@ class FreezeContextMenu extends StatelessWidget {
             ),
             child: Text(
               state == FreezeState.frozen ? 'FROZEN' : 'LIVE',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: state == FreezeState.frozen
                     ? const Color(0xFF40c8ff)
                     : const Color(0xFF8a8a90),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -320,17 +321,17 @@ class FreezeContextMenu extends StatelessWidget {
                   children: [
                     Text(
                       label,
-                      style: const TextStyle(
-                        color: Color(0xFFe0e0e0),
-                        fontSize: 12,
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
+                        color: const Color(0xFFe0e0e0),
                       ),
                     ),
                     if (subtitle != null)
                       Text(
                         subtitle,
-                        style: const TextStyle(
-                          color: Color(0xFF6a6a70),
-                          fontSize: 10,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          color: const Color(0xFF6a6a70),
                         ),
                       ),
                   ],
@@ -381,12 +382,12 @@ class FreezeCacheInfo extends StatelessWidget {
                 color: Color(0xFF40c8ff),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Freeze Cache',
-                style: TextStyle(
-                  color: Color(0xFFe0e0e0),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
+                  weight: FontWeight.w600,
+                  color: const Color(0xFFe0e0e0),
                 ),
               ),
               const Spacer(),
@@ -419,17 +420,17 @@ class FreezeCacheInfo extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFF6a6a70),
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            color: const Color(0xFF6a6a70),
           ),
         ),
         Text(
           value,
-          style: const TextStyle(
-            color: Color(0xFFe0e0e0),
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+          style: FluxForgeTheme.dockMono(
+            size: 14,
+            weight: FontWeight.w500,
+            color: const Color(0xFFe0e0e0),
           ),
         ),
       ],
