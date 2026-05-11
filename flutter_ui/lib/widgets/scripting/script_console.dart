@@ -237,10 +237,10 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
           const SizedBox(width: 8),
           Text(
             'SCRIPT CONSOLE',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
+              weight: FontWeight.bold,
+              size: 12,
               letterSpacing: 1.2,
             ),
           ),
@@ -270,11 +270,11 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
                 const SizedBox(width: 4),
                 Text(
                   provider.isInitialized ? 'Ready' : 'Initializing...',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: provider.isInitialized
                         ? FluxForgeTheme.accentGreen
                         : FluxForgeTheme.accentOrange,
-                    fontSize: 10,
+                    size: 10,
                   ),
                 ),
               ],
@@ -311,7 +311,7 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
         indicatorColor: FluxForgeTheme.accentCyan,
         labelColor: FluxForgeTheme.accentCyan,
         unselectedLabelColor: FluxForgeTheme.textSecondary,
-        labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+        labelStyle: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w500),
         tabs: const [
           Tab(text: 'CONSOLE', height: 32),
           Tab(text: 'SCRIPTS', height: 32),
@@ -348,11 +348,10 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
             children: [
               Text(
                 'lua>',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: FluxForgeTheme.accentCyan,
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
               const SizedBox(width: 8),
@@ -362,17 +361,15 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
                   onKeyEvent: _handleKeyEvent,
                   child: TextField(
                     controller: _inputController,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.textPrimary,
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
+                      size: 12,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Enter Lua code...',
-                      hintStyle: TextStyle(
+                      hintStyle: FluxForgeTheme.dockMono(
                         color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 12,
+                        size: 12,
                       ),
                       border: InputBorder.none,
                       isDense: true,
@@ -422,10 +419,9 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: SelectableText(
         entry.text,
-        style: TextStyle(
+        style: FluxForgeTheme.dockMono(
           color: textColor,
-          fontFamily: 'JetBrains Mono',
-          fontSize: 11,
+          size: 11,
         ),
       ),
     );
@@ -446,10 +442,10 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
             children: [
               Expanded(
                 child: TextField(
-                  style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 11),
                   decoration: InputDecoration(
                     hintText: 'Search scripts...',
-                    hintStyle: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                    hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
                     prefixIcon: Icon(Icons.search, size: 16, color: FluxForgeTheme.textSecondary),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
@@ -522,9 +518,9 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
                       const SizedBox(height: 12),
                       Text(
                         'No scripts loaded',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 12,
+                          size: 12,
                         ),
                       ),
                     ],
@@ -562,18 +558,18 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
         ),
         title: Text(
           script.name,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+            size: 12,
+            weight: FontWeight.w500,
           ),
         ),
         subtitle: script.description.isNotEmpty
             ? Text(
                 script.description,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
+                  size: 10,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -591,10 +587,10 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
                 ),
                 child: Text(
                   'BUILTIN',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.accentOrange,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
+                    size: 8,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),

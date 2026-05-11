@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
+import '../../../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODEL
@@ -228,7 +229,7 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
           const SizedBox(width: 8),
           Text(
             '${_service.count} open',
-            style: const TextStyle(fontSize: 10, color: _kSecondary),
+            style: FluxForgeTheme.dockMono(size: 10, color: _kSecondary),
           ),
           const Spacer(),
           _iconBtn(Icons.add, 'New Tab',
@@ -305,7 +306,7 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
                 child: TextField(
                   controller: _renameCtrl,
                   focusNode: _renameFocus,
-                  style: const TextStyle(fontSize: 11, color: _kText),
+                  style: FluxForgeTheme.dockSans(size: 11, color: _kText),
                   decoration: const InputDecoration(
                     isDense: true,
                     contentPadding:
@@ -324,9 +325,9 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
                 constraints: const BoxConstraints(maxWidth: 140),
                 child: Text(
                   tab.name,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: isActive ? FontWeight.w600 : FontWeight.normal,
                     color: isActive ? _kText : _kSecondary,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -397,7 +398,7 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
               child: TextField(
                 controller: _nameCtrl,
                 focusNode: _nameFocus,
-                style: const TextStyle(fontSize: 11, color: _kText),
+                style: FluxForgeTheme.dockSans(size: 11, color: _kText),
                 decoration: _inputDeco('Project name...'),
               ),
             ),
@@ -409,7 +410,7 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
               child: TextField(
                 controller: _pathCtrl,
                 focusNode: _pathFocus,
-                style: const TextStyle(fontSize: 11, color: _kText),
+                style: FluxForgeTheme.dockSans(size: 11, color: _kText),
                 decoration: _inputDeco('Path (optional)...'),
                 onSubmitted: (_) => _addTab(),
               ),
@@ -445,9 +446,9 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
   Widget _buildTabDetail() {
     final tab = _service.activeTab;
     if (tab == null) {
-      return const Center(
+      return Center(
         child: Text('No active tab',
-            style: TextStyle(color: _kSecondary, fontSize: 12)),
+            style: FluxForgeTheme.dockSans(color: _kSecondary, size: 12)),
       );
     }
 
@@ -469,9 +470,9 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
                     Expanded(
                       child: Text(
                         tab.name,
-                        style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                            size: 13,
+                            weight: FontWeight.w600,
                             color: _kText),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -485,10 +486,10 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
                           color: FabFilterColors.orange.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(3),
                         ),
-                        child: const Text('UNSAVED',
-                            style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
+                        child: Text('UNSAVED',
+                            style: FluxForgeTheme.dockSans(
+                                size: 8,
+                                weight: FontWeight.bold,
                                 color: FabFilterColors.orange)),
                       ),
                   ],
@@ -496,13 +497,13 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
                 const SizedBox(height: 6),
                 if (tab.path.isNotEmpty)
                   Text('Path: ${tab.path}',
-                      style: const TextStyle(fontSize: 10, color: _kSecondary),
+                      style: FluxForgeTheme.dockSans(size: 10, color: _kSecondary),
                       overflow: TextOverflow.ellipsis),
                 Text(
                     'Created: ${_formatDateTime(tab.createdAt)}',
-                    style: const TextStyle(fontSize: 10, color: _kSecondary)),
+                    style: FluxForgeTheme.dockSans(size: 10, color: _kSecondary)),
                 Text('Tab index: ${_service.activeIndex + 1} of ${_service.count}',
-                    style: const TextStyle(fontSize: 10, color: _kSecondary)),
+                    style: FluxForgeTheme.dockSans(size: 10, color: _kSecondary)),
               ],
             ),
           ),
@@ -592,8 +593,8 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
                   color: enabled ? _kSecondary : FabFilterColors.textDisabled),
               const SizedBox(width: 6),
               Text(label,
-                  style: TextStyle(
-                      fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: enabled
                           ? _kSecondary
                           : FabFilterColors.textDisabled)),
@@ -606,7 +607,7 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
 
   InputDecoration _inputDeco(String hint) => InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: _kSecondary, fontSize: 11),
+        hintStyle: FluxForgeTheme.dockSans(color: _kSecondary, size: 11),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         border: OutlineInputBorder(

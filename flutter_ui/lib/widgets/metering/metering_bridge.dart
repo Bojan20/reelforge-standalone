@@ -273,13 +273,10 @@ class _KSystemMeter extends StatelessWidget {
           onTap: onResetPeaks,
           child: Container(
             height: 20,
-            child: const Center(
+            child: Center(
               child: Text(
                 'RESET PEAKS',
-                style: TextStyle(
-                  color: FluxForgeTheme.textTertiary,
-                  fontSize: 8,
-                ),
+                style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textTertiary),
               ),
             ),
           ),
@@ -320,12 +317,10 @@ class _KSystemButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            color: selected
-                ? FluxForgeTheme.accentBlue
-                : FluxForgeTheme.textTertiary,
-            fontSize: 9,
-            fontWeight: FontWeight.w500,
+          style: FluxForgeTheme.dockMono(
+            size: 9,
+            weight: FontWeight.w500,
+            color: selected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
           ),
         ),
       ),
@@ -356,10 +351,10 @@ class _KMeterBar extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w500,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 4),
@@ -668,12 +663,9 @@ class _CorrelationMeter extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('-1', style: TextStyle(
-                color: FluxForgeTheme.textTertiary, fontSize: 8)),
-              const Text('CORRELATION', style: TextStyle(
-                color: FluxForgeTheme.textSecondary, fontSize: 8)),
-              const Text('+1', style: TextStyle(
-                color: FluxForgeTheme.textTertiary, fontSize: 8)),
+              Text('-1', style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary)),
+              Text('CORRELATION', style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textSecondary)),
+              Text('+1', style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary)),
             ],
           ),
           const SizedBox(height: 2),
@@ -763,8 +755,7 @@ class _BalanceMeter extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Column(
         children: [
-          const Text('BALANCE', style: TextStyle(
-            color: FluxForgeTheme.textSecondary, fontSize: 8)),
+          Text('BALANCE', style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textSecondary)),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -883,31 +874,23 @@ class _LoudnessValue extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  color: highlight
-                      ? FluxForgeTheme.accentBlue
-                      : FluxForgeTheme.textTertiary,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.w500,
+                  color: highlight ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
                 ),
               ),
               Text(
                 value > -70 ? value.toStringAsFixed(1) : '-∞',
-                style: TextStyle(
-                  color: highlight
-                      ? FluxForgeTheme.textPrimary
-                      : FluxForgeTheme.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 13,
+                  weight: FontWeight.w600,
+                  color: highlight ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
                 ),
               ),
               Text(
                 unit,
-                style: const TextStyle(
-                  color: FluxForgeTheme.textTertiary,
-                  fontSize: 6,
-                ),
+                style: FluxForgeTheme.dockSans(size: 6, color: FluxForgeTheme.textTertiary),
               ),
             ],
           ),
@@ -1055,23 +1038,20 @@ class _TruePeakDisplay extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             'TRUE PEAK',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w500,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
             ),
           ),
           Text(
             'L: ${_formatDb(peakDbL)} | R: ${_formatDb(peakDbR)} dBTP',
-            style: TextStyle(
-              color: isOver
-                  ? const Color(0xFFFF4040)
-                  : FluxForgeTheme.textPrimary,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.w600,
+              color: isOver ? const Color(0xFFFF4040) : FluxForgeTheme.textPrimary,
             ),
           ),
         ],

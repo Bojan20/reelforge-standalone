@@ -248,10 +248,10 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
         const SizedBox(width: 8),
         Text(
           'HOLD & WIN',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: _state.isActive ? Colors.amber : Colors.white54,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
             letterSpacing: 1.2,
           ),
         ),
@@ -271,19 +271,18 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
                 const SizedBox(width: 4),
                 Text(
                   '${_state.remainingRespins}',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: Colors.amber,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
+                    size: 14,
+                    weight: FontWeight.bold,
                   ),
                 ),
-                const Text(
+                Text(
                   ' RESPINS',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.amber,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                    size: 10,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -292,10 +291,10 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
         else
           Text(
             'INACTIVE',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white38,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
+              size: 10,
+              weight: FontWeight.w500,
             ),
           ),
       ],
@@ -364,10 +363,9 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
           : Center(
               child: Text(
                 '${position + 1}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: Colors.white12,
-                  fontSize: 10,
-                  fontFamily: 'monospace',
+                  size: 10,
                 ),
               ),
             ),
@@ -381,10 +379,10 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
         if (symbol.symbolType != HoldSymbolType.normal)
           Text(
             symbol.symbolType.label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: symbol.symbolType.color,
-              fontSize: 8,
-              fontWeight: FontWeight.bold,
+              size: 8,
+              weight: FontWeight.bold,
             ),
           ),
         Icon(
@@ -394,11 +392,10 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
         ),
         Text(
           _formatValue(symbol.value),
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'monospace',
+            size: 10,
+            weight: FontWeight.bold,
           ),
         ),
       ],
@@ -416,19 +413,18 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
           children: [
             Text(
               'GRID FILL',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white54,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+                size: 10,
+                weight: FontWeight.w500,
               ),
             ),
             Text(
               '${(percentage * 100).toStringAsFixed(0)}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: percentage >= 1.0 ? Colors.green : Colors.amber,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ],
@@ -499,10 +495,10 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
               const SizedBox(width: 4),
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
+                  size: 9,
+                  weight: FontWeight.w500,
                 ),
               ),
             ],
@@ -510,11 +506,10 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -642,10 +637,10 @@ class _HoldAndWinStatusBadgeState extends State<HoldAndWinStatusBadge> {
           const SizedBox(width: 4),
           Text(
             'H&W',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.amber,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              size: 10,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 4),
@@ -670,11 +665,10 @@ class _HoldAndWinStatusBadgeState extends State<HoldAndWinStatusBadge> {
           const SizedBox(width: 4),
           Text(
             '$_remainingRespins',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.amber,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              size: 10,
+              weight: FontWeight.bold,
             ),
           ),
         ],

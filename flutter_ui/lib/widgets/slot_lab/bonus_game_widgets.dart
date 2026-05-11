@@ -13,6 +13,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../models/game_flow_models.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PICK GAME WIDGET — Grid of clickable items that reveal prizes
@@ -45,10 +46,10 @@ class PickGameWidget extends StatelessWidget {
             children: [
               Text(
                 'PICK ${state.picksRemaining} MORE',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  size: 18,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
@@ -60,10 +61,10 @@ class PickGameWidget extends StatelessWidget {
                 ),
                 child: Text(
                   'Prize: ${state.accumulatedPrize.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Color(0xFF4CAF50),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFF4CAF50),
+                    size: 14,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -305,10 +306,10 @@ class _WheelGameWidgetState extends State<WheelGameWidget>
             ),
             child: Text(
               _isSpinning ? 'SPINNING...' : 'SPIN WHEEL',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                size: 16,
+                weight: FontWeight.bold,
                 letterSpacing: 1,
               ),
             ),
@@ -318,7 +319,7 @@ class _WheelGameWidgetState extends State<WheelGameWidget>
         // Level indicator
         Text(
           'Level ${widget.state.currentLevel + 1} / ${widget.state.totalLevels}',
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: Colors.white54, size: 12),
         ),
         const SizedBox(height: 16),
       ],
@@ -419,10 +420,10 @@ class TrailGameWidget extends StatelessWidget {
             children: [
               Text(
                 'POSITION: ${currentPos + 1} / $trailLength',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  size: 16,
+                  weight: FontWeight.bold,
                 ),
               ),
               Container(
@@ -433,10 +434,10 @@ class TrailGameWidget extends StatelessWidget {
                 ),
                 child: Text(
                   'Prize: ${state.accumulatedPrize.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Color(0xFF4CAF50),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFF4CAF50),
+                    size: 14,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -519,12 +520,12 @@ class TrailGameWidget extends StatelessWidget {
               context: {'trailRoll': true},
             ),
             icon: const Icon(Icons.casino, color: Colors.white),
-            label: const Text(
+            label: Text(
               'ROLL DICE',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                size: 16,
+                weight: FontWeight.bold,
               ),
             ),
             style: ElevatedButton.styleFrom(
@@ -567,10 +568,10 @@ class LadderGameWidget extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Text(
             'RUNG ${currentRung + 1} / $totalRungs',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              size: 18,
+              weight: FontWeight.bold,
               letterSpacing: 1,
             ),
           ),
@@ -615,12 +616,12 @@ class LadderGameWidget extends StatelessWidget {
                       const SizedBox(width: 12),
                       Text(
                         '${rungIndex + 1}',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
                           color: isCurrent || isPassed
                               ? Colors.white
                               : Colors.white38,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          size: 12,
+                          weight: FontWeight.bold,
                         ),
                       ),
                       const Spacer(),
@@ -660,11 +661,11 @@ class LadderGameWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'COLLECT',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                    weight: FontWeight.bold,
                     letterSpacing: 1,
                   ),
                 ),
@@ -684,11 +685,11 @@ class LadderGameWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'CLIMB',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                    weight: FontWeight.bold,
                     letterSpacing: 1,
                   ),
                 ),
@@ -814,10 +815,10 @@ class _JackpotTierCell extends StatelessWidget {
       children: [
         Text(
           name.toUpperCase(),
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: color,
-            fontSize: isGrand ? 11 : 9,
-            fontWeight: FontWeight.w700,
+            size: isGrand ? 11 : 9,
+            weight: FontWeight.w700,
             letterSpacing: 1.5,
           ),
         ),
@@ -831,11 +832,10 @@ class _JackpotTierCell extends StatelessWidget {
           ),
           child: Text(
             value.toStringAsFixed(2),
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.white,
-              fontSize: isGrand ? 14 : 11,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              size: isGrand ? 14 : 11,
+              weight: FontWeight.bold,
             ),
           ),
         ),

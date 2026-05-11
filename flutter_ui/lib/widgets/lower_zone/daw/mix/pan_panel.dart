@@ -18,6 +18,7 @@ import '../../lower_zone_types.dart';
 import '../../../../providers/mixer_provider.dart';
 import '../../../mixer/knob.dart';
 import '../../../../src/rust/native_ffi.dart';
+import '../../../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAN PANEL
@@ -64,9 +65,9 @@ class _PanPanelState extends State<PanPanel> {
               const SizedBox(width: 8),
               Text(
                 isStereo ? 'STEREO PANNER' : 'MONO PANNER',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.dawAccent,
                   letterSpacing: 1.0,
                 ),
@@ -75,12 +76,12 @@ class _PanPanelState extends State<PanPanel> {
               if (selectedChannel != null)
                 Text(
                   selectedChannel.name,
-                  style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
+                  style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary),
                 )
               else
-                const Text(
+                Text(
                   'No track selected',
-                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                  style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
                 ),
             ],
           ),
@@ -88,9 +89,9 @@ class _PanPanelState extends State<PanPanel> {
           // Pan Law selection row
           Row(
             children: [
-              const Text(
+              Text(
                 'Pan Law:',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
               ),
               const SizedBox(width: 8),
               ..._buildPanLawChips(),
@@ -190,9 +191,9 @@ class _PanPanelState extends State<PanPanel> {
             ),
             child: Text(
               law,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
+                weight: isSelected ? FontWeight.bold : FontWeight.normal,
                 color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
               ),
             ),
@@ -238,7 +239,7 @@ class _PanPanelState extends State<PanPanel> {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('PAN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: LowerZoneColors.textPrimary)),
+          Text('PAN', style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold, color: LowerZoneColors.textPrimary)),
           const SizedBox(height: 8),
           LargeKnob(
             label: '',
@@ -249,7 +250,7 @@ class _PanPanelState extends State<PanPanel> {
             onChanged: onPanChanged,
           ),
           const SizedBox(height: 4),
-          Text(panText(pan), style: const TextStyle(fontSize: 11, color: LowerZoneColors.textSecondary)),
+          Text(panText(pan), style: FluxForgeTheme.dockMono(size: 11, color: LowerZoneColors.textSecondary)),
         ],
       );
     }
@@ -262,7 +263,7 @@ class _PanPanelState extends State<PanPanel> {
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('L', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: LowerZoneColors.textMuted)),
+            Text('L', style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold, color: LowerZoneColors.textMuted)),
             const SizedBox(height: 8),
             LargeKnob(
               label: '',
@@ -273,7 +274,7 @@ class _PanPanelState extends State<PanPanel> {
               onChanged: onPanChanged,
             ),
             const SizedBox(height: 4),
-            Text(panText(pan), style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
+            Text(panText(pan), style: FluxForgeTheme.dockMono(size: 10, color: LowerZoneColors.textSecondary)),
           ],
         ),
         const SizedBox(width: 32),
@@ -281,7 +282,7 @@ class _PanPanelState extends State<PanPanel> {
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('WIDTH', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.textMuted)),
+            Text('WIDTH', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: LowerZoneColors.textMuted)),
             const SizedBox(height: 8),
             Container(
               width: 60,
@@ -302,7 +303,7 @@ class _PanPanelState extends State<PanPanel> {
             const SizedBox(height: 4),
             Text(
               '${((panRight - pan).abs() * 50 + 50).round()}%',
-              style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
+              style: FluxForgeTheme.dockMono(size: 10, color: LowerZoneColors.textSecondary),
             ),
           ],
         ),
@@ -311,7 +312,7 @@ class _PanPanelState extends State<PanPanel> {
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('R', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: LowerZoneColors.textMuted)),
+            Text('R', style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold, color: LowerZoneColors.textMuted)),
             const SizedBox(height: 8),
             LargeKnob(
               label: '',
@@ -322,7 +323,7 @@ class _PanPanelState extends State<PanPanel> {
               onChanged: onPanRightChanged,
             ),
             const SizedBox(height: 4),
-            Text(panText(panRight), style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
+            Text(panText(panRight), style: FluxForgeTheme.dockMono(size: 10, color: LowerZoneColors.textSecondary)),
           ],
         ),
       ],

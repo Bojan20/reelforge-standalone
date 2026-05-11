@@ -305,13 +305,13 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
         children: [
           Icon(Icons.library_books, color: Colors.teal, size: 16),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'EVENT TEMPLATES',
-            style: TextStyle(
-              color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 1,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const SizedBox(width: 8),
@@ -323,10 +323,10 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
             ),
             child: Text(
               '${_templates.length}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w700,
                 color: Colors.teal,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -374,10 +374,10 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: isActive ? FontWeight.w600 : FontWeight.w400,
                   color: isActive ? color : FluxForgeTheme.textTertiary,
-                  fontSize: 9,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
             ],
@@ -399,10 +399,10 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
         ),
         child: TextField(
           onChanged: (v) => setState(() => _searchQuery = v),
-          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             hintText: 'Search templates...',
-            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+            hintStyle: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
             prefixIcon:
                 Icon(Icons.search, size: 14, color: FluxForgeTheme.textTertiary),
             prefixIconConstraints: const BoxConstraints(minWidth: 32),
@@ -451,10 +451,10 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
                 Expanded(
                   child: Text(
                     t.name,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.w600,
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -467,7 +467,7 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
             const SizedBox(height: 3),
             Text(
               t.description,
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
+              style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary),
             ),
             // Expanded detail
             if (isSelected) ...[
@@ -494,10 +494,10 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
                       ),
                       child: Text(
                         'Apply',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: FontWeight.w600,
                           color: t.category.color,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -521,7 +521,11 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w600),
+        style: FluxForgeTheme.dockSans(
+          size: 8,
+          weight: FontWeight.w600,
+          color: color,
+        ),
       ),
     );
   }
@@ -536,10 +540,10 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
       ),
       child: Text(
         '$label: $value',
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 8,
+          weight: FontWeight.w600,
           color: color,
-          fontSize: 8,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -554,7 +558,7 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
           const SizedBox(height: 8),
           Text(
             _searchQuery.isNotEmpty ? 'No matching templates' : 'No templates',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
           ),
         ],
       ),
@@ -572,7 +576,7 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
         children: [
           Text(
             '$count / ${_templates.length} shown',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
+            style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary),
           ),
           const Spacer(),
           if (_selectedCategory != null || _searchQuery.isNotEmpty)
@@ -583,10 +587,10 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
               }),
               child: Text(
                 'Reset Filters',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w600,
                   color: Colors.teal,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

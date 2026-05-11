@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/plugin_manifest.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../services/missing_plugin_detector.dart';
 
 // =============================================================================
@@ -99,19 +100,19 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Missing Plugins',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    size: 18,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   widget.projectName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 13,
+                    size: 13,
                   ),
                 ),
               ],
@@ -154,7 +155,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
           ),
           child: Text(
             'Cancel',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+            style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7)),
           ),
         ),
 
@@ -167,9 +168,9 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
                 useFreezeFor: _useFreezeFor,
               ),
             ),
-            child: const Text(
+            child: Text(
               'Continue (Preserved)',
-              style: TextStyle(color: Color(0xFF4a9eff)),
+              style: FluxForgeTheme.dockSans(color: const Color(0xFF4a9eff)),
             ),
           ),
 
@@ -257,17 +258,17 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              size: 16,
+              weight: FontWeight.bold,
             ),
           ),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ],
@@ -292,16 +293,16 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
             leading: _buildPluginIcon(plugin, info, hasReplacement, useFreeze),
             title: Text(
               plugin.name,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white,
-                fontWeight: FontWeight.w500,
+                weight: FontWeight.w500,
               ),
             ),
             subtitle: Text(
               '${plugin.vendor} • ${plugin.uid.format.name.toUpperCase()} • ${info.slotCount} slot(s)',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 12,
+                size: 12,
               ),
             ),
             trailing: Row(
@@ -384,7 +385,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w500),
+        style: FluxForgeTheme.dockSans(color: color, size: 10, weight: FontWeight.w500),
       ),
     );
   }
@@ -403,9 +404,9 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
           // Usage info
           Text(
             'Used in ${info.trackCount} track(s), ${info.slotCount} slot(s)',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 12,
+              size: 12,
             ),
           ),
           const SizedBox(height: 12),
@@ -458,9 +459,9 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
                           const Spacer(),
                           Text(
                             alt.vendor,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: Colors.white.withValues(alpha: 0.5),
-                              fontSize: 12,
+                              size: 12,
                             ),
                           ),
                         ],
@@ -514,9 +515,9 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
                   const SizedBox(width: 8),
                   Text(
                     'Will be replaced with: ${_replacements[uid]}',
-                    style: const TextStyle(
-                      color: Color(0xFF40ff90),
-                      fontSize: 12,
+                    style: FluxForgeTheme.dockMono(
+                      color: const Color(0xFF40ff90),
+                      size: 12,
                     ),
                   ),
                 ],
@@ -556,10 +557,10 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isActive ? color : Colors.white70,
-                  fontSize: 12,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                  size: 12,
+                  weight: isActive ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],
