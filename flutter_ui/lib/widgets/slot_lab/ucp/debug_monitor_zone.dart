@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import '../../../theme/fluxforge_theme.dart';
 import '../../../providers/aurexis_provider.dart';
 import '../../../providers/slot_lab/drc_provider.dart';
 import '../../../providers/slot_lab/ail_provider.dart';
@@ -93,19 +94,19 @@ class _DebugMonitorZoneState extends State<DebugMonitorZone> {
         const SizedBox(width: 4),
         Text(
           'Debug Monitor',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
             color: Colors.white.withValues(alpha: 0.8),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
           ),
         ),
         const Spacer(),
         Text(
           'RAW',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 7,
+            weight: FontWeight.w700,
             color: const Color(0xFF80CBC4).withValues(alpha: 0.5),
-            fontSize: 7,
-            fontWeight: FontWeight.w700,
           ),
         ),
       ],
@@ -121,10 +122,10 @@ class _DebugMonitorZoneState extends State<DebugMonitorZone> {
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 7,
+              weight: FontWeight.w700,
               color: const Color(0xFF80CBC4).withValues(alpha: 0.6),
-              fontSize: 7,
-              fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),
@@ -138,21 +139,19 @@ class _DebugMonitorZoneState extends State<DebugMonitorZone> {
                     width: 80,
                     child: Text(
                       row.label,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 7,
                         color: Colors.white.withValues(alpha: 0.3),
-                        fontSize: 7,
-                        fontFamily: 'monospace',
-                      ),
+                      ).copyWith(fontFamily: 'monospace'),
                     ),
                   ),
                   Expanded(
                     child: Text(
                       row.value,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 7,
                         color: row.color ?? Colors.white.withValues(alpha: 0.6),
-                        fontSize: 7,
-                        fontFamily: 'monospace',
-                      ),
+                      ).copyWith(fontFamily: 'monospace'),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

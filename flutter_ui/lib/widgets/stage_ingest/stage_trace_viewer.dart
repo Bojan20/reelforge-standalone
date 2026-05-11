@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../providers/stage_ingest_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Visual timeline viewer for stage traces
 class StageTraceViewer extends StatefulWidget {
@@ -86,18 +87,18 @@ class _StageTraceViewerState extends State<StageTraceViewer> {
           const SizedBox(width: 8),
           Text(
             'Stage Trace',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w500,
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
             ),
           ),
           const Spacer(),
           Text(
             '${_events.length} events | ${_formatDuration(_durationMs)}',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 11,
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 11,
             ),
           ),
         ],
@@ -110,7 +111,9 @@ class _StageTraceViewerState extends State<StageTraceViewer> {
       return Center(
         child: Text(
           'No events in trace',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          style: FluxForgeTheme.dockSans(
+            color: Colors.white.withValues(alpha: 0.5),
+          ),
         ),
       );
     }
@@ -181,10 +184,9 @@ class _StageTraceViewerState extends State<StageTraceViewer> {
           // Playhead position
           Text(
             _formatDuration(_playheadMs),
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 11,
               color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 11,
-              fontFamily: 'monospace',
             ),
           ),
         ],

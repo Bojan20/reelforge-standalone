@@ -61,9 +61,9 @@ class PluginSlot extends StatelessWidget {
         child: Center(
           child: Text(
             '+ Insert ${slotIndex + 1}',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
-              fontSize: 10,
             ),
           ),
         ),
@@ -124,9 +124,9 @@ class PluginSlot extends StatelessWidget {
             Expanded(
               child: Text(
                 instance.name,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 10,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -222,7 +222,7 @@ class PluginSlot extends StatelessWidget {
           children: [
             Icon(Icons.delete_outline, size: 16, color: FluxForgeTheme.accentRed),
             const SizedBox(width: 8),
-            Text('Remove', style: TextStyle(color: FluxForgeTheme.accentRed)),
+            Text('Remove', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed)),
           ],
         ),
         onTap: () {
@@ -386,19 +386,19 @@ class PluginInsertRack extends StatelessWidget {
             children: [
               Text(
                 'INSERTS',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
                   letterSpacing: 1,
                 ),
               ),
               const Spacer(),
               Text(
                 '${instanceIds.where((id) => id != null).length}/$slotCount',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
-                  fontSize: 9,
                 ),
               ),
             ],

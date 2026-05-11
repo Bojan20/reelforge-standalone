@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/subsystems/voice_pool_provider.dart';
+import '../../../theme/flux_forge_theme.dart';
 
 /// UCP-3: Voice/Priority Monitor Zone
 ///
@@ -72,10 +73,10 @@ class _VoicePriorityMonitorState extends State<VoicePriorityMonitor> {
         const SizedBox(width: 4),
         Text(
           'Voice / Priority',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.8),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+            size: 10,
+            weight: FontWeight.w600,
           ),
         ),
       ],
@@ -109,8 +110,8 @@ class _VoicePriorityMonitorState extends State<VoicePriorityMonitor> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(value, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 7)),
+        Text(value, style: FluxForgeTheme.dockMono(color: color, size: 12, weight: FontWeight.w700)),
+        Text(label, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 7)),
       ],
     );
   }
@@ -149,11 +150,10 @@ class _VoicePriorityMonitorState extends State<VoicePriorityMonitor> {
                     ),
                     child: Text(
                       '${e.key}:${e.value}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w500,
-                        fontFamily: 'monospace',
+                        size: 8,
+                        weight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -173,7 +173,7 @@ class _VoicePriorityMonitorState extends State<VoicePriorityMonitor> {
       child: Center(
         child: Text(
           text,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8),
+          style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.2), size: 8),
         ),
       ),
     );

@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auto_spatial_provider.dart';
 import '../../providers/hrtf_provider.dart';
+import '../../theme/flux_forge_theme.dart';
 import 'intent_rule_editor.dart';
 import 'bus_policy_editor.dart';
 import 'anchor_monitor.dart';
@@ -97,18 +98,18 @@ class _AutoSpatialPanelState extends State<AutoSpatialPanel>
       child: Row(
         children: [
           // Title
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                Icon(Icons.surround_sound, color: Color(0xFF4a9eff), size: 16),
-                SizedBox(width: 6),
+                const Icon(Icons.surround_sound, color: Color(0xFF4a9eff), size: 16),
+                const SizedBox(width: 6),
                 Text(
                   'AutoSpatial',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    size: 12,
+                    weight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -124,8 +125,8 @@ class _AutoSpatialPanelState extends State<AutoSpatialPanel>
               indicatorWeight: 2,
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white54,
-              labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-              unselectedLabelStyle: const TextStyle(fontSize: 11),
+              labelStyle: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w500),
+              unselectedLabelStyle: FluxForgeTheme.dockSans(size: 11),
               dividerColor: Colors.transparent,
               tabs: const [
                 Tab(text: 'Intent Rules'),
@@ -197,19 +198,19 @@ class _StatBadge extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color.withValues(alpha: 0.7),
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
+              size: 9,
+              weight: FontWeight.w500,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              size: 10,
+              weight: FontWeight.w700,
             ),
           ),
         ],

@@ -88,11 +88,11 @@ class TimelineZoomControls extends StatelessWidget {
           // Zoom label
           const Icon(Icons.zoom_in, size: 16, color: Colors.white54),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Zoom',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               color: Colors.white70,
             ),
           ),
@@ -151,11 +151,10 @@ class TimelineZoomControls extends StatelessWidget {
             child: Text(
               '${zoomPercentage.toInt()}%',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w600,
                 color: Colors.white70,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -166,7 +165,7 @@ class TimelineZoomControls extends StatelessWidget {
           if (onFitToWindow != null)
             TextButton.icon(
               icon: const Icon(Icons.fit_screen, size: 14),
-              label: const Text('Fit', style: TextStyle(fontSize: 11)),
+              label: Text('Fit', style: FluxForgeTheme.dockSans(size: 11)),
               onPressed: onFitToWindow,
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white70,
@@ -226,11 +225,10 @@ class TimelineZoomControls extends StatelessWidget {
             child: Text(
               '${zoomPercentage.toInt()}%',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.w600,
                 color: Colors.white70,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -283,8 +281,8 @@ class TimelineZoomControls extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: isActive ? FluxForgeTheme.accentBlue : Colors.white54,
                 ),
               ),

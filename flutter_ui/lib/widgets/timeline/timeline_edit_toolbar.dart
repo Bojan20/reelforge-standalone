@@ -211,9 +211,9 @@ class _ToolButtonState extends State<_ToolButton> {
                   bottom: 1,
                   child: Text(
                     shortcut,
-                    style: TextStyle(
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockMono(
+                      size: 7,
+                      weight: FontWeight.bold,
                       color: isActive
                           ? accentColor.withValues(alpha: 0.7)
                           : FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
@@ -298,9 +298,9 @@ class _EditModeButtonState extends State<_EditModeButton> {
                 const SizedBox(width: 3),
                 Text(
                   name,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: isActive ? FontWeight.bold : FontWeight.w500,
                     color: isActive
                         ? accentColor
                         : _hovering
@@ -363,9 +363,9 @@ class _SnapButton extends StatelessWidget {
               const SizedBox(width: 3),
               Text(
                 'Snap',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w500,
                   color: enabled ? const Color(0xFFff9040) : FluxForgeTheme.textTertiary,
                 ),
               ),
@@ -419,10 +419,10 @@ class _SnapGridSelector extends StatelessWidget {
           height: 28,
           child: Text(
             e.value,
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: e.key == value ? const Color(0xFF4a9eff) : FluxForgeTheme.textSecondary,
-              fontWeight: e.key == value ? FontWeight.bold : FontWeight.normal,
+              weight: e.key == value ? FontWeight.bold : FontWeight.normal,
             ),
           ),
         );
@@ -487,7 +487,7 @@ class _SampleRateSelector extends StatelessWidget {
               else
                 const SizedBox(width: 14),
               const SizedBox(width: 6),
-              Text(rLabel, style: const TextStyle(color: Colors.white, fontSize: 11)),
+              Text(rLabel, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white)),
             ],
           ),
         );
