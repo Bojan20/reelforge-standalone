@@ -196,6 +196,39 @@ class IndustryBenchmarkInfo {
 // SERVICE
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// Result of applying a Co-Pilot action
+class CopilotActionResult {
+  /// Whether the action was applied successfully
+  final bool ok;
+  /// Human-readable description of what was changed (when ok=true)
+  final String? description;
+  /// Error message (when ok=false)
+  final String? error;
+  /// Updated AudioProjectSpec JSON (when ok=true)
+  final String? newProjectJson;
+
+  const CopilotActionResult._({
+    required this.ok,
+    this.description,
+    this.error,
+    this.newProjectJson,
+  });
+
+  factory CopilotActionResult.fromJson(Map<String, dynamic> j) {
+    final ok = (j['ok'] as bool?) ?? false;
+    if (ok) {
+      final projectVal = j['project'];
+      return CopilotActionResult._(
+        ok:             true,
+        description:    j['description'] as String?,
+        newProjectJson: projectVal != null ? jsonEncode(projectVal) : null,
+      );
+    } else {
+      return CopilotActionResult._(ok: false, error: j['error'] as String?);
+    }
+  }
+}
+
 /// AI Co-Pilot™ Service
 class AiCopilotService extends ChangeNotifier {
   CopilotReport? _lastReport;
@@ -203,10 +236,16 @@ class AiCopilotService extends ChangeNotifier {
   String? _lastError;
   List<IndustryBenchmarkInfo> _benchmarks = [];
 
+  /// Cached project JSON from the last `analyze()` call.
+  /// Used by `applyAction()` — no need to pass it explicitly.
+  String? _lastProjectJson;
+
   CopilotReport? get lastReport => _lastReport;
   bool get isAnalyzing => _isAnalyzing;
   String? get lastError => _lastError;
   List<IndustryBenchmarkInfo> get benchmarks => _benchmarks;
+  bool get hasAnalysis => _lastReport != null;
+  String? get lastProjectJson => _lastProjectJson;
 
   // ──────────────────────────────────────────────────────────────────────────
   // Public API
@@ -226,6 +265,7 @@ class AiCopilotService extends ChangeNotifier {
   }
 
   /// Analyze AudioEventMap + PAR document.
+  /// Caches the project JSON for subsequent `applyAction()` calls.
   /// Returns CopilotReport or null on failure.
   Future<CopilotReport?> analyze({
     required AudioEventMap audioMap,
@@ -238,6 +278,8 @@ class AiCopilotService extends ChangeNotifier {
 
     try {
       final projectJson = _buildProjectJson(audioMap, par, estimatedPeakVoices);
+      _lastProjectJson = projectJson;  // cache for applyAction()
+
       final result = await compute(_analyzeInBackground, projectJson);
 
       if (result == null) {
@@ -258,6 +300,57 @@ class AiCopilotService extends ChangeNotifier {
     } finally {
       _isAnalyzing = false;
       notifyListeners();
+    }
+  }
+
+  /// Apply an auto-applicable Co-Pilot action by rule ID (4.1.1).
+  ///
+  /// Uses the cached project JSON from the last [analyze] call.
+  /// Returns [CopilotActionResult] describing what changed.
+  ///
+  /// After a successful apply, callers should:
+  /// 1. Use [result.newProjectJson] to re-analyze (get updated suggestions)
+  /// 2. Record the old project state on the undo stack before applying
+  CopilotActionResult? applyAction(String ruleId) {
+    final projectJson = _lastProjectJson;
+    if (projectJson == null) return null;
+
+    try {
+      final raw = NativeFFI.instance.copilotApplyAction(projectJson, ruleId);
+      if (raw == null) return null;
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      final result = CopilotActionResult.fromJson(j);
+      // Update cached JSON so chained actions work
+      if (result.ok && result.newProjectJson != null) {
+        _lastProjectJson = result.newProjectJson;
+      }
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Apply action and immediately re-analyze with the updated project.
+  /// Returns updated report, or null on failure.
+  Future<CopilotReport?> applyActionAndReanalyze(String ruleId) async {
+    final actionResult = applyAction(ruleId);
+    if (actionResult == null || !actionResult.ok) return null;
+
+    // Analyze updated project
+    final updatedJson = _lastProjectJson;
+    if (updatedJson == null) return null;
+
+    try {
+      final result = await compute(_analyzeInBackground, updatedJson);
+      if (result == null) return null;
+      final report = CopilotReport.fromJson(
+        jsonDecode(result) as Map<String, dynamic>,
+      );
+      _lastReport = report;
+      notifyListeners();
+      return report;
+    } catch (_) {
+      return null;
     }
   }
 

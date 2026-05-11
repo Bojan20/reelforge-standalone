@@ -29773,6 +29773,43 @@ extension HookGraphAPI on NativeFFI {
     }
   }
 
+  /// Apply a Co-Pilot auto-action to an AudioProjectSpec JSON (4.1.1).
+  ///
+  /// [projectJson] — JSON-encoded AudioProjectSpec
+  /// [ruleId]      — rule ID from CopilotSuggestion (e.g. "R-VB-1")
+  ///
+  /// Returns JSON:
+  ///   `{ "ok": true, "project": {...}, "description": "..." }` on success
+  ///   `{ "ok": false, "error": "..." }` on failure
+  ///   null on hard error
+  String? copilotApplyAction(String projectJson, String ruleId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('copilot_apply_action');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = projectJson.toNativeUtf8();
+      final ptr2 = ruleId.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // T6.1–T6.5: Neural Fingerprint™ + A/B Analytics + Honeypot
   // ─────────────────────────────────────────────────────────────────────────

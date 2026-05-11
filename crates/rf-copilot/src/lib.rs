@@ -21,11 +21,14 @@
 //! - Priority ordering
 //! - Industry standard duration benchmarks
 
+pub mod actions;
 pub mod benchmarks;
 pub mod engine;
 pub mod project;
 pub mod suggestions;
 
+pub use actions::{Action, ActionRegistry, BudgetMode, BumpVoiceBudget,
+    PromoteFeatureTriggerTier, SetAmbientLoop, SetReelSpinLoop, SetRequiredEventWeight};
 pub use benchmarks::{IndustryBenchmark, SlotCategory};
 pub use engine::SuggestionEngine;
 pub use project::{AudioEventSpec, AudioProjectSpec};

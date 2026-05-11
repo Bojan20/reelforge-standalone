@@ -3806,6 +3806,81 @@ pub extern "C" fn copilot_available_benchmarks() -> *mut c_char {
     }
 }
 
+/// Apply a Co-Pilot auto-action to an AudioProjectSpec JSON.
+///
+/// # Arguments
+/// - `project_json_ptr` — JSON-encoded `AudioProjectSpec`
+/// - `rule_id_ptr`      — Rule ID (e.g. `"R-VB-1"`, `"R-LC-1"`)
+///
+/// # Returns
+/// JSON object:
+/// ```json
+/// { "ok": true,  "project": {...}, "description": "Set voice budget to 32" }
+/// { "ok": false, "error":   "No non-looping reel spin events found" }
+/// ```
+/// Returns null on JSON parse error.
+#[unsafe(no_mangle)]
+pub extern "C" fn copilot_apply_action(
+    project_json_ptr: *const c_char,
+    rule_id_ptr:      *const c_char,
+) -> *mut c_char {
+    use rf_copilot::{ActionRegistry, AudioProjectSpec};
+
+    if project_json_ptr.is_null() || rule_id_ptr.is_null() {
+        return ptr::null_mut();
+    }
+
+    let project_json = match unsafe { CStr::from_ptr(project_json_ptr) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+    let rule_id = match unsafe { CStr::from_ptr(rule_id_ptr) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    // Parse project
+    let mut project: AudioProjectSpec = match serde_json::from_str(project_json) {
+        Ok(p)  => p,
+        Err(e) => {
+            let resp = serde_json::json!({ "ok": false, "error": format!("JSON parse: {e}") });
+            return CString::new(resp.to_string()).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+        }
+    };
+
+    // Find action
+    let action = match ActionRegistry::find(rule_id) {
+        Some(a) => a,
+        None => {
+            let resp = serde_json::json!({ "ok": false, "error": format!("No action registered for rule_id = {rule_id}") });
+            return CString::new(resp.to_string()).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+        }
+    };
+
+    // Apply
+    match action.apply(&mut project) {
+        Ok(description) => {
+            let project_json_new = match serde_json::to_string(&project) {
+                Ok(j)  => j,
+                Err(e) => {
+                    let resp = serde_json::json!({ "ok": false, "error": format!("Serialize: {e}") });
+                    return CString::new(resp.to_string()).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+                }
+            };
+            let resp = serde_json::json!({
+                "ok":          true,
+                "project":     serde_json::from_str::<serde_json::Value>(&project_json_new).unwrap_or(serde_json::Value::Null),
+                "description": description,
+            });
+            CString::new(resp.to_string()).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+        }
+        Err(reason) => {
+            let resp = serde_json::json!({ "ok": false, "error": reason });
+            CString::new(resp.to_string()).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+        }
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // T6.1–T6.5: Neural Fingerprint™ + A/B Analytics + Honeypot
 // ─────────────────────────────────────────────────────────────────────────────
