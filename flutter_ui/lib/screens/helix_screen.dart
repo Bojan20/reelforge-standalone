@@ -1508,7 +1508,7 @@ class _HelixScreenState extends State<HelixScreen>
                       // SPIN button
                       GestureDetector(
                         onTap: () {
-                          GetIt.instance<SlotLabCoordinator>().spin();
+                          ctx.read<SlotLabCoordinator>().spin();
                         },
                         child: Container(
                           width: 64, height: 40,
@@ -1693,7 +1693,7 @@ class _HelixScreenState extends State<HelixScreen>
           ListenableBuilder(
             listenable: GetIt.instance<SlotLabProjectProvider>(),
             builder: (ctx, _) {
-              final proj = GetIt.instance<SlotLabProjectProvider>();
+              final proj = ctx.read<SlotLabProjectProvider>();
               return Row(children: [
                 _OmniIconBtn(
                   icon: Icons.undo_rounded,
@@ -1825,7 +1825,7 @@ class _HelixScreenState extends State<HelixScreen>
     return ListenableBuilder(
       listenable: GetIt.instance<SlotLabProjectProvider>(),
       builder: (context, _) {
-        final cfg = GetIt.instance<SlotLabProjectProvider>().gridConfig;
+        final cfg = context.read<SlotLabProjectProvider>().gridConfig;
         final reels = cfg?.columns ?? 5;
         final rows = cfg?.rows ?? 3;
         final accent = FluxForgeTheme.accentPurple;
@@ -2063,7 +2063,7 @@ class _HelixScreenState extends State<HelixScreen>
                   child: ListenableBuilder(
                   listenable: GetIt.instance<SlotLabProjectProvider>(),
                   builder: (ctx, _) {
-                    final proj = GetIt.instance<SlotLabProjectProvider>();
+                    final proj = ctx.read<SlotLabProjectProvider>();
                     final gridCfg = proj.gridConfig;
                     return PremiumSlotPreview(
                       key: ValueKey('slot_${gridCfg?.columns ?? 5}_${gridCfg?.rows ?? 3}'),
@@ -2090,7 +2090,7 @@ class _HelixScreenState extends State<HelixScreen>
                     });
                     // Also try to open audio lens for matching composite event
                     silentRun('canvas.openAudioContextLens', () {
-                      final mw = GetIt.instance<MiddlewareProvider>();
+                      final mw = ctx.read<MiddlewareProvider>();
                       final events = mw.compositeEvents;
                       final match = events.where((e) =>
                         e.triggerStages.any((s) => s.contains('reel')) ||
@@ -2168,8 +2168,8 @@ class _HelixScreenState extends State<HelixScreen>
                       child: CustomPaint(
                         painter: _WinLineOverlayPainter(
                           winLines: _lastWinLines,
-                          reels: GetIt.instance<SlotLabProjectProvider>().gridConfig?.columns ?? 5,
-                          rows: GetIt.instance<SlotLabProjectProvider>().gridConfig?.rows ?? 3,
+                          reels: context.read<SlotLabProjectProvider>().gridConfig?.columns ?? 5,
+                          rows: context.read<SlotLabProjectProvider>().gridConfig?.rows ?? 3,
                         ),
                       ),
                     ),
@@ -2190,7 +2190,7 @@ class _HelixScreenState extends State<HelixScreen>
               // been laid out (first frame after mount).
               if (_anticipationReels.isNotEmpty)
                 ..._anticipationReels.map((reelIdx) {
-                  final reels = GetIt.instance<SlotLabProjectProvider>()
+                  final reels = context.read<SlotLabProjectProvider>()
                           .gridConfig
                           ?.columns ??
                       5;
@@ -2274,8 +2274,8 @@ class _HelixScreenState extends State<HelixScreen>
         GetIt.instance<SlotLabProjectProvider>(),
       ]),
       builder: (context, _) {
-        final flow = GetIt.instance<GameFlowProvider>();
-        final gridCfg = GetIt.instance<SlotLabProjectProvider>().gridConfig;
+        final flow = context.read<GameFlowProvider>();
+        final gridCfg = context.read<SlotLabProjectProvider>().gridConfig;
         final gridStr = gridCfg != null ? '${gridCfg.columns}×${gridCfg.rows}' : '5×3';
         return Row(
           children: [
