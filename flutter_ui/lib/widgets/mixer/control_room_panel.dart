@@ -118,11 +118,11 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         children: [
           const Icon(Icons.speaker, size: 16, color: FluxForgeTheme.textSecondary),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'CONTROL ROOM',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 1,
             ),
@@ -192,7 +192,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           // Source selector
           Row(
             children: [
-              Text('Source:', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7))),
+              Text('Source:', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7))),
               const SizedBox(width: 8),
               Expanded(
                 child: _buildSourceDropdown(controlRoom),
@@ -254,7 +254,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           isDense: true,
           isExpanded: true,
           dropdownColor: FluxForgeTheme.bgMid,
-          style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
           items: MonitorSource.values.map((s) => DropdownMenuItem(
             value: s,
             child: Text(_sourceLabel(s)),
@@ -318,17 +318,17 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           children: [
             Text(
               name,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.bold,
                 color: isActive ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
               ),
             ),
             if (calibration != 0)
               Text(
                 '${calibration > 0 ? '+' : ''}${calibration.toStringAsFixed(1)}',
-                style: TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockMono(
+                  size: 8,
                   color: isActive
                       ? FluxForgeTheme.textSecondary
                       : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
@@ -386,9 +386,9 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           child: Center(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: isActive ? color : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
               ),
             ),
@@ -446,8 +446,8 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           width: 40,
           child: Text(
             'Cue ${index + 1}',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
             ),
           ),
@@ -478,8 +478,8 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           width: 35,
           child: Text(
             '${levelDb.toStringAsFixed(1)}',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
             ),
             textAlign: TextAlign.right,
@@ -533,9 +533,9 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
                         const SizedBox(width: 6),
                         Text(
                           'TALK',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                          style: FluxForgeTheme.dockSans(
+                            size: 12,
+                            weight: FontWeight.bold,
                             color: controlRoom.talkbackEnabled
                                 ? FluxForgeTheme.textPrimary
                                 : FluxForgeTheme.textSecondary,
@@ -553,7 +553,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           // Destinations
           Row(
             children: [
-              Text('To:', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5))),
+              Text('To:', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5))),
               const SizedBox(width: 8),
               ...List.generate(4, (i) => Padding(
                 padding: const EdgeInsets.only(right: 4),
@@ -582,9 +582,9 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         ),
         child: Text(
           'C${index + 1}',
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.bold,
             color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
           ),
         ),
@@ -602,9 +602,9 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       children: [
         Text(
           title,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
             letterSpacing: 1,
           ),
@@ -634,9 +634,9 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.bold,
             color: active ? activeColor : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
           ),
         ),
@@ -657,10 +657,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5))),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5))),
             Text(
               '${value.toStringAsFixed(1)} dB',
-              style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary),
             ),
           ],
         ),

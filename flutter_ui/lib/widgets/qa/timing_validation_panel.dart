@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../../services/timing_validator.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class TimingValidationPanel extends StatefulWidget {
   const TimingValidationPanel({Key? key}) : super(key: key);
@@ -108,9 +109,9 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
       children: [
         const Icon(Icons.timer, size: 24, color: Colors.green),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'TIMING VALIDATION',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: FluxForgeTheme.dockSans(size: 18, weight: FontWeight.bold),
         ),
         const Spacer(),
         if (!_isMonitoring) ...[
@@ -211,10 +212,10 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
                 const SizedBox(width: 4),
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: color,
-                    fontWeight: FontWeight.bold,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -222,9 +223,9 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
             const SizedBox(height: 4),
             Text(
               value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 20,
+                weight: FontWeight.bold,
                 color: color,
               ),
             ),
@@ -249,15 +250,15 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: Colors.white24)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.bar_chart, size: 16, color: Colors.grey),
-                SizedBox(width: 8),
+                const Icon(Icons.bar_chart, size: 16, color: Colors.grey),
+                const SizedBox(width: 8),
                 Text(
                   'STATISTICS',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -281,12 +282,12 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
                     _buildStatRow('Min Latency', formatLatency(_currentReport!.minLatency)),
                     _buildStatRow('Max Latency', formatLatency(_currentReport!.maxLatency)),
                     const Divider(height: 24),
-                    const Text(
+                    Text(
                       'LATENCY DISTRIBUTION',
-                      style: TextStyle(
-                        fontSize: 10,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: Colors.grey,
-                        fontWeight: FontWeight.bold,
+                        weight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -298,12 +299,12 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
                       );
                     }),
                   ] else ...[
-                    const Center(
+                    Center(
                       child: Padding(
-                        padding: EdgeInsets.all(32),
+                        padding: const EdgeInsets.all(32),
                         child: Text(
                           'No data yet',
-                          style: TextStyle(color: Colors.grey),
+                          style: FluxForgeTheme.dockSans(color: Colors.grey),
                         ),
                       ),
                     ),
@@ -325,13 +326,13 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey),
           ),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.bold,
               color: color ?? Colors.white,
             ),
           ),
@@ -354,11 +355,11 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                style: FluxForgeTheme.dockSans(size: 10, color: Colors.grey),
               ),
               Text(
                 '$count (${percentage.toStringAsFixed(1)}%)',
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                style: FluxForgeTheme.dockMono(size: 10, color: Colors.grey),
               ),
             ],
           ),
@@ -400,11 +401,11 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
               children: [
                 const Icon(Icons.list, size: 16, color: Colors.grey),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'MEASUREMENTS',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 const Spacer(),
@@ -422,10 +423,10 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
           ),
           Expanded(
             child: measurements.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'No measurements yet',
-                      style: TextStyle(color: Colors.grey),
+                      style: FluxForgeTheme.dockSans(color: Colors.grey),
                     ),
                   )
                 : ListView.builder(
@@ -466,12 +467,12 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
               children: [
                 Text(
                   measurement.stage,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold),
                 ),
                 if (measurement.errorMessage != null)
                   Text(
                     measurement.errorMessage!,
-                    style: const TextStyle(fontSize: 9, color: Colors.red),
+                    style: FluxForgeTheme.dockSans(size: 9, color: Colors.red),
                   ),
               ],
             ),
@@ -485,9 +486,9 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
               ),
               child: Text(
                 formatLatency(measurement.latency),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: color,
                 ),
               ),

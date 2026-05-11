@@ -126,9 +126,9 @@ class GrooveQuantizePanel extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               provider.enabled ? 'Enabled' : 'Disabled',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w500,
                 color: provider.enabled ? _accentColor : FluxForgeTheme.textSecondary,
               ),
             ),
@@ -152,7 +152,7 @@ class GrooveQuantizePanel extends StatelessWidget {
       children: [
         Text(
           'Grid:',
-          style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
         ),
         const SizedBox(width: 6),
         ...gridSizes.map((grid) {
@@ -174,9 +174,9 @@ class GrooveQuantizePanel extends StatelessWidget {
                 ),
                 child: Text(
                   grid.$2,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     color: isSelected ? _accentColor : FluxForgeTheme.textSecondary,
                   ),
                 ),
@@ -201,9 +201,9 @@ class GrooveQuantizePanel extends StatelessWidget {
             children: [
               Text(
                 'GROOVE TEMPLATES',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textSecondary,
                   letterSpacing: 0.5,
                 ),
@@ -252,9 +252,9 @@ class GrooveQuantizePanel extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 8, bottom: 4),
                   child: Text(
                     entry.key.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.w600,
                       color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                     ),
                   ),
@@ -315,17 +315,17 @@ class GrooveQuantizePanel extends StatelessWidget {
                 children: [
                   Text(
                     name,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       color: isSelected ? _accentColor : FluxForgeTheme.textPrimary,
                     ),
                   ),
                   if (description != null)
                     Text(
                       description,
-                      style: TextStyle(
-                        fontSize: 9,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: FluxForgeTheme.textSecondary,
                       ),
                     ),
@@ -371,9 +371,9 @@ class GrooveQuantizePanel extends StatelessWidget {
           // Humanize section
           Text(
             'HUMANIZATION',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 0.5,
             ),
@@ -441,16 +441,16 @@ class GrooveQuantizePanel extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textPrimary,
               ),
             ),
             Text(
               '${(value * multiplier).toStringAsFixed(decimals)}$suffix',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w600,
                 color: _accentColor,
               ),
             ),
@@ -499,8 +499,8 @@ class GrooveQuantizePanel extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: value ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
             ),
           ),
@@ -519,9 +519,9 @@ class GrooveQuantizePanel extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Text(
             'GROOVE PREVIEW',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 0.5,
             ),
@@ -534,8 +534,8 @@ class GrooveQuantizePanel extends StatelessWidget {
                   child: Text(
                     'Select a template\nto see preview',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                     ),
                   ),
@@ -567,8 +567,8 @@ class GrooveQuantizePanel extends StatelessWidget {
             provider.activeTemplate != null
                 ? 'Template: ${provider.activeTemplate!.name}'
                 : 'No template selected',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -636,9 +636,9 @@ class GrooveQuantizePanel extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w500,
                   color: color,
                 ),
               ),

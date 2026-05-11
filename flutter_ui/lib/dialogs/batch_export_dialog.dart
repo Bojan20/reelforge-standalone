@@ -203,12 +203,12 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
         children: [
           const Icon(Icons.download_for_offline, color: FluxForgeTheme.accentGreen, size: 22),
           const SizedBox(width: 10),
-          const Text(
+          Text(
             'Batch Export',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              size: 16,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 16),
@@ -220,20 +220,20 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
             ),
             child: Text(
               '$_selectedCount items selected',
-              style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
             ),
           ),
           const Spacer(),
           if (_isExporting) ...[
             Text(
               '$_completedCount / $_selectedCount completed',
-              style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentGreen, size: 12),
             ),
             if (_failedCount > 0) ...[
               const SizedBox(width: 8),
               Text(
                 '$_failedCount failed',
-                style: const TextStyle(color: FluxForgeTheme.accentRed, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed, size: 12),
               ),
             ],
           ],
@@ -259,7 +259,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Preset', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
+              Text('Preset', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
               const SizedBox(height: 2),
               GestureDetector(
                 onTap: _selectPreset,
@@ -275,9 +275,9 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                     children: [
                       Text(
                         _selectedPreset?.name ?? 'Select preset...',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: _selectedPreset != null ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                          fontSize: 12,
+                          size: 12,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -295,7 +295,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Output Folder', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
+                Text('Output Folder', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
                 const SizedBox(height: 2),
                 GestureDetector(
                   onTap: _selectOutputFolder,
@@ -313,9 +313,9 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                         Expanded(
                           child: Text(
                             _outputFolder.isEmpty ? 'Select folder...' : _outputFolder,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: _outputFolder.isNotEmpty ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                              fontSize: 11,
+                              size: 11,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -334,7 +334,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Naming', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
+              Text('Naming', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
               const SizedBox(height: 2),
               Container(
                 width: 180,
@@ -347,7 +347,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                 ),
                 child: TextField(
                   controller: _namingTemplateController,
-                  style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono'),
+                  style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textPrimary, size: 11),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     isDense: true,
@@ -377,15 +377,14 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                 _currentIndex >= 0 && _currentIndex < _items.length
                     ? 'Exporting: ${_items[_currentIndex].name}'
                     : 'Preparing...',
-                style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
               ),
               const Spacer(),
               Text(
                 '${(_overallProgress * 100).toInt()}%',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: FluxForgeTheme.accentGreen,
-                  fontSize: 12,
-                  fontFamily: 'JetBrains Mono',
+                  size: 12,
                 ),
               ),
             ],
@@ -464,22 +463,22 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
               children: [
                 Text(
                   item.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: item.isSelected || _isExporting ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    size: 13,
+                    weight: FontWeight.w500,
                   ),
                 ),
                 Row(
                   children: [
                     Text(
                       item.type.label,
-                      style: TextStyle(color: item.type.color.withValues(alpha: 0.8), fontSize: 10),
+                      style: FluxForgeTheme.dockSans(color: item.type.color.withValues(alpha: 0.8), size: 10),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       item.durationLabel,
-                      style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10, fontFamily: 'JetBrains Mono'),
+                      style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textTertiary, size: 10),
                     ),
                   ],
                 ),
@@ -551,7 +550,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w500),
+            style: FluxForgeTheme.dockSans(color: color, size: 10, weight: FontWeight.w500),
           ),
         ],
       ),

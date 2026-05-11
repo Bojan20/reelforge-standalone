@@ -149,10 +149,10 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
           const SizedBox(width: 8),
           Text(
             'Stinger Preview',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+              size: 13,
+              weight: FontWeight.w600,
             ),
           ),
           if (stinger != null) ...[
@@ -165,7 +165,7 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
               ),
               child: Text(
                 stinger.name,
-                style: TextStyle(color: Colors.amber, fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: Colors.amber, size: 11),
               ),
             ),
           ],
@@ -193,7 +193,7 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
               const SizedBox(width: 4),
               Text(
                 '${_previewTempo.toStringAsFixed(0)} BPM',
-                style: TextStyle(color: Colors.pink, fontSize: 10),
+                style: FluxForgeTheme.dockMono(color: Colors.pink, size: 10),
               ),
             ],
           ),
@@ -208,7 +208,7 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
           ),
           child: Text(
             '$_beatsPerBar/4',
-            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 10),
+            style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textMuted, size: 10),
           ),
         ),
         const SizedBox(width: 12),
@@ -240,10 +240,10 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
         children: [
           Text(
             'Quick Triggers',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              size: 10,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
@@ -303,10 +303,10 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
                 child: Center(
                   child: Text(
                     stinger.priority.toString(),
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: _getPriorityColor(stinger.priority),
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
+                      size: 8,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -316,10 +316,10 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
               Expanded(
                 child: Text(
                   stinger.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isTriggered ? Colors.amber : FluxForgeTheme.textPrimary,
-                    fontSize: 11,
-                    fontWeight: isTriggered ? FontWeight.w600 : FontWeight.normal,
+                    size: 11,
+                    weight: isTriggered ? FontWeight.w600 : FontWeight.normal,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -388,7 +388,7 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
             ),
             child: Text(
               'Sync: ${stinger.syncPoint.displayName}',
-              style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 10),
             ),
           ),
         ],
@@ -411,7 +411,7 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 10),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 10),
         ),
       ],
     );
@@ -448,10 +448,10 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
             // Ducking section
             Text(
               'MUSIC DUCKING',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.purple,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+                size: 10,
+                weight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
@@ -489,14 +489,14 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
         children: [
           Text(
             label,
-            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 11),
           ),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: valueColor ?? FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              size: 11,
+              weight: FontWeight.w500,
             ),
           ),
         ],
@@ -540,7 +540,7 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
         const SizedBox(height: 4),
         Text(
           'Music Level',
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 9),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 9),
         ),
       ],
     );
@@ -555,7 +555,7 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
           const SizedBox(height: 8),
           Text(
             'Select a stinger',
-            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 12),
           ),
         ],
       ),

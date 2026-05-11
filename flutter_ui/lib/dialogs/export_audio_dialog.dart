@@ -13,6 +13,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/native_file_picker.dart';
 import '../src/rust/engine_api.dart' as api;
+import '../theme/fluxforge_theme.dart';
 
 /// Export format options
 enum ExportFormat { wav, flac, mp3, aac, ogg }
@@ -295,21 +296,21 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                       Colors.white.withValues(alpha: 0.8),
                     ],
                   ).createShader(bounds),
-                  child: const Text(
+                  child: Text(
                     'Export Audio',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                    style: FluxForgeTheme.dockSans(
+                      size: 24,
+                      weight: FontWeight.w800,
                       letterSpacing: -0.8,
+                      color: Colors.white,
                     ),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   widget.projectName,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: Colors.white.withValues(alpha: 0.4),
                   ),
                 ),
@@ -391,10 +392,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
           const SizedBox(width: 6),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'JetBrains Mono',
+            style: FluxForgeTheme.dockMono(
+              size: 13,
+              weight: FontWeight.w700,
               color: color,
             ),
           ),
@@ -515,11 +515,11 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
         const SizedBox(width: 8),
         Text(
           text,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            color: color,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w800,
             letterSpacing: 1.5,
+            color: color,
           ),
         ),
       ],
@@ -569,17 +569,17 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
               children: [
                 Text(
                   format.name.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.w800,
                     color: isSelected ? color : Colors.white.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   isLossless ? 'Lossless' : 'Lossy',
-                  style: TextStyle(
-                    fontSize: 8,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
                     color: Colors.white.withValues(alpha: 0.35),
                   ),
                 ),
@@ -619,9 +619,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                 child: Center(
                   child: Text(
                     '$depth-bit',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    style: FluxForgeTheme.dockMono(
+                      size: 11,
+                      weight: isSelected ? FontWeight.w700 : FontWeight.w500,
                       color: isSelected
                           ? const Color(0xFF4a9eff)
                           : Colors.white.withValues(alpha: 0.5),
@@ -670,9 +670,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                     child: Center(
                       child: Text(
                         labels[i],
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        style: FluxForgeTheme.dockMono(
+                          size: 11,
+                          weight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected
                               ? const Color(0xFF4a9eff)
                               : Colors.white.withValues(alpha: 0.5),
@@ -718,9 +718,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                         children: [
                           Text(
                             labels[idx],
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            style: FluxForgeTheme.dockMono(
+                              size: 11,
+                              weight: isSelected ? FontWeight.w700 : FontWeight.w500,
                               color: isSelected
                                   ? const Color(0xFFaa40ff)
                                   : Colors.white.withValues(alpha: 0.5),
@@ -736,9 +736,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                               ),
                               child: Text(
                                 'MAX',
-                                style: TextStyle(
-                                  fontSize: 7,
-                                  fontWeight: FontWeight.w800,
+                                style: FluxForgeTheme.dockSans(
+                                  size: 7,
+                                  weight: FontWeight.w800,
                                   color: isSelected
                                       ? const Color(0xFFaa40ff)
                                       : Colors.white.withValues(alpha: 0.4),
@@ -810,9 +810,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
               children: [
                 Text(
                   preset.label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: isSelected
                         ? (isOff ? Colors.white : const Color(0xFF40c8ff))
                         : Colors.white.withValues(alpha: 0.5),
@@ -830,10 +830,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                     ),
                     child: Text(
                       '${preset.lufs!.toInt()}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        fontFamily: 'JetBrains Mono',
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
+                        weight: FontWeight.w800,
                         color: isSelected
                             ? const Color(0xFF40c8ff)
                             : Colors.white.withValues(alpha: 0.4),
@@ -878,18 +877,18 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'True Peak Limiter',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
+                        weight: FontWeight.w700,
                         color: Colors.white,
                       ),
                     ),
                     Text(
                       'Prevents inter-sample peaks',
-                      style: TextStyle(
-                        fontSize: 10,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: Colors.white.withValues(alpha: 0.4),
                       ),
                     ),
@@ -912,11 +911,10 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                   ),
                   child: Text(
                     '${_truePeakLimit.toStringAsFixed(1)} dBTP',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'JetBrains Mono',
-                      color: Color(0xFFff9040),
+                    style: FluxForgeTheme.dockMono(
+                      size: 12,
+                      weight: FontWeight.w800,
+                      color: const Color(0xFFff9040),
                     ),
                   ),
                 ),
@@ -1049,9 +1047,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
               child: Center(
                 child: Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: isSelected
                         ? const Color(0xFFaa40ff)
                         : Colors.white.withValues(alpha: 0.5),
@@ -1125,9 +1123,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                       hasPath
                           ? _outputPath.split('/').last
                           : 'Choose destination...',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
+                        weight: FontWeight.w600,
                         color: hasPath
                             ? Colors.white
                             : Colors.white.withValues(alpha: 0.4),
@@ -1138,8 +1136,8 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                       const SizedBox(height: 2),
                       Text(
                         _outputPath.substring(0, _outputPath.lastIndexOf('/')),
-                        style: TextStyle(
-                          fontSize: 10,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: Colors.white.withValues(alpha: 0.3),
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -1192,9 +1190,8 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                 const SizedBox(width: 6),
                 Text(
                   _estimateFileSize(),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'JetBrains Mono',
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
                 ),
@@ -1221,8 +1218,8 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                   const SizedBox(width: 6),
                   Text(
                     'Select destination to export',
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: const Color(0xFFff9040).withValues(alpha: 0.8),
                     ),
                   ),
@@ -1308,9 +1305,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                     const SizedBox(width: 10),
                     Text(
                       'Export',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                      style: FluxForgeTheme.dockSans(
+                        size: 14,
+                        weight: FontWeight.w800,
                         color: _canExport
                             ? Colors.black.withValues(alpha: 0.8)
                             : Colors.white.withValues(alpha: 0.25),
@@ -1372,11 +1369,10 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                   const SizedBox(width: 8),
                   Text(
                     '${_speed.toStringAsFixed(1)}x',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'JetBrains Mono',
-                      color: Color(0xFFff9040),
+                    style: FluxForgeTheme.dockMono(
+                      size: 14,
+                      weight: FontWeight.w800,
+                      color: const Color(0xFFff9040),
                     ),
                   ),
                 ],
@@ -1396,12 +1392,12 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
+                child: Text(
                   'Cancel',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFff4060),
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: const Color(0xFFff4060),
                   ),
                 ),
               ),
@@ -1469,10 +1465,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                 children: [
                   Text(
                     '${(_progress * 100).toInt()}%',
-                    style: const TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w900,
-                      fontFamily: 'JetBrains Mono',
+                    style: FluxForgeTheme.dockMono(
+                      size: 40,
+                      weight: FontWeight.w900,
                       color: Colors.white,
                     ),
                   ),
@@ -1484,11 +1479,11 @@ class _ExportAudioDialogState extends State<ExportAudioDialog>
                     ),
                     child: Text(
                       _phase.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: FontWeight.w800,
                         letterSpacing: 1.5,
-                        color: Color(0xFF40ff90),
+                        color: const Color(0xFF40ff90),
                       ),
                     ),
                   ),

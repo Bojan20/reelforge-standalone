@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import '../../services/test_combinator_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class TestCombinatorPanel extends StatefulWidget {
   const TestCombinatorPanel({Key? key}) : super(key: key);
@@ -137,15 +138,15 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
       children: [
         const Icon(Icons.science, size: 24, color: Colors.blueAccent),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'TEST COMBINATOR',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: FluxForgeTheme.dockSans(size: 18, weight: FontWeight.bold),
         ),
         const Spacer(),
         if (_currentSuite != null) ...[
           Text(
             '${_currentSuite!.totalCases} cases • ${_formatDuration(_currentSuite!.estimatedTotalDuration)}',
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
+            style: FluxForgeTheme.dockMono(size: 12, color: Colors.grey),
           ),
           const SizedBox(width: 8),
           IconButton(
@@ -170,9 +171,9 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Suite name
-          const Text(
+          Text(
             'SUITE NAME',
-            style: TextStyle(fontSize: 10, color: Colors.grey),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.grey),
           ),
           const SizedBox(height: 4),
           TextField(
@@ -187,9 +188,9 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
           const SizedBox(height: 16),
 
           // Dimension selection
-          const Text(
+          Text(
             'DIMENSIONS',
-            style: TextStyle(fontSize: 10, color: Colors.grey),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.grey),
           ),
           const SizedBox(height: 8),
           ...TestDimension.values.map((dimension) {
@@ -197,7 +198,7 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
               dense: true,
               title: Text(
                 _dimensionToString(dimension),
-                style: const TextStyle(fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12),
               ),
               value: _selectedDimensions.contains(dimension),
               onChanged: (checked) {
@@ -215,9 +216,9 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
           const Divider(height: 24),
 
           // Generate buttons
-          const Text(
+          Text(
             'QUICK PRESETS',
-            style: TextStyle(fontSize: 10, color: Colors.grey),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.grey),
           ),
           const SizedBox(height: 8),
           ElevatedButton.icon(
@@ -272,12 +273,12 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
             const SizedBox(height: 16),
             Text(
               'No test suite generated',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              style: FluxForgeTheme.dockSans(size: 14, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 8),
             Text(
               'Select dimensions and click Generate',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey.shade700),
             ),
           ],
         ),
@@ -303,9 +304,9 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
               children: [
                 Text(
                   _currentSuite!.name.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.bold,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -318,10 +319,10 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
                   ),
                   child: Text(
                     '${_currentSuite!.totalCases} CASES',
-                    style: const TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: Colors.blueAccent,
-                      fontWeight: FontWeight.bold,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -369,9 +370,9 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
                 ),
                 child: Text(
                   '${testCase.id}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: 12,
+                    weight: FontWeight.bold,
                     color: Colors.blueAccent,
                   ),
                 ),
@@ -380,12 +381,12 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
               Expanded(
                 child: Text(
                   testCase.description,
-                  style: const TextStyle(fontSize: 12),
+                  style: FluxForgeTheme.dockSans(size: 12),
                 ),
               ),
               Text(
                 _formatDuration(testCase.estimatedDuration),
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                style: FluxForgeTheme.dockMono(size: 10, color: Colors.grey),
               ),
             ],
           ),
@@ -408,8 +409,8 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
                 ),
                 child: Text(
                   '${_dimensionToString(entry.key)}: ${_valueToString(entry.value)}',
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: _getDimensionColor(entry.key),
                   ),
                 ),
@@ -427,7 +428,7 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
               Expanded(
                 child: Text(
                   'Expected: ${testCase.expectedStages.take(5).join(", ")}${testCase.expectedStages.length > 5 ? "..." : ""}',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  style: FluxForgeTheme.dockSans(size: 10, color: Colors.grey),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
