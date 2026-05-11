@@ -35,10 +35,26 @@ import '../../generative/emotional_arc_editor.dart';
 /// tests can swap the live FFI for a deterministic stub.
 typedef GenerateFn = Future<GenerationResult> Function(GenerationRequest);
 
+/// Function signature for the variation batch call (FAZA 5.1.7). Same test
+/// seam pattern as `GenerateFn` — tests inject deterministic stubs without
+/// touching `GenerativeAudioService.instance`.
+typedef GenerateVariationsFn = Future<List<GenerationResult>> Function(
+  GenerationRequest request,
+  int count,
+);
+
+/// How many alternates the "× N" button produces. 5 matches FAZA 5.1.7 spec
+/// ("5 alternate BIG_WIN stings") and stays under the service's clamp of 10.
+const int _kDefaultVariationCount = 5;
+
 class SlotLabMusicGenPanel extends StatefulWidget {
   /// Override the generator used by the panel (defaults to the live FFI
   /// singleton). Tests pass a stub here.
   final GenerateFn? generator;
+
+  /// Override the variation batch generator (defaults to the live FFI
+  /// singleton's `generateVariations`). Tests pass a stub here.
+  final GenerateVariationsFn? variationsGenerator;
 
   /// Initial prompt — useful for restoring panel state across rebuilds and
   /// for screenshot/integration tests.
@@ -53,6 +69,7 @@ class SlotLabMusicGenPanel extends StatefulWidget {
   const SlotLabMusicGenPanel({
     super.key,
     this.generator,
+    this.variationsGenerator,
     this.initialPrompt =
         'warm electromechanical reel idle, low rumble, gentle gold shimmer',
     this.initialDurationSeconds = 6.0,
@@ -74,6 +91,13 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
   String? _error;
   Duration? _wallClock;
 
+  /// FAZA 5.1.7 — populated by "× N variations" action. When non-null the
+  /// output card shows a strip of mini-cards on top; `_last` mirrors the
+  /// currently selected variation so the existing waveform/provenance
+  /// sub-widgets keep working without conditionals.
+  List<GenerationResult>? _variations;
+  int _selectedVariationIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -92,6 +116,10 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
 
   GenerateFn get _generate =>
       widget.generator ?? GenerativeAudioService.instance.generate;
+
+  GenerateVariationsFn get _generateVariations =>
+      widget.variationsGenerator ??
+      GenerativeAudioService.instance.generateVariations;
 
   int? _parsedSeed() {
     final raw = _seedCtrl.text.trim();
@@ -129,6 +157,10 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
       if (!mounted) return;
       setState(() {
         _last = result;
+        // Single GENERATE drops the variation strip — the output area
+        // shouldn't keep five stale alternates when the user asked for one.
+        _variations = null;
+        _selectedVariationIndex = 0;
         _wallClock = stopwatch.elapsed;
         _busy = false;
       });
@@ -141,6 +173,73 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
         _wallClock = stopwatch.elapsed;
       });
     }
+  }
+
+  /// FAZA 5.1.7 — fan out a single request across N seed-stepped variations.
+  Future<void> _runVariations() async {
+    final prompt = _promptCtrl.text.trim();
+    if (prompt.isEmpty) {
+      setState(() => _error = 'Prompt is required');
+      return;
+    }
+    if (_busy) return;
+
+    final req = GenerationRequest(
+      prompt: prompt,
+      durationSeconds: _duration,
+      seed: _parsedSeed(),
+      style: GenerationStyle(
+        stageHint: _stageHint,
+        emotionalArc: _arc,
+      ),
+    );
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    final stopwatch = Stopwatch()..start();
+    try {
+      final variations =
+          await _generateVariations(req, _kDefaultVariationCount);
+      stopwatch.stop();
+      if (!mounted) return;
+      if (variations.isEmpty) {
+        // Service contract clamps min to 1 so this is defensive only.
+        setState(() {
+          _error = 'Backend returned zero variations';
+          _busy = false;
+          _wallClock = stopwatch.elapsed;
+        });
+        return;
+      }
+      setState(() {
+        _variations = variations;
+        _selectedVariationIndex = 0;
+        _last = variations.first;
+        _wallClock = stopwatch.elapsed;
+        _busy = false;
+      });
+    } catch (e) {
+      stopwatch.stop();
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _busy = false;
+        _wallClock = stopwatch.elapsed;
+      });
+    }
+  }
+
+  void _selectVariation(int index) {
+    final list = _variations;
+    if (list == null || index < 0 || index >= list.length) return;
+    if (index == _selectedVariationIndex) return;
+    setState(() {
+      _selectedVariationIndex = index;
+      _last = list[index];
+    });
   }
 
   @override
@@ -263,6 +362,7 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
           Row(
             children: [
               Expanded(
+                flex: 3,
                 child: FilledButton.icon(
                   key: const Key('gen_panel_generate_button'),
                   onPressed: _busy ? null : _runGenerate,
@@ -290,6 +390,33 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: OutlinedButton.icon(
+                  key: const Key('gen_panel_variations_button'),
+                  onPressed: _busy ? null : _runVariations,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: FluxForgeTheme.brandGoldBright,
+                    side: BorderSide(
+                      color: FluxForgeTheme.brandGold.withValues(alpha: 0.65),
+                      width: 1.2,
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  icon: const Icon(Icons.auto_awesome_motion, size: 16),
+                  label: Text(
+                    '× $_kDefaultVariationCount',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.4,
                     ),
                   ),
                 ),
@@ -338,6 +465,7 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
 
   Widget _buildOutput() {
     final r = _last;
+    final vars = _variations;
     return _glassCard(
       title: 'OUTPUT',
       icon: Icons.graphic_eq,
@@ -359,11 +487,72 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (vars != null) ...[
+                  _variationStrip(vars),
+                  const SizedBox(height: 12),
+                ],
                 _waveformCard(r),
                 const SizedBox(height: 12),
                 _provenanceCard(r),
               ],
             ),
+    );
+  }
+
+  /// FAZA 5.1.7 — horizontal strip of N mini-cards, one per variation.
+  /// Each card: index badge + seed + sparkline. Tap selects.
+  Widget _variationStrip(List<GenerationResult> variations) {
+    return Container(
+      key: const Key('gen_panel_variation_strip'),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E0E14),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Row(
+              children: [
+                Icon(Icons.auto_awesome_motion,
+                    size: 12, color: FluxForgeTheme.brandGold),
+                const SizedBox(width: 4),
+                Text(
+                  'VARIATIONS  ·  ${variations.length}',
+                  style: TextStyle(
+                    color: FluxForgeTheme.brandGold,
+                    fontSize: 9,
+                    letterSpacing: 1.6,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 56,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: variations.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
+              itemBuilder: (context, i) {
+                final v = variations[i];
+                final selected = i == _selectedVariationIndex;
+                return _VariationCard(
+                  index: i,
+                  result: v,
+                  selected: selected,
+                  onTap: () => _selectVariation(i),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -442,7 +631,11 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
           const SizedBox(height: 8),
           _kv('backend', m.backendId),
           _kv('model', m.modelId),
-          _kv('seed', m.seed?.toString() ?? '(auto)'),
+          _kv(
+            'seed',
+            m.seed?.toString() ?? '(auto)',
+            valueKey: const Key('gen_panel_provenance_seed_value'),
+          ),
           _kv('duration', '${m.durationSeconds.toStringAsFixed(2)} s'),
           _kv('latency', '${r.latencyMs} ms'),
           if (_wallClock != null)
@@ -453,7 +646,7 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
     );
   }
 
-  Widget _kv(String k, String v) {
+  Widget _kv(String k, String v, {Key? valueKey}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1.5),
       child: Row(
@@ -472,6 +665,7 @@ class _SlotLabMusicGenPanelState extends State<SlotLabMusicGenPanel> {
           Expanded(
             child: Text(
               v,
+              key: valueKey,
               style: FluxForgeTheme.dockMono(
                   size: 11, color: Colors.white.withValues(alpha: 0.9)),
               overflow: TextOverflow.ellipsis,
@@ -650,4 +844,94 @@ class _SparklinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _SparklinePainter old) =>
       !identical(old.result, result);
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Variation mini-card — one tile inside the 5.1.7 variation strip.
+// Compact (~96px wide) so 5–10 fit comfortably in the output column,
+// even on the narrow stacked layout. Tap promotes that variation to
+// the main waveform/provenance view.
+// ──────────────────────────────────────────────────────────────────────
+
+class _VariationCard extends StatelessWidget {
+  final int index;
+  final GenerationResult result;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _VariationCard({
+    required this.index,
+    required this.result,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = selected
+        ? FluxForgeTheme.brandGoldBright
+        : Colors.white.withValues(alpha: 0.4);
+    final bg = selected
+        ? FluxForgeTheme.brandGold.withValues(alpha: 0.12)
+        : const Color(0xFF13131A);
+    final seed = result.metadata.seed?.toString() ?? '—';
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: Key('gen_panel_variation_card_$index'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          width: 96,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: bg,
+            border: Border.all(
+              color: selected
+                  ? FluxForgeTheme.brandGoldBright
+                  : Colors.white12,
+              width: selected ? 1.5 : 1.0,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '#${index + 1}',
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Flexible(
+                    child: Text(
+                      seed,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: FluxForgeTheme.dockMono(
+                        size: 8.5,
+                        color: Colors.white.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Expanded(
+                child: CustomPaint(
+                  painter: _SparklinePainter(result),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

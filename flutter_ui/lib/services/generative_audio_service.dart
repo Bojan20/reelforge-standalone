@@ -127,6 +127,16 @@ class GenerationRequest {
         if (seed != null) 'seed': seed,
         'style': style.toJson(),
       };
+
+  /// Build a copy with a different seed — used by 5.1.7 variation generation
+  /// to step a single request across N deterministic seeds.
+  GenerationRequest withSeed(int newSeed) => GenerationRequest(
+        prompt: prompt,
+        durationSeconds: durationSeconds,
+        sampleRateHz: sampleRateHz,
+        seed: newSeed,
+        style: style,
+      );
 }
 
 /// Provenance + timing info that always travels with a generated buffer.
@@ -301,6 +311,69 @@ class GenerativeAudioService {
       // Always free — native side coalesces null pointers safely.
       freeBuffer(buf);
     }
+  }
+
+  /// FAZA 5.1.7 — generate N variations of the same request, stepping the
+  /// seed deterministically so the same `(request, count)` pair always
+  /// yields byte-identical variations.
+  ///
+  /// Semantics:
+  /// - `count` is clamped to `[1, 10]` (UI never sends out-of-range; the
+  ///   clamp is defensive so a stray caller can't DoS the FFI).
+  /// - Base seed = `request.seed` if present, otherwise a deterministic
+  ///   hash of the prompt+arc — this means an "auto" request still produces
+  ///   stable variations across reruns of the same session.
+  /// - Seeds step by 7919 (a prime) so adjacent variations diverge
+  ///   meaningfully across MockBackend's chord presets rather than landing
+  ///   on adjacent integers that may map to similar timbres.
+  /// - Sequential (one at a time); the MockBackend is sub-millisecond and
+  ///   the future ONNX backend will live on a worker isolate either way.
+  /// - Atomic: if *any* variation fails the whole call throws — partial
+  ///   lists confuse the UI (which variation is missing?). The caller
+  ///   re-runs after fixing the request.
+  Future<List<GenerationResult>> generateVariations(
+    GenerationRequest request,
+    int count,
+  ) async {
+    final n = count.clamp(1, 10);
+    final baseSeed = request.seed ?? _deterministicSeed(request);
+    final out = <GenerationResult>[];
+    for (var i = 0; i < n; i++) {
+      // Step by a prime so seed differences don't trivially align with
+      // SplitMix64's mixing pattern.
+      final s = (baseSeed + (i * 7919)) & 0x7FFFFFFFFFFFFFFF;
+      out.add(await generate(request.withSeed(s)));
+    }
+    return out;
+  }
+
+  /// Cheap, stable seed derivation when the caller didn't pin one. Uses
+  /// FNV-1a 64 over prompt + arc — same input → same starting seed across
+  /// app restarts, which matches user expectation ("re-roll the same brief").
+  int _deterministicSeed(GenerationRequest req) {
+    const fnvOffset = 0xcbf29ce484222325;
+    const fnvPrime = 0x100000001b3;
+    var hash = fnvOffset;
+    void mix(String s) {
+      for (final code in s.codeUnits) {
+        hash ^= code;
+        hash = (hash * fnvPrime) & 0xFFFFFFFFFFFFFFFF;
+      }
+    }
+
+    mix(req.prompt);
+    mix(req.durationSeconds.toStringAsFixed(3));
+    mix(req.style.stageHint?.wireName ?? '');
+    for (final p in req.style.emotionalArc?.points ?? const []) {
+      mix(p.t.toStringAsFixed(4));
+      mix(p.intensity.toStringAsFixed(4));
+    }
+    for (final tag in req.style.tags) {
+      mix(tag);
+    }
+    // Mask to 63 bits — Rust side `seed: Option<u64>` accepts the value but
+    // staying in non-negative i64 keeps Dart JSON encoding boring.
+    return hash & 0x7FFFFFFFFFFFFFFF;
   }
 
   /// Decode a `{"error": "..."}` JSON blob into a readable message. Falls

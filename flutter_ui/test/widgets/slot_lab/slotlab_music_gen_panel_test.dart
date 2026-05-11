@@ -217,4 +217,161 @@ void main() {
       expect(find.text('OUTPUT'), findsOneWidget);
     });
   });
+
+  // ─── FAZA 5.1.7 variations ──────────────────────────────────────────────
+  group('SlotLabMusicGenPanel variations', () {
+    testWidgets('× N button renders 5 variation cards on success',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 700));
+      var batchCount = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SlotLabMusicGenPanel(
+              generator: (_) async => _fakeResult(),
+              variationsGenerator: (req, count) async {
+                batchCount = count;
+                return List.generate(
+                  count,
+                  (i) => _fakeResult(seed: 1000 + i),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('gen_panel_variations_button')));
+      await tester.pumpAndSettle();
+
+      expect(batchCount, 5);
+      expect(find.byKey(const Key('gen_panel_variation_strip')),
+          findsOneWidget);
+      for (var i = 0; i < 5; i++) {
+        expect(find.byKey(Key('gen_panel_variation_card_$i')),
+            findsOneWidget);
+      }
+      // First variation is auto-selected, so provenance shows seed 1000.
+      final seedText = tester.widget<Text>(
+          find.byKey(const Key('gen_panel_provenance_seed_value')));
+      expect(seedText.data, '1000');
+    });
+
+    testWidgets('tapping a variation card promotes it to main output',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 700));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SlotLabMusicGenPanel(
+              generator: (_) async => _fakeResult(),
+              variationsGenerator: (req, count) async {
+                return List.generate(
+                  count,
+                  (i) => _fakeResult(seed: 2000 + i),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('gen_panel_variations_button')));
+      await tester.pumpAndSettle();
+
+      Text seedText() => tester.widget<Text>(
+          find.byKey(const Key('gen_panel_provenance_seed_value')));
+
+      // Initially #1 selected → seed 2000 in provenance.
+      expect(seedText().data, '2000');
+
+      // Tap #3 (index 2).
+      await tester.tap(find.byKey(const Key('gen_panel_variation_card_2')));
+      await tester.pumpAndSettle();
+
+      expect(seedText().data, '2002');
+    });
+
+    testWidgets('plain GENERATE after variations clears the strip',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 700));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SlotLabMusicGenPanel(
+              generator: (_) async => _fakeResult(seed: 999),
+              variationsGenerator: (req, count) async {
+                return List.generate(
+                    count, (i) => _fakeResult(seed: 3000 + i));
+              },
+            ),
+          ),
+        ),
+      );
+
+      // First run variations.
+      await tester.tap(find.byKey(const Key('gen_panel_variations_button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('gen_panel_variation_strip')),
+          findsOneWidget);
+
+      // Now plain GENERATE — strip must disappear.
+      await tester.tap(find.byKey(const Key('gen_panel_generate_button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('gen_panel_variation_strip')),
+          findsNothing);
+      // Provenance now shows single-generate seed (999).
+      final seedText = tester.widget<Text>(
+          find.byKey(const Key('gen_panel_provenance_seed_value')));
+      expect(seedText.data, '999');
+    });
+
+    testWidgets('failed variations call shows error banner', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 700));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SlotLabMusicGenPanel(
+              generator: (_) async => _fakeResult(),
+              variationsGenerator: (_, _) async {
+                throw GenerationException('seed collision');
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('gen_panel_variations_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('seed collision'), findsOneWidget);
+      expect(find.byKey(const Key('gen_panel_variation_strip')),
+          findsNothing);
+    });
+
+    testWidgets('empty prompt blocks variations call', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 700));
+      var calls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SlotLabMusicGenPanel(
+              initialPrompt: '',
+              generator: (_) async => _fakeResult(),
+              variationsGenerator: (_, _) async {
+                calls++;
+                return [_fakeResult()];
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('gen_panel_variations_button')));
+      await tester.pumpAndSettle();
+
+      expect(calls, 0);
+      expect(find.text('Prompt is required'), findsOneWidget);
+    });
+  });
 }
