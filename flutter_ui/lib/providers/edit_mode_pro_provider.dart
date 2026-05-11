@@ -25,6 +25,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../src/rust/native_ffi.dart';
+import '../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -747,9 +748,9 @@ class GridResolutionSelector extends StatelessWidget {
                 value: provider.gridResolution,
                 underline: const SizedBox.shrink(),
                 dropdownColor: const Color(0xFF242430),
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: Colors.white,
-                  fontSize: 12,
                 ),
                 items: GridResolution.values.map((res) {
                   final config = kGridResolutionConfigs[res]!;
@@ -826,9 +827,9 @@ class _ModifierButton extends StatelessWidget {
           child: Center(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 12,
+                weight: FontWeight.bold,
                 color: isActive
                     ? const Color(0xFF4a9eff)
                     : const Color(0xFF808090),
@@ -889,9 +890,11 @@ class _SpotModeDialogState extends State<SpotModeDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: const Color(0xFF1a1a20),
-      title: const Text(
+      title: Text(
         'Spot Position',
-        style: TextStyle(color: Colors.white),
+        style: FluxForgeTheme.dockSans(
+          color: Colors.white,
+        ),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -904,13 +907,13 @@ class _SpotModeDialogState extends State<SpotModeDialog> {
                 label: 'HH',
                 max: 23,
               ),
-              const Text(':', style: TextStyle(color: Colors.white, fontSize: 24)),
+              Text(':', style: FluxForgeTheme.dockSans(size: 24, color: Colors.white)),
               _TimecodeField(
                 controller: _minutesController,
                 label: 'MM',
                 max: 59,
               ),
-              const Text(':', style: TextStyle(color: Colors.white, fontSize: 24)),
+              Text(':', style: FluxForgeTheme.dockSans(size: 24, color: Colors.white)),
               _TimecodeField(
                 controller: _secondsController,
                 label: 'SS',
@@ -918,7 +921,7 @@ class _SpotModeDialogState extends State<SpotModeDialog> {
               ),
               Text(
                 widget.provider.frameRate == FrameRate.fps2997df ? ';' : ':',
-                style: const TextStyle(color: Colors.white, fontSize: 24),
+                style: FluxForgeTheme.dockSans(size: 24, color: Colors.white),
               ),
               _TimecodeField(
                 controller: _framesController,
@@ -932,7 +935,7 @@ class _SpotModeDialogState extends State<SpotModeDialog> {
           DropdownButton<FrameRate>(
             value: widget.provider.frameRate,
             dropdownColor: const Color(0xFF242430),
-            style: const TextStyle(color: Colors.white),
+            style: FluxForgeTheme.dockSans(color: Colors.white),
             items: FrameRate.values.map((rate) {
               return DropdownMenuItem(
                 value: rate,
@@ -1007,14 +1010,13 @@ class _TimecodeField extends StatelessWidget {
       child: TextField(
         controller: controller,
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockMono(
+          size: 24,
           color: Colors.white,
-          fontSize: 24,
-          fontFamily: 'monospace',
         ),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: Color(0xFF808090), fontSize: 10),
+          labelStyle: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF808090)),
           enabledBorder: const UnderlineInputBorder(
             borderSide: BorderSide(color: Color(0xFF4a9eff)),
           ),

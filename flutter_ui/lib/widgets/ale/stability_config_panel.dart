@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ale_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Stability configuration editor panel
 class StabilityConfigPanel extends StatefulWidget {
@@ -230,12 +231,12 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
         children: [
           const Icon(Icons.tune, color: Color(0xFFffff40), size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Stability',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
             ),
           ),
           const Spacer(),
@@ -255,11 +256,11 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
             const SizedBox(width: 6),
             Text(
               title,
-              style: const TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w600,
                 letterSpacing: 0.5,
+                color: const Color(0xFF888888),
               ),
             ),
           ],
@@ -292,11 +293,11 @@ class _StabilityConfigPanelState extends State<StabilityConfigPanel> {
       ),
       child: Row(
         children: [
-          const Text(
+          Text(
             'Stability prevents erratic level changes',
-            style: TextStyle(
-              color: Color(0xFF666666),
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              color: const Color(0xFF666666),
             ),
           ),
           const Spacer(),
@@ -358,12 +359,12 @@ class _StabilityIndicator extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 isActive ? 'Active' : 'Disabled',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: isActive
                       ? const Color(0xFF40ff90)
                       : const Color(0xFF666666),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -412,21 +413,20 @@ class _ConfigSlider extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
-                    color: Color(0xFFcccccc),
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    color: const Color(0xFFcccccc),
                   ),
                 ),
               ),
               Text(
                 displayValue,
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
+                  weight: FontWeight.w600,
                   color: enabled
                       ? const Color(0xFF4a9eff)
                       : const Color(0xFF666666),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
                 ),
               ),
             ],
@@ -459,9 +459,9 @@ class _ConfigSlider extends StatelessWidget {
           ),
           Text(
             description,
-            style: const TextStyle(
-              color: Color(0xFF555555),
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              color: const Color(0xFF555555),
             ),
           ),
         ],
@@ -501,17 +501,17 @@ class _ConfigToggle extends StatelessWidget {
                   children: [
                     Text(
                       label,
-                      style: const TextStyle(
-                        color: Color(0xFFcccccc),
-                        fontSize: 12,
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
+                        color: const Color(0xFFcccccc),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       description,
-                      style: const TextStyle(
-                        color: Color(0xFF555555),
-                        fontSize: 10,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        color: const Color(0xFF555555),
                       ),
                     ),
                   ],

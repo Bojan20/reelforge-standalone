@@ -543,20 +543,19 @@ class _ClassicTimeDisplay extends StatelessWidget {
           children: [
             Text(
               _modeLabel,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.accentBlue,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
+                size: 9,
+                weight: FontWeight.w700,
               ),
             ),
             const SizedBox(width: 8),
             Text(
               time,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: color,
-                fontSize: 18,
-                fontFamily: 'JetBrains Mono',
-                fontWeight: FontWeight.w600,
+                size: 18,
+                weight: FontWeight.w600,
               ),
             ),
           ],
@@ -715,11 +714,10 @@ class _ClassicTempoControlState extends State<_ClassicTempoControl> {
                         child: TextField(
                           controller: _tempoController,
                           focusNode: _tempoFocusNode,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
                             color: FluxForgeTheme.accentOrange,
-                            fontSize: 14,
-                            fontFamily: 'JetBrains Mono',
-                            fontWeight: FontWeight.w600,
+                            size: 14,
+                            weight: FontWeight.w600,
                           ),
                           decoration: const InputDecoration(
                             border: InputBorder.none,
@@ -733,11 +731,10 @@ class _ClassicTempoControlState extends State<_ClassicTempoControl> {
                       )
                     : Text(
                         widget.tempo.toStringAsFixed(2),
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
                           color: FluxForgeTheme.accentOrange,
-                          fontSize: 14,
-                          fontFamily: 'JetBrains Mono',
-                          fontWeight: FontWeight.w600,
+                          size: 14,
+                          weight: FontWeight.w600,
                         ),
                       ),
               ],
@@ -765,11 +762,10 @@ class _ClassicTempoControlState extends State<_ClassicTempoControl> {
                     child: TextField(
                       controller: _timeSigController,
                       focusNode: _timeSigFocusNode,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: FluxForgeTheme.accentOrange,
-                        fontSize: 12,
-                        fontFamily: 'JetBrains Mono',
-                        fontWeight: FontWeight.w600,
+                        size: 12,
+                        weight: FontWeight.w600,
                       ),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
@@ -782,10 +778,10 @@ class _ClassicTempoControlState extends State<_ClassicTempoControl> {
                   )
                 : Text(
                     '${widget.timeSigNum}/${widget.timeSigDenom}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      size: 12,
+                      weight: FontWeight.w600,
                     ),
                   ),
           ),
@@ -853,12 +849,12 @@ class _ClassicToggleState extends State<_ClassicToggle> {
               const SizedBox(width: 4),
               Text(
                 widget.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: widget.isActive
                       ? widget.activeColor
                       : FluxForgeTheme.textTertiary,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
+                  size: 9,
+                  weight: FontWeight.w700,
                 ),
               ),
             ],
@@ -919,10 +915,10 @@ class _Meter extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textTertiary,
-            fontSize: 8,
-            fontWeight: FontWeight.w600,
+            size: 8,
+            weight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 2),

@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // =============================================================================
 // REVERB SPACE PRESET MODEL
@@ -304,9 +305,9 @@ class _ReverbTemplateBrowserState extends State<ReverbTemplateBrowser> {
         children: [
           const Icon(Icons.spatial_audio, size: 20, color: Color(0xFF9370DB)),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Reverb Spaces',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.bold),
           ),
           const Spacer(),
           _buildTypeFilter(),
@@ -324,10 +325,10 @@ class _ReverbTemplateBrowserState extends State<ReverbTemplateBrowser> {
       ),
       child: DropdownButton<ReverbSpaceType?>(
         value: _filterType,
-        hint: const Text('All', style: TextStyle(fontSize: 11)),
+        hint: Text('All', style: FluxForgeTheme.dockSans(size: 11)),
         underline: const SizedBox(),
         isDense: true,
-        style: const TextStyle(fontSize: 11, color: Colors.white),
+        style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
         dropdownColor: const Color(0xFF242430),
         items: [
           const DropdownMenuItem(value: null, child: Text('All Types')),
@@ -377,7 +378,7 @@ class _ReverbTemplateBrowserState extends State<ReverbTemplateBrowser> {
             children: [
               Icon(preset.icon, size: 16, color: Colors.white),
               const SizedBox(width: 6),
-              Text(preset.name, style: const TextStyle(fontSize: 11, color: Colors.white)),
+              Text(preset.name, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white)),
             ],
           ),
         ),
@@ -414,7 +415,7 @@ class _ReverbTemplateBrowserState extends State<ReverbTemplateBrowser> {
                     Expanded(
                       child: Text(
                         preset.name,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -449,7 +450,7 @@ class _ReverbTemplateBrowserState extends State<ReverbTemplateBrowser> {
                     children: [
                       Text(
                         preset.description,
-                        style: TextStyle(fontSize: 9, color: Colors.grey[500]),
+                        style: FluxForgeTheme.dockSans(size: 9, color: Colors.grey[500]!),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -476,8 +477,8 @@ class _ReverbTemplateBrowserState extends State<ReverbTemplateBrowser> {
   Widget _paramBadge(String value, String label) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-        Text(label, style: TextStyle(fontSize: 8, color: Colors.grey[600])),
+        Text(value, style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.w500)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 8, color: Colors.grey[600]!)),
       ],
     );
   }

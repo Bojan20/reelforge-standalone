@@ -565,7 +565,7 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
           value: value,
           isDense: true,
           dropdownColor: FluxForgeTheme.bgMid,
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 10),
           items: items.map((e) => DropdownMenuItem(
             value: e,
             child: Text(labelBuilder(e)),
@@ -698,20 +698,18 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
           if (_hoverFrequency != null)
             Text(
               _formatFrequency(_hoverFrequency!),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 9,
-                fontFamily: 'monospace',
+                size: 9,
               ),
             ),
           if (_hoverDb != null) ...[
             const SizedBox(width: 12),
             Text(
               '${_hoverDb!.toStringAsFixed(1)} dB',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 9,
-                fontFamily: 'monospace',
+                size: 9,
               ),
             ),
           ],
@@ -721,7 +719,7 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
           if (_zoomLevel > 1.0)
             Text(
               'Zoom: ${(_zoomLevel * 100).toInt()}%',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9),
+              style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textSecondary, size: 9),
             ),
 
           if (_isFrozen) ...[
@@ -732,9 +730,13 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
                 color: Colors.orange.withAlpha(51),
                 borderRadius: BorderRadius.circular(2),
               ),
-              child: const Text(
+              child: Text(
                 'FROZEN',
-                style: TextStyle(color: Colors.orange, fontSize: 8, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(
+                  color: Colors.orange,
+                  size: 8,
+                  weight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -1303,11 +1305,11 @@ class SpectrumAnalyzerDemo extends StatelessWidget {
     // NO FAKE DATA: Empty spectrum until connected to real audio
     return Container(
       color: FluxForgeTheme.bgDeepest,
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SpectrumAnalyzer(
+            const SpectrumAnalyzer(
               data: null, // No fake data - empty analyzer
               sampleRate: 48000,
               config: SpectrumConfig(
@@ -1315,13 +1317,13 @@ class SpectrumAnalyzerDemo extends StatelessWidget {
                 binCount: 64,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'Spectrum Analyzer\nAwaiting audio signal from playback',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Color(0xFF707078),
-                fontSize: 12,
+                size: 12,
               ),
             ),
           ],

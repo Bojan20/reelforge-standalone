@@ -13,6 +13,7 @@ import '../../models/feature_builder/block_dependency.dart';
 import '../../models/feature_builder/feature_block.dart';
 import '../../services/dependency_resolver.dart';
 import '../../providers/feature_builder_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Shows a visual dependency graph for Feature Builder blocks.
 class DependencyGraphDialog extends StatefulWidget {
@@ -178,24 +179,24 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
           const SizedBox(width: 12),
 
           // Title
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'DEPENDENCY GRAPH',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    size: 16,
+                    weight: FontWeight.bold,
                     letterSpacing: 1,
                   ),
                 ),
                 Text(
                   'Visual representation of block dependencies',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white54,
-                    fontSize: 12,
+                    size: 12,
                   ),
                 ),
               ],
@@ -219,10 +220,10 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
                   const SizedBox(width: 6),
                   Text(
                     '${_resolverResult.cycles.length} cycle(s)',
-                    style: const TextStyle(
-                      color: Color(0xFFFF4040),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockMono(
+                      color: const Color(0xFFFF4040),
+                      size: 12,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -257,12 +258,12 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
                   hasIssues
                       ? '${_resolverResult.missingDependencies.length + _resolverResult.conflicts.length} issue(s)'
                       : 'Valid',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: hasIssues
                         ? const Color(0xFFFF9040)
                         : const Color(0xFF40FF90),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    size: 12,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -433,7 +434,7 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
           ),
           Text(
             '${(_scale * 100).toInt()}%',
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
+            style: FluxForgeTheme.dockMono(color: Colors.white54, size: 12),
           ),
           IconButton(
             icon: const Icon(Icons.zoom_in, color: Colors.white54, size: 20),
@@ -470,7 +471,7 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(color: Colors.white54, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
         ),
       ],
     );
@@ -490,7 +491,7 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(color: Colors.white54, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
         ),
       ],
     );

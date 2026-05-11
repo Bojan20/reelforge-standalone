@@ -320,10 +320,10 @@ class _Header extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           'Bus Meters',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.w600,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
           ),
         ),
 
@@ -340,11 +340,11 @@ class _Header extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           isConnected ? 'LIVE' : 'OFFLINE',
-          style: TextStyle(
-            color: isConnected ? FluxForgeTheme.accentGreen : FluxForgeTheme.textMuted,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w600,
             letterSpacing: 0.5,
+            color: isConnected ? FluxForgeTheme.accentGreen : FluxForgeTheme.textMuted,
           ),
         ),
 
@@ -384,9 +384,9 @@ class _Header extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Reset',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textMuted,
-                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -429,10 +429,10 @@ class _ToggleChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: isActive ? FontWeight.w600 : FontWeight.normal,
             color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textMuted,
-            fontSize: 10,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -490,10 +490,10 @@ class _BusMeter extends StatelessWidget {
         // Label
         Text(
           config.shortName,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w500,
             color: FluxForgeTheme.textMuted,
-            fontSize: 9,
-            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -540,11 +540,11 @@ class _StereoMeter extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               'MASTER',
-              style: TextStyle(
-                color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 letterSpacing: 1,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ],
@@ -590,9 +590,9 @@ class _StereoMeter extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('L', style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 9)),
+            Text('L', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textMuted)),
             const SizedBox(width: 16),
-            Text('R', style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 9)),
+            Text('R', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textMuted)),
           ],
         ),
       ],

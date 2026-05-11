@@ -166,12 +166,12 @@ class _BonusSimulatorPanelState extends State<BonusSimulatorPanel>
         children: [
           const Icon(Icons.casino, color: Colors.amber, size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'BONUS SIMULATOR',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.amber,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              size: 12,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
@@ -208,7 +208,7 @@ class _BonusSimulatorPanelState extends State<BonusSimulatorPanel>
         unselectedLabelColor: Colors.white54,
         indicatorColor: Colors.amber,
         indicatorWeight: 2,
-        labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        labelStyle: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600),
         tabs: BonusType.values.map((type) {
           final isActive = switch (type) {
             BonusType.holdAndWin => _holdAndWinActive,
@@ -310,10 +310,10 @@ class _BonusSimulatorPanelState extends State<BonusSimulatorPanel>
             const SizedBox(width: 4),
             Text(
               'Last: ${_lastPayout.toStringAsFixed(2)}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: _lastBonusType!.color,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+                size: 11,
+                weight: FontWeight.bold,
               ),
             ),
           ],
@@ -401,10 +401,10 @@ class _StatusBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: isActive ? color : Colors.white54,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+              size: 9,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -716,9 +716,9 @@ class _InactiveState extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             '${type.displayName} Inactive',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white54,
-              fontSize: 14,
+              size: 14,
             ),
           ),
           const SizedBox(height: 16),
@@ -764,9 +764,9 @@ class _StatCard extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white54,
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
             ],
@@ -774,11 +774,10 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -814,10 +813,10 @@ class _ChoiceButton extends StatelessWidget {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color == Colors.black87 ? Colors.white : color,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              size: 18,
+              weight: FontWeight.bold,
             ),
           ),
         ),
