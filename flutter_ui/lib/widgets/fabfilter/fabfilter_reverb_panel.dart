@@ -15,6 +15,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
@@ -718,9 +719,9 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
             // Title
             Icon(Icons.waves, size: 13, color: FabFilterColors.purple),
             const SizedBox(width: 4),
-            Text('FF-R', style: TextStyle(
+            Text('FF-R', style: FluxForgeTheme.dockSans(
+              size: 11, weight: FontWeight.bold,
               color: FabFilterColors.textPrimary,
-              fontSize: 11, fontWeight: FontWeight.bold,
             )),
             const SizedBox(width: 8),
             // Space type badge
@@ -730,9 +731,9 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                 color: FabFilterColors.purple.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: Text(_spaceType.label.toUpperCase(), style: TextStyle(
+              child: Text(_spaceType.label.toUpperCase(), style: FluxForgeTheme.dockSans(
+                size: 8, weight: FontWeight.bold,
                 color: FabFilterColors.purple,
-                fontSize: 8, fontWeight: FontWeight.bold,
               ), overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 4),
@@ -755,8 +756,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                   children: [
                     Icon(Icons.library_music, size: 9, color: FabFilterColors.textSecondary),
                     const SizedBox(width: 2),
-                    Text('PRESET', style: TextStyle(
-                      fontSize: 7, fontWeight: FontWeight.bold,
+                    Text('PRESET', style: FluxForgeTheme.dockSans(
+                      size: 7, weight: FontWeight.bold,
                       color: FabFilterColors.textSecondary,
                     )),
                   ],
@@ -771,8 +772,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                     if (lastCategory != null) items.add(const PopupMenuDivider(height: 4));
                     items.add(PopupMenuItem<int>(
                       enabled: false, height: 20,
-                      child: Text(p.category.toUpperCase(), style: TextStyle(
-                        fontSize: 9, fontWeight: FontWeight.bold,
+                      child: Text(p.category.toUpperCase(), style: FluxForgeTheme.dockSans(
+                        size: 9, weight: FontWeight.bold,
                         color: FabFilterColors.textMuted,
                       )),
                     ));
@@ -780,7 +781,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                   }
                   items.add(PopupMenuItem<int>(
                     value: i, height: 24,
-                    child: Text(p.name, style: const TextStyle(fontSize: 11)),
+                    child: Text(p.name, style: FluxForgeTheme.dockSans(size: 11)),
                   ));
                 }
                 return items;
@@ -789,11 +790,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
             ),
             const SizedBox(width: 6),
             // Decay readout
-            Text(decayLabel, style: TextStyle(
+            Text(decayLabel, style: FluxForgeTheme.dockMono(
+              size: 9, weight: FontWeight.bold,
               color: FabFilterProcessorColors.reverbDecay,
-              fontSize: 9, fontWeight: FontWeight.bold,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ), overflow: TextOverflow.ellipsis),
+            ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]), overflow: TextOverflow.ellipsis),
             const Spacer(),
             // Mini I/O meters
             _buildMiniMeter('IN', _inputLevel, FabFilterColors.cyan),
@@ -807,11 +807,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                 color: FabFilterColors.green.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: Text('${(_mix * 100).toStringAsFixed(0)}%', style: TextStyle(
+              child: Text('${(_mix * 100).toStringAsFixed(0)}%', style: FluxForgeTheme.dockMono(
+                size: 8, weight: FontWeight.bold,
                 color: FabFilterColors.green,
-                fontSize: 8, fontWeight: FontWeight.bold,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              )),
+              ).copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
             ),
             const SizedBox(width: 6),
             // Freeze indicator
@@ -828,9 +827,9 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                   children: [
                     Icon(Icons.ac_unit, size: 8, color: FabFilterColors.cyan),
                     const SizedBox(width: 2),
-                    Text('FRZ', style: TextStyle(
+                    Text('FRZ', style: FluxForgeTheme.dockSans(
+                      size: 7, weight: FontWeight.bold,
                       color: FabFilterColors.cyan,
-                      fontSize: 7, fontWeight: FontWeight.bold,
                     )),
                   ],
                 ),
@@ -851,9 +850,9 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(
+        Text(label, style: FluxForgeTheme.dockSans(
+          size: 7, weight: FontWeight.bold,
           color: FabFilterColors.textTertiary,
-          fontSize: 7, fontWeight: FontWeight.bold,
         )),
         const SizedBox(width: 2),
         SizedBox(
@@ -909,9 +908,9 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                     Icon(s.icon, size: 11,
                       color: _spaceType == s ? FabFilterColors.purple : FabFilterColors.textTertiary),
                     const SizedBox(width: 4),
-                    Text(s.label, style: TextStyle(
+                    Text(s.label, style: FluxForgeTheme.dockSans(
+                      size: 9, weight: FontWeight.bold,
                       color: _spaceType == s ? FabFilterColors.textPrimary : FabFilterColors.textTertiary,
-                      fontSize: 9, fontWeight: FontWeight.bold,
                     )),
                   ],
                 ),
@@ -963,9 +962,9 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                 Icon(Icons.ac_unit, size: 12,
                   color: _freeze ? FabFilterColors.cyan : FabFilterColors.textTertiary),
                 const SizedBox(width: 4),
-                Text('FREEZE', style: TextStyle(
+                Text('FREEZE', style: FluxForgeTheme.dockSans(
+                  size: 9, weight: FontWeight.bold,
                   color: _freeze ? FabFilterColors.cyan : FabFilterColors.textTertiary,
-                  fontSize: 9, fontWeight: FontWeight.bold,
                 )),
               ],
             ),
@@ -1063,11 +1062,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           ),
           const SizedBox(width: 3),
           Text('Lo ${_lowDecay.toStringAsFixed(1)}×',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 8, weight: FontWeight.bold,
               color: _lowDecay > 1.0 ? FabFilterColors.orange : FabFilterColors.cyan,
-              fontSize: 8, fontWeight: FontWeight.bold,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            )),
+            ).copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
           const SizedBox(width: 6),
           Container(
             width: 3, height: 14,
@@ -1085,11 +1083,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           ),
           const SizedBox(width: 3),
           Text('Hi ${_highDecay.toStringAsFixed(1)}×',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 8, weight: FontWeight.bold,
               color: FabFilterColors.cyan,
-              fontSize: 8, fontWeight: FontWeight.bold,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            )),
+            ).copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
         ],
       ),
     );
@@ -1114,11 +1111,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           ),
           const SizedBox(width: 4),
           Text('${(_mix * 100).toStringAsFixed(0)}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 8, weight: FontWeight.bold,
               color: FabFilterColors.green,
-              fontSize: 8, fontWeight: FontWeight.bold,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            )),
+            ).copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
         ],
       ),
     );
@@ -1132,11 +1128,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: FabFilterColors.borderSubtle.withValues(alpha: 0.3), width: 0.5),
       ),
-      child: Text('W ${(_width * 100).toStringAsFixed(0)}%', style: TextStyle(
+      child: Text('W ${(_width * 100).toStringAsFixed(0)}%', style: FluxForgeTheme.dockMono(
+        size: 8, weight: FontWeight.bold,
         color: FabFilterColors.cyan.withValues(alpha: 0.7),
-        fontSize: 8, fontWeight: FontWeight.bold,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      )),
+      ).copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
     );
   }
 
@@ -1498,8 +1493,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           border: Border.all(color: active ? color.withValues(alpha: 0.5) : FabFilterColors.borderSubtle),
         ),
         alignment: Alignment.center,
-        child: Text(label, style: TextStyle(
-          fontSize: 8, fontWeight: FontWeight.w600,
+        child: Text(label, style: FluxForgeTheme.dockSans(
+          size: 8, weight: FontWeight.w600,
           color: active ? color : FabFilterColors.textMuted,
         )),
       ),

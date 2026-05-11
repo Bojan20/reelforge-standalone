@@ -99,12 +99,12 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
         children: [
           const Icon(Icons.edit_document, size: 14, color: FluxForgeTheme.accentOrange),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'CONFIG',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),
@@ -122,12 +122,12 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
               ),
               child: Text(
                 'YAML',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: _showYaml
                       ? FluxForgeTheme.accentOrange
                       : FluxForgeTheme.textTertiary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -142,12 +142,12 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
                 color: FluxForgeTheme.accentGreen.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: const Text(
+              child: Text(
                 'VALIDATE',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.accentGreen,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -238,7 +238,10 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
           width: 70,
           child: Text(
             label,
-            style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              color: FluxForgeTheme.textTertiary,
+            ),
           ),
         ),
         Expanded(
@@ -246,12 +249,15 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
             height: 24,
             child: TextFormField(
               controller: controller,
-              style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                color: FluxForgeTheme.textSecondary,
+              ),
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle: TextStyle(
+                hintStyle: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4),
-                  fontSize: 11,
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 filled: true,
@@ -302,10 +308,10 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
             ),
             child: Text(
               o.replaceAll('_', ' ').toUpperCase(),
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: isSelected ? color : FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -338,9 +344,9 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
             ),
             child: Text(
               o.replaceAll('_', ' '),
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: isSelected ? color : FluxForgeTheme.textTertiary,
-                fontSize: 10,
               ),
             ),
           ),
@@ -388,18 +394,17 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
                       const SizedBox(width: 6),
                       Text(
                         '${index + 1}.',
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockMono(
+                          size: 10,
                           color: FluxForgeTheme.textTertiary,
-                          fontSize: 10,
-                          fontFamily: 'JetBrains Mono',
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         step,
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 11,
                         ),
                       ),
                       const Spacer(),
@@ -438,9 +443,9 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
                           const SizedBox(width: 4),
                           Text(
                             s.name,
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
                               color: FluxForgeTheme.textTertiary,
-                              fontSize: 10,
                             ),
                           ),
                         ],
@@ -459,19 +464,24 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
         // Seed
         Row(
           children: [
-            const SizedBox(
+            SizedBox(
               width: 70,
-              child: Text('Seed', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+              child: Text(
+                'Seed',
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  color: FluxForgeTheme.textTertiary,
+                ),
+              ),
             ),
             SizedBox(
               width: 100,
               height: 24,
               child: TextFormField(
                 controller: _seedController,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono',
                 ),
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
@@ -518,7 +528,10 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
             width: 70,
             child: Text(
               label,
-              style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                color: FluxForgeTheme.textTertiary,
+              ),
             ),
           ),
           GestureDetector(
@@ -570,12 +583,10 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
       child: SingleChildScrollView(
         child: SelectableText(
           yaml,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 11,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
-            fontFamily: 'JetBrains Mono',
-            height: 1.5,
-          ),
+          ).copyWith(height: 1.5),
         ),
       ),
     );
@@ -642,10 +653,10 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
   Widget _buildSectionLabel(String label) {
     return Text(
       label,
-      style: const TextStyle(
+      style: FluxForgeTheme.dockSans(
+        size: 10,
+        weight: FontWeight.w700,
         color: FluxForgeTheme.textTertiary,
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
         letterSpacing: 1.0,
       ),
     );

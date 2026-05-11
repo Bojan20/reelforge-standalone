@@ -168,10 +168,10 @@ class _RestorationPanelState extends State<RestorationPanel> {
           const SizedBox(width: 8),
           Text(
             'Audio Restoration',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -206,10 +206,10 @@ class _RestorationPanelState extends State<RestorationPanel> {
           const SizedBox(width: 4),
           Text(
             '${(_overallQuality * 100).toInt()}% Quality',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w500,
               color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -293,12 +293,12 @@ class _RestorationPanelState extends State<RestorationPanel> {
                   const SizedBox(width: 8),
                   Text(
                     title,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
+                      weight: FontWeight.w500,
                       color: enabled
                           ? FluxForgeTheme.textPrimary
                           : FluxForgeTheme.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const Spacer(),
@@ -404,9 +404,9 @@ class _RestorationPanelState extends State<RestorationPanel> {
         const SizedBox(height: 8),
         Text(
           'Noise Floor: ${_noiseFloorDb.toStringAsFixed(1)} dB',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 10,
           ),
         ),
       ],
@@ -435,11 +435,11 @@ class _RestorationPanelState extends State<RestorationPanel> {
             const SizedBox(width: 6),
             Text(
               '$_detectedClicks clicks detected',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: _detectedClicks > 0
                     ? FluxForgeTheme.accentOrange
                     : FluxForgeTheme.textSecondary,
-                fontSize: 11,
               ),
             ),
           ],
@@ -472,11 +472,11 @@ class _RestorationPanelState extends State<RestorationPanel> {
             const SizedBox(width: 6),
             Text(
               '${(_clipPercentage * 100).toStringAsFixed(2)}% clipped',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: _clipPercentage > 0.01
                     ? FluxForgeTheme.accentRed
                     : FluxForgeTheme.textSecondary,
-                fontSize: 11,
               ),
             ),
           ],
@@ -513,11 +513,11 @@ class _RestorationPanelState extends State<RestorationPanel> {
               _humDetected
                   ? 'Hum detected at ${_dehumFrequency.toInt()} Hz'
                   : 'No hum detected',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: _humDetected
                     ? FluxForgeTheme.accentOrange
                     : FluxForgeTheme.textSecondary,
-                fontSize: 11,
               ),
             ),
           ],
@@ -532,9 +532,9 @@ class _RestorationPanelState extends State<RestorationPanel> {
       children: [
         Text(
           'Frequency',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 10,
           ),
         ),
         const SizedBox(height: 4),
@@ -568,11 +568,11 @@ class _RestorationPanelState extends State<RestorationPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: isSelected
                 ? FluxForgeTheme.accentGreen
                 : FluxForgeTheme.textPrimary,
-            fontSize: 11,
           ),
         ),
       ),
@@ -585,9 +585,9 @@ class _RestorationPanelState extends State<RestorationPanel> {
       children: [
         Text(
           'Harmonics',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 10,
           ),
         ),
         const SizedBox(height: 4),
@@ -607,9 +607,9 @@ class _RestorationPanelState extends State<RestorationPanel> {
                   value: n,
                   child: Text(
                     '$n',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 11,
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 11,
                     ),
                   ),
                 );
@@ -648,9 +648,9 @@ class _RestorationPanelState extends State<RestorationPanel> {
             const SizedBox(width: 6),
             Text(
               'Detected reverb: ${(_detectedReverbAmount * 100).toInt()}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
               ),
             ),
           ],
@@ -674,17 +674,17 @@ class _RestorationPanelState extends State<RestorationPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
               ),
             ),
             Text(
               '${(value * 100).toInt()}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.accentGreen,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -730,10 +730,10 @@ class _RestorationPanelState extends State<RestorationPanel> {
               const SizedBox(width: 8),
               Text(
                 'Recommendations',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w500,
                   color: FluxForgeTheme.accentCyan,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -746,14 +746,16 @@ class _RestorationPanelState extends State<RestorationPanel> {
                   children: [
                     Text(
                       '• ',
-                      style: TextStyle(color: FluxForgeTheme.textSecondary),
+                      style: FluxForgeTheme.dockSans(
+                        color: FluxForgeTheme.textSecondary,
+                      ),
                     ),
                     Expanded(
                       child: Text(
                         rec,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: FluxForgeTheme.textPrimary,
-                          fontSize: 11,
                         ),
                       ),
                     ),

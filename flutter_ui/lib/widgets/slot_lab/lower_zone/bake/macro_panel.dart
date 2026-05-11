@@ -108,12 +108,12 @@ class _MacroPanelState extends State<MacroPanel> {
         children: [
           const Icon(Icons.auto_fix_high, size: 14, color: FluxForgeTheme.accentYellow),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'FLUXMACRO',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
               color: FluxForgeTheme.accentYellow,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),
@@ -131,12 +131,12 @@ class _MacroPanelState extends State<MacroPanel> {
           const SizedBox(width: 8),
           Text(
             _provider.initialized ? 'READY' : 'OFFLINE',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               color: _provider.initialized
                   ? FluxForgeTheme.accentGreen
                   : FluxForgeTheme.textTertiary,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -157,11 +157,14 @@ class _MacroPanelState extends State<MacroPanel> {
         // Game ID
         Row(
           children: [
-            const SizedBox(
+            SizedBox(
               width: 80,
               child: Text(
                 'Game ID',
-                style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  color: FluxForgeTheme.textTertiary,
+                ),
               ),
             ),
             Expanded(
@@ -177,11 +180,14 @@ class _MacroPanelState extends State<MacroPanel> {
         // Volatility
         Row(
           children: [
-            const SizedBox(
+            SizedBox(
               width: 80,
               child: Text(
                 'Volatility',
-                style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  color: FluxForgeTheme.textTertiary,
+                ),
               ),
             ),
             Expanded(
@@ -207,10 +213,10 @@ class _MacroPanelState extends State<MacroPanel> {
                         ),
                         child: Text(
                           v.toUpperCase(),
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 10,
+                            weight: FontWeight.w600,
                             color: selected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -265,9 +271,9 @@ class _MacroPanelState extends State<MacroPanel> {
                 ),
                 child: Text(
                   m.replaceAll('_', ' '),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: selected ? FluxForgeTheme.accentPurple : FluxForgeTheme.textTertiary,
-                    fontSize: 10,
                   ),
                 ),
               ),
@@ -340,12 +346,12 @@ class _MacroPanelState extends State<MacroPanel> {
                 const SizedBox(width: 8),
                 Text(
                   action.label,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w500,
                     color: isDisabled
                         ? FluxForgeTheme.textTertiary.withValues(alpha: 0.3)
                         : FluxForgeTheme.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const Spacer(),
@@ -402,10 +408,9 @@ class _MacroPanelState extends State<MacroPanel> {
           if (_provider.currentStep != null)
             Text(
               _provider.currentStep!,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
               ),
             ),
         ],
@@ -437,21 +442,20 @@ class _MacroPanelState extends State<MacroPanel> {
                     const SizedBox(width: 6),
                     Text(
                       result.success ? 'PASS' : 'FAIL',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
+                        weight: FontWeight.w700,
                         color: result.success
                             ? FluxForgeTheme.accentGreen
                             : FluxForgeTheme.accentRed,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const Spacer(),
                     Text(
                       '${result.durationMs}ms',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
                         color: FluxForgeTheme.textTertiary,
-                        fontSize: 10,
-                        fontFamily: 'JetBrains Mono',
                       ),
                     ),
                   ],
@@ -460,10 +464,9 @@ class _MacroPanelState extends State<MacroPanel> {
                   const SizedBox(height: 4),
                   Text(
                     'Hash: ${result.shortHash}',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 10,
-                      fontFamily: 'JetBrains Mono',
                     ),
                   ),
                 ],
@@ -471,9 +474,9 @@ class _MacroPanelState extends State<MacroPanel> {
                   const SizedBox(height: 4),
                   Text(
                     'QA: ${result.qaPassed}/${result.qaTotal} passed',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -481,9 +484,9 @@ class _MacroPanelState extends State<MacroPanel> {
                   const SizedBox(height: 4),
                   Text(
                     '${result.warnings.length} warning(s)',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.accentOrange,
-                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -502,10 +505,10 @@ class _MacroPanelState extends State<MacroPanel> {
   Widget _buildSectionLabel(String label) {
     return Text(
       label,
-      style: const TextStyle(
+      style: FluxForgeTheme.dockSans(
+        size: 10,
+        weight: FontWeight.w700,
         color: FluxForgeTheme.textTertiary,
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
         letterSpacing: 1.0,
       ),
     );
@@ -519,15 +522,15 @@ class _MacroPanelState extends State<MacroPanel> {
     return SizedBox(
       height: 24,
       child: TextField(
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 11,
           color: FluxForgeTheme.textSecondary,
-          fontSize: 11,
         ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(
+          hintStyle: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4),
-            fontSize: 11,
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           filled: true,

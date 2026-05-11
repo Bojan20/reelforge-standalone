@@ -460,7 +460,7 @@ class _AutomationLaneState extends State<AutomationLane> {
               const SizedBox(width: 8),
               const Text('Linear'),
               const Spacer(),
-              Text('1', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text('1', style: FluxForgeTheme.dockMono(size: 12, color: Colors.grey[600]!)),
             ],
           ),
         ),
@@ -478,7 +478,7 @@ class _AutomationLaneState extends State<AutomationLane> {
               const SizedBox(width: 8),
               const Text('Bezier'),
               const Spacer(),
-              Text('2', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text('2', style: FluxForgeTheme.dockMono(size: 12, color: Colors.grey[600]!)),
             ],
           ),
         ),
@@ -496,7 +496,7 @@ class _AutomationLaneState extends State<AutomationLane> {
               const SizedBox(width: 8),
               const Text('Step'),
               const Spacer(),
-              Text('3', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text('3', style: FluxForgeTheme.dockMono(size: 12, color: Colors.grey[600]!)),
             ],
           ),
         ),
@@ -514,7 +514,7 @@ class _AutomationLaneState extends State<AutomationLane> {
               const SizedBox(width: 8),
               const Text('S-Curve'),
               const Spacer(),
-              Text('4', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text('4', style: FluxForgeTheme.dockMono(size: 12, color: Colors.grey[600]!)),
             ],
           ),
         ),
@@ -525,9 +525,9 @@ class _AutomationLaneState extends State<AutomationLane> {
             children: [
               Icon(Icons.delete, size: 16, color: Colors.red[400]),
               const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: Colors.red[400])),
+              Text('Delete', style: FluxForgeTheme.dockSans(color: Colors.red[400]!)),
               const Spacer(),
-              Text('⌫', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text('⌫', style: FluxForgeTheme.dockMono(size: 12, color: Colors.grey[600]!)),
             ],
           ),
         ),
@@ -681,10 +681,7 @@ class _AutomationLaneState extends State<AutomationLane> {
                     ),
                     child: Text(
                       '${_selectedPoints.length} selected',
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: Colors.white,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 9, color: Colors.white),
                     ),
                   ),
                 ),
@@ -729,12 +726,7 @@ class _AutomationLaneState extends State<AutomationLane> {
         ),
         child: Text(
           displayValue,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            color: widget.data.color,
-            fontFamily: 'JetBrains Mono',
-          ),
+          style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.w500, color: widget.data.color),
         ),
       ),
     );
@@ -828,19 +820,12 @@ class _AutomationLaneState extends State<AutomationLane> {
         children: [
           Text(
             widget.data.parameterName,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: Colors.white),
           ),
           const SizedBox(width: 4),
           Text(
             _modeLabel(widget.data.mode),
-            style: TextStyle(
-              fontSize: 9,
-              color: Colors.white.withValues(alpha: 0.8),
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, color: Colors.white.withValues(alpha: 0.8)),
           ),
         ],
       ),
@@ -1207,19 +1192,12 @@ class AutomationLaneHeader extends StatelessWidget {
               children: [
                 Text(
                   data.parameterName,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: FluxForgeTheme.textPrimary,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w500, color: FluxForgeTheme.textPrimary),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   '${data.points.length} points',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: FluxForgeTheme.textTertiary,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary),
                 ),
               ],
             ),
@@ -1240,10 +1218,7 @@ class AutomationLaneHeader extends StatelessWidget {
                         alignment: Alignment.center,
                         child: Text(
                           _modeLabel(mode),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: _modeColor(mode),
-                          ),
+                          style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: _modeColor(mode)),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1260,11 +1235,7 @@ class AutomationLaneHeader extends StatelessWidget {
               ),
               child: Text(
                 _modeLabel(data.mode),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: _modeColor(data.mode),
-                ),
+                style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: _modeColor(data.mode)),
               ),
             ),
           ),

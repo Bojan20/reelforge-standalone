@@ -115,7 +115,7 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
       ),
       child: Row(
         children: [
-          Text('Coverage', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10)),
+          Text('Coverage', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.5))),
           const SizedBox(width: 6),
           Expanded(
             child: SizedBox(
@@ -128,7 +128,7 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
             ),
           ),
           const SizedBox(width: 6),
-          Text('${pct.toStringAsFixed(0)}%', style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+          Text('${pct.toStringAsFixed(0)}%', style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.w600, color: color)),
         ],
       ),
     );
@@ -143,7 +143,7 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
           children: [
             Icon(Icons.touch_app, size: 32, color: Colors.white.withValues(alpha: 0.1)),
             const SizedBox(height: 8),
-            Text('Select a behavior node', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12)),
+            Text('Select a behavior node', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white.withValues(alpha: 0.2))),
           ],
         ),
       );
@@ -152,7 +152,7 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
     final node = _treeProvider?.allNodes.cast<BehaviorNode?>().firstWhere((n) => n?.id == nodeId, orElse: () => null);
     if (node == null) {
       return Center(
-        child: Text('Node not found: $nodeId', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+        child: Text('Node not found: $nodeId', style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.3))),
       );
     }
 
@@ -216,7 +216,7 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
     final hookNames = triggers.getHooksForNode(nodeId);
     return _section('Bindings (${hookNames.length})', [
       if (hookNames.isEmpty)
-        Text('No bindings', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10)),
+        Text('No bindings', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.2))),
       for (final hookName in hookNames.take(10))
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 1),
@@ -227,7 +227,7 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
               Expanded(
                 child: Text(
                   hookName,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9),
+                  style: FluxForgeTheme.dockMono(size: 9, color: Colors.white.withValues(alpha: 0.5)),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -253,14 +253,14 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
     final stages = _stageProvider;
     if (stages == null) {
       return Center(
-        child: Text('Stage provider not available', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10)),
+        child: Text('Stage provider not available', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.2))),
       );
     }
 
     final allStages = stages.lastStages;
     if (allStages.isEmpty) {
       return Center(
-        child: Text('No stages defined', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10)),
+        child: Text('No stages defined', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.2))),
       );
     }
 
@@ -290,17 +290,17 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
               Expanded(
                 child: Text(
                   stage.stageType,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isActive ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.5),
-                    fontSize: 10,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    size: 10,
+                    weight: isActive ? FontWeight.w600 : FontWeight.normal,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
                 '${stage.timestampMs.toStringAsFixed(0)}ms',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 7),
+                style: FluxForgeTheme.dockMono(size: 7, color: Colors.white.withValues(alpha: 0.2)),
               ),
             ],
           ),
@@ -323,13 +323,13 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
             children: [
               Icon(Icons.auto_fix_high, size: 12, color: FluxForgeTheme.accentGreen.withValues(alpha: 0.7)),
               const SizedBox(width: 4),
-              Text('AutoBind', style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.w600)),
+              Text('AutoBind', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             'Drop audio folder to auto-bind by naming convention',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8),
+            style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.2)),
           ),
         ],
       ),
@@ -352,7 +352,7 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
         children: [
           Icon(icon, size: 13, color: color),
           const SizedBox(width: 6),
-          Text(title, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text(title, style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.7))),
         ],
       ),
     );
@@ -362,7 +362,7 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1)),
+        Text(title, style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.5), letterSpacing: 1)),
         const SizedBox(height: 4),
         ...children,
       ],
@@ -376,10 +376,10 @@ class _MwuiBuildViewState extends State<MwuiBuildView> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10)),
+            child: Text(label, style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.3))),
           ),
           Expanded(
-            child: Text(value, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10)),
+            child: Text(value, style: FluxForgeTheme.dockMono(size: 10, color: Colors.white.withValues(alpha: 0.7))),
           ),
         ],
       ),

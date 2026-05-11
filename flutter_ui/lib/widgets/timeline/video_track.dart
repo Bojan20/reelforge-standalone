@@ -221,9 +221,13 @@ class _VideoTrackState extends State<VideoTrack> {
           const SizedBox(width: 4),
           const Icon(Icons.videocam, size: 14, color: Color(0xFF9C27B0)),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'Video',
-            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
           if (clip != null) ...[
             const SizedBox(width: 8),
@@ -235,7 +239,7 @@ class _VideoTrackState extends State<VideoTrack> {
               ),
               child: Text(
                 clip.name,
-                style: const TextStyle(color: Colors.white70, fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -250,11 +254,10 @@ class _VideoTrackState extends State<VideoTrack> {
             ),
             child: Text(
               timecode,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.bold,
                 color: Color(0xFF9C27B0),
-                fontSize: 11,
-                fontFamily: 'JetBrains Mono',
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -262,7 +265,7 @@ class _VideoTrackState extends State<VideoTrack> {
             const SizedBox(width: 8),
             Text(
               '${clip.frameRateDisplay} | ${clip.aspect}',
-              style: const TextStyle(color: Colors.white38, fontSize: 9),
+              style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
             ),
           ],
           const SizedBox(width: 8),
@@ -294,34 +297,34 @@ class _VideoTrackState extends State<VideoTrack> {
                 }
               },
               itemBuilder: (ctx) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'replace',
                   child: Row(
                     children: [
-                      Icon(Icons.swap_horiz, size: 16, color: Colors.white54),
-                      SizedBox(width: 8),
-                      Text('Replace Video', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      const Icon(Icons.swap_horiz, size: 16, color: Colors.white54),
+                      const SizedBox(width: 8),
+                      Text('Replace Video', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white)),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'sync',
                   child: Row(
                     children: [
-                      Icon(Icons.sync, size: 16, color: Colors.white54),
-                      SizedBox(width: 8),
-                      Text('Sync Settings...', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      const Icon(Icons.sync, size: 16, color: Colors.white54),
+                      const SizedBox(width: 8),
+                      Text('Sync Settings...', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white)),
                     ],
                   ),
                 ),
                 const PopupMenuDivider(),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'remove',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline, size: 16, color: FluxForgeTheme.accentRed),
-                      SizedBox(width: 8),
-                      Text('Remove Video', style: TextStyle(color: FluxForgeTheme.accentRed, fontSize: 12)),
+                      const Icon(Icons.delete_outline, size: 16, color: FluxForgeTheme.accentRed),
+                      const SizedBox(width: 8),
+                      Text('Remove Video', style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.accentRed)),
                     ],
                   ),
                 ),
@@ -339,15 +342,15 @@ class _VideoTrackState extends State<VideoTrack> {
         children: [
           Icon(Icons.movie_creation_outlined, size: 32, color: Colors.white.withValues(alpha: 0.2)),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'No video',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white38),
           ),
           const SizedBox(height: 8),
           TextButton.icon(
             onPressed: widget.onImportVideo,
             icon: const Icon(Icons.add, size: 14),
-            label: const Text('Import Video', style: TextStyle(fontSize: 11)),
+            label: Text('Import Video', style: FluxForgeTheme.dockSans(size: 11)),
           ),
         ],
       ),
@@ -416,10 +419,9 @@ class _VideoTrackState extends State<VideoTrack> {
               ),
               child: Text(
                 'Sync: ${widget.syncOffset >= 0 ? '+' : ''}${widget.syncOffset.toStringAsFixed(3)}s',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: Colors.white70,
-                  fontSize: 9,
-                  fontFamily: 'JetBrains Mono',
                 ),
               ),
             ),
@@ -503,7 +505,7 @@ class _VideoTrackState extends State<VideoTrack> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgMid,
-          title: const Text('Video Sync Settings', style: TextStyle(color: Colors.white)),
+          title: Text('Video Sync Settings', style: FluxForgeTheme.dockSans(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,18 +514,18 @@ class _VideoTrackState extends State<VideoTrack> {
               TextField(
                 controller: offsetController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
+                style: FluxForgeTheme.dockSans(color: Colors.white),
+                decoration: InputDecoration(
                   labelText: 'Sync Offset',
-                  labelStyle: TextStyle(color: Colors.white54),
+                  labelStyle: FluxForgeTheme.dockSans(color: Colors.white54),
                   suffixText: 'seconds',
                   helperText: 'Positive = video ahead, Negative = video behind',
-                  helperStyle: TextStyle(color: Colors.white38, fontSize: 10),
+                  helperStyle: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
                 ),
               ),
               const SizedBox(height: 16),
               // Timecode format
-              const Text('Timecode Format', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              Text('Timecode Format', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -536,9 +538,9 @@ class _VideoTrackState extends State<VideoTrack> {
                     onSelected: (_) => setDialogState(() => selectedFormat = format),
                     backgroundColor: FluxForgeTheme.bgDeep,
                     selectedColor: const Color(0xFF9C27B0),
-                    labelStyle: TextStyle(
+                    labelStyle: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: isSelected ? Colors.white : Colors.white70,
-                      fontSize: 10,
                     ),
                   );
                 }).toList(),

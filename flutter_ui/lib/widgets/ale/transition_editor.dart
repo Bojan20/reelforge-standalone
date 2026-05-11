@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ale_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Transition profile list and editor
 class TransitionEditor extends StatefulWidget {
@@ -76,12 +77,12 @@ class _TransitionEditorState extends State<TransitionEditor> {
         children: [
           const Icon(Icons.swap_horiz, color: Color(0xFF40c8ff), size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Transitions',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
             ),
           ),
           const SizedBox(width: 8),
@@ -93,9 +94,9 @@ class _TransitionEditorState extends State<TransitionEditor> {
             ),
             child: Text(
               '$count',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: Color(0xFF888888),
-                fontSize: 11,
               ),
             ),
           ),
@@ -121,14 +122,14 @@ class _TransitionEditorState extends State<TransitionEditor> {
             size: 32,
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'No custom transitions',
-            style: TextStyle(color: Color(0xFF666666), fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFF666666)),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Using default transition',
-            style: TextStyle(color: Color(0xFF555555), fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Color(0xFF555555)),
           ),
           const SizedBox(height: 12),
           TextButton.icon(
@@ -184,10 +185,10 @@ class _TransitionEditorState extends State<TransitionEditor> {
           // Name
           Text(
             trans.name,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
             ),
           ),
 
@@ -196,11 +197,11 @@ class _TransitionEditorState extends State<TransitionEditor> {
           // Sync mode
           Row(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 80,
                 child: Text(
                   'Sync Mode',
-                  style: TextStyle(color: Color(0xFF888888), fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Color(0xFF888888)),
                 ),
               ),
               _SyncModeBadge(mode: trans.syncMode),
@@ -235,11 +236,11 @@ class _TransitionEditorState extends State<TransitionEditor> {
           // Overlap
           Row(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 80,
                 child: Text(
                   'Overlap',
-                  style: TextStyle(color: Color(0xFF888888), fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Color(0xFF888888)),
                 ),
               ),
               Expanded(
@@ -248,10 +249,10 @@ class _TransitionEditorState extends State<TransitionEditor> {
               const SizedBox(width: 8),
               Text(
                 '${(trans.overlap * 100).toInt()}%',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
+                  weight: FontWeight.w600,
                   color: Color(0xFF4a9eff),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -309,13 +310,13 @@ class _TransitionEditorState extends State<TransitionEditor> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a20),
-        title: const Text(
+        title: Text(
           'Add Transition',
-          style: TextStyle(color: Colors.white),
+          style: FluxForgeTheme.dockSans(color: Colors.white),
         ),
-        content: const Text(
+        content: Text(
           'Transition creation wizard coming soon.',
-          style: TextStyle(color: Color(0xFF888888)),
+          style: FluxForgeTheme.dockSans(color: Color(0xFF888888)),
         ),
         actions: [
           TextButton(
@@ -387,18 +388,18 @@ class _TransitionTile extends StatelessWidget {
                   children: [
                     Text(
                       transition.name,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
+                        weight: FontWeight.w500,
                         color: Color(0xFFcccccc),
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${transition.fadeInMs}ms / ${transition.fadeOutMs}ms',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
                         color: Color(0xFF666666),
-                        fontSize: 10,
                       ),
                     ),
                   ],
@@ -446,10 +447,10 @@ class _SyncModeBadge extends StatelessWidget {
           SizedBox(width: small ? 4 : 6),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: small ? 9 : 11,
+              weight: FontWeight.w600,
               color: color,
-              fontSize: small ? 9 : 11,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -495,18 +496,18 @@ class _FadeInfo extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: color.withValues(alpha: 0.7),
-              fontSize: 10,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             '${durationMs}ms',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 14,
+              weight: FontWeight.w600,
               color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
