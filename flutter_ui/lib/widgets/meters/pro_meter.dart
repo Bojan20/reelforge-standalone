@@ -666,9 +666,9 @@ class StereoMeterStrip extends StatelessWidget {
             ),
             child: Text(
               _modeName,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -738,8 +738,8 @@ class StereoMeterStrip extends StatelessWidget {
             children: [
               Text(
                 'LUFS',
-                style: TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: FluxForgeTheme.textTertiary,
                 ),
               ),
@@ -747,10 +747,9 @@ class StereoMeterStrip extends StatelessWidget {
                 readings.lufsIntegrated > -70
                     ? readings.lufsIntegrated.toStringAsFixed(1)
                     : '-∞',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.w600,
                   color: readings.lufsIntegrated > -14
                       ? FluxForgeTheme.accentRed
                       : readings.lufsIntegrated > -23
@@ -765,16 +764,15 @@ class StereoMeterStrip extends StatelessWidget {
             children: [
               Text(
                 'LRA',
-                style: TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: FluxForgeTheme.textTertiary,
                 ),
               ),
               Text(
                 '${readings.lufsRange.toStringAsFixed(1)} LU',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: FluxForgeTheme.textSecondary,
                 ),
               ),
@@ -805,17 +803,16 @@ class StereoMeterStrip extends StatelessWidget {
         children: [
           Text(
             'TP',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
           Text(
             truePeakDb > -60 ? '${truePeakDb.toStringAsFixed(1)} dB' : '-∞',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.w600,
               color: isOver ? FluxForgeTheme.accentRed : FluxForgeTheme.textSecondary,
             ),
           ),
@@ -836,8 +833,8 @@ class StereoMeterStrip extends StatelessWidget {
         children: [
           Text(
             'L',
-            style: TextStyle(
-              fontSize: 8,
+            style: FluxForgeTheme.dockSans(
+              size: 8,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -852,8 +849,8 @@ class StereoMeterStrip extends StatelessWidget {
           ),
           Text(
             'R',
-            style: TextStyle(
-              fontSize: 8,
+            style: FluxForgeTheme.dockSans(
+              size: 8,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -954,9 +951,9 @@ class LufsMeter extends StatelessWidget {
             ),
             child: Text(
               'LOUDNESS',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -1001,16 +998,16 @@ class LufsMeter extends StatelessWidget {
           children: [
             Text(
               label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 16,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.accentBlue,
               ),
             ),
             Text(
               description,
-              style: TextStyle(
-                fontSize: 8,
+              style: FluxForgeTheme.dockSans(
+                size: 8,
                 color: FluxForgeTheme.textTertiary,
               ),
             ),
@@ -1018,17 +1015,16 @@ class LufsMeter extends StatelessWidget {
         ),
         Text(
           isValid ? value.toStringAsFixed(1) : '-∞',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'monospace',
+          style: FluxForgeTheme.dockMono(
+            size: 18,
+            weight: FontWeight.w600,
             color: color,
           ),
         ),
         Text(
           'LUFS',
-          style: TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: FluxForgeTheme.textTertiary,
           ),
         ),
@@ -1048,18 +1044,17 @@ class LufsMeter extends StatelessWidget {
         children: [
           Text(
             'LRA',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.accentCyan,
             ),
           ),
           Text(
             '${readings.lufsRange.toStringAsFixed(1)} LU',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 16,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -1093,8 +1088,8 @@ class LufsMeter extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             'Target: -23 LUFS',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: isOnTarget
                   ? FluxForgeTheme.accentGreen
                   : FluxForgeTheme.textTertiary,

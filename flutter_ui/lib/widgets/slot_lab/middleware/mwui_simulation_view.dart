@@ -51,7 +51,7 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
           Expanded(
             child: Center(
               child: Text('Simulation provider not available',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.3))),
             ),
           ),
       ],
@@ -70,7 +70,7 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
         children: [
           const Icon(Icons.science, size: 14, color: Color(0xFF66BB6A)),
           const SizedBox(width: 6),
-          Text('Simulation', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Simulation', style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.7))),
           const Spacer(),
           if (_sim?.isRunning == true)
             _statusChip('RUNNING', const Color(0xFF66BB6A))
@@ -120,10 +120,10 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
                   const SizedBox(height: 2),
                   Text(
                     mode.displayName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       color: isSelected ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.4),
-                      fontSize: 8,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -172,9 +172,9 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
           if (sim.mode == SimulationMode.statistical)
             Row(
               children: [
-                Text('Spins:', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9)),
+                Text('Spins:', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white.withValues(alpha: 0.4))),
                 const SizedBox(width: 4),
-                Text('${sim.statSpinCount}', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.w600)),
+                Text('${sim.statSpinCount}', style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.7))),
               ],
             ),
         ],
@@ -196,7 +196,7 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
           children: [
             Icon(icon, size: 12, color: color.withValues(alpha: onTap != null ? 0.8 : 0.3)),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: color.withValues(alpha: onTap != null ? 0.8 : 0.3), fontSize: 9)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: color.withValues(alpha: onTap != null ? 0.8 : 0.3))),
           ],
         ),
       ),
@@ -230,14 +230,14 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
                 const SizedBox(width: 8),
                 Text(
                   '${(sim.progress * 100).toStringAsFixed(1)}%',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10),
+                  style: FluxForgeTheme.dockMono(size: 10, color: Colors.white.withValues(alpha: 0.6)),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               'Step ${sim.currentStep} / ${sim.totalSteps}',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9),
+              style: FluxForgeTheme.dockMono(size: 9, color: Colors.white.withValues(alpha: 0.3)),
             ),
             const SizedBox(height: 12),
           ],
@@ -288,19 +288,19 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(d.domain.displayName, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10)),
+            child: Text(d.domain.displayName, style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.6))),
           ),
           Text(
             'E:${d.peakEnergy.toStringAsFixed(2)}',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 9,
+              weight: FontWeight.w500,
               color: d.passed ? const Color(0xFF66BB6A) : const Color(0xFFEF5350),
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(width: 4),
           Text('V:${d.peakVoices}',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8)),
+            style: FluxForgeTheme.dockMono(size: 8, color: Colors.white.withValues(alpha: 0.3))),
         ],
       ),
     );
@@ -317,13 +317,13 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
       ),
       child: Row(
         children: [
-          Text('Mode: ${sim.mode.displayName}', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8)),
+          Text('Mode: ${sim.mode.displayName}', style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.3))),
           const Spacer(),
-          Text('PBSE: ${sim.pbseTotalSpins} spins', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8)),
+          Text('PBSE: ${sim.pbseTotalSpins} spins', style: FluxForgeTheme.dockMono(size: 8, color: Colors.white.withValues(alpha: 0.3))),
           const SizedBox(width: 12),
           Text(
             'Passed: ${sim.passedDomainCount} / ${sim.passedDomainCount + sim.failedDomainCount}',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
+            style: FluxForgeTheme.dockMono(size: 8, color: Colors.white.withValues(alpha: 0.3)),
           ),
         ],
       ),
@@ -341,18 +341,18 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(2),
       ),
-      child: Text(text, style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.w700)),
+      child: Text(text, style: FluxForgeTheme.dockSans(size: 7, weight: FontWeight.w700, color: color)),
     );
   }
 
   Widget _sectionLabel(String text) {
     return Text(
       text,
-      style: TextStyle(
-        color: const Color(0xFF66BB6A).withValues(alpha: 0.6),
-        fontSize: 8,
-        fontWeight: FontWeight.w700,
+      style: FluxForgeTheme.dockSans(
+        size: 8,
+        weight: FontWeight.w700,
         letterSpacing: 1,
+        color: const Color(0xFF66BB6A).withValues(alpha: 0.6),
       ),
     );
   }
@@ -364,9 +364,9 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10)),
+            child: Text(label, style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.4))),
           ),
-          Text(value, style: TextStyle(color: color ?? Colors.white.withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.w500)),
+          Text(value, style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.w500, color: color ?? Colors.white.withValues(alpha: 0.7))),
         ],
       ),
     );

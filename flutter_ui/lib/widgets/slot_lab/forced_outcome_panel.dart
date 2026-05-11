@@ -547,17 +547,17 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
             children: [
               Text(
                 'FORCED OUTCOME',
-                style: TextStyle(
-                  color: FluxForgeTheme.textSecondary,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.textSecondary,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 'Quick test buttons (1-9)',
-                style: TextStyle(color: Colors.white38, fontSize: 9),
+                style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
               ),
               const Spacer(),
               if (_lastTriggeredOutcome != null)
@@ -569,7 +569,7 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                   ),
                   child: Text(
                     'Last: ${_lastTriggeredOutcome!.shortLabel}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 8),
+                    style: FluxForgeTheme.dockSans(size: 8, color: Colors.white70),
                   ),
                 ),
             ],
@@ -650,19 +650,19 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                   const SizedBox(height: 2),
                   Text(
                     config.shortLabel,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.bold,
                       color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (config.keyboardShortcut != null)
                     Text(
                       '[${config.keyboardShortcut}]',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 7,
                         color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 7,
                       ),
                     ),
                 ],
@@ -694,11 +694,11 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
           const SizedBox(width: 8),
           Text(
             'FORCED OUTCOMES',
-            style: TextStyle(
-              color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               letterSpacing: 1,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const Spacer(),
@@ -724,10 +724,10 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                   const SizedBox(width: 4),
                   Text(
                     'TESTING...',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.bold,
                       color: FluxForgeTheme.accentGreen,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -736,7 +736,7 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
           else
             Text(
               'Press 1-0 for quick trigger',
-              style: TextStyle(color: Colors.white38, fontSize: 9),
+              style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
             ),
         ],
       ),
@@ -864,10 +864,10 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                                   child: Center(
                                     child: Text(
                                       config.keyboardShortcut!,
-                                      style: const TextStyle(
+                                      style: FluxForgeTheme.dockMono(
+                                        size: 10,
+                                        weight: FontWeight.bold,
                                         color: Colors.white70,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
@@ -877,18 +877,18 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                           const Spacer(),
                           Text(
                             config.label,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
+                              weight: FontWeight.bold,
                               color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             config.description,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 8,
                               color: Colors.white60,
-                              fontSize: 8,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -913,10 +913,10 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                           ),
                           child: Text(
                             '${config.expectedWinMultiplier!.toInt()}x',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockMono(
+                              size: 7,
+                              weight: FontWeight.bold,
                               color: FluxForgeTheme.accentGreen,
-                              fontSize: 7,
-                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
@@ -968,14 +968,14 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
           const SizedBox(width: 8),
           Text(
             'History:',
-            style: TextStyle(color: Colors.white38, fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: _history.isEmpty
                 ? Text(
                     'No outcomes triggered yet',
-                    style: TextStyle(color: Colors.white24, fontSize: 9),
+                    style: FluxForgeTheme.dockSans(size: 9, color: Colors.white24),
                   )
                 : ListView.builder(
                     scrollDirection: Axis.horizontal,
@@ -1028,14 +1028,14 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                                 const SizedBox(width: 4),
                                 Text(
                                   entry.config.shortLabel,
-                                  style: TextStyle(
+                                  style: FluxForgeTheme.dockSans(
+                                    size: 8,
+                                    weight: isLatest
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                     color: isLatest
                                         ? entry.config.gradientColors[0]
                                         : Colors.white54,
-                                    fontSize: 8,
-                                    fontWeight: isLatest
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
                                   ),
                                 ),
                                 if (entry.winAmount != null &&
@@ -1043,9 +1043,9 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                                   const SizedBox(width: 4),
                                   Text(
                                     entry.winAmount!.toStringAsFixed(1),
-                                    style: TextStyle(
+                                    style: FluxForgeTheme.dockMono(
+                                      size: 8,
                                       color: FluxForgeTheme.accentGreen,
-                                      fontSize: 8,
                                     ),
                                   ),
                                 ],
@@ -1121,7 +1121,7 @@ class _QuickOutcomeBarState extends State<QuickOutcomeBar> {
       height: widget.height,
       child: Row(
         children: [
-          Text('TEST:', style: TextStyle(color: Colors.white38, fontSize: 9)),
+          Text('TEST:', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
           const SizedBox(width: 8),
           ..._outcomes.map((o) {
             final (outcome, label) = o;
@@ -1132,9 +1132,9 @@ class _QuickOutcomeBarState extends State<QuickOutcomeBar> {
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Text(
                   label,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: isActive ? Colors.white : Colors.white54,
-                    fontSize: 9,
                   ),
                 ),
               ),

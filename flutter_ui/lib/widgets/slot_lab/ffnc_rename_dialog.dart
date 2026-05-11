@@ -160,12 +160,12 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Title
-              const Text(
+              Text(
                 'FFNC Rename Tool',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.accentCyan,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 12),
@@ -180,7 +180,7 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
               if (_errorMessage != null) ...[
                 Text(
                   _errorMessage!,
-                  style: const TextStyle(color: Colors.red, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.red),
                 ),
                 const SizedBox(height: 8),
               ],
@@ -191,18 +191,18 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
                   children: [
                     Text(
                       'Matched: $matchedCount/$totalCount',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: matchedCount == totalCount
                             ? FluxForgeTheme.accentGreen
                             : Colors.orange,
-                        fontSize: 11,
                       ),
                     ),
                     if (totalCount > matchedCount) ...[
                       const SizedBox(width: 8),
                       Text(
                         '(${totalCount - matchedCount} unmatched)',
-                        style: TextStyle(color: Colors.orange.withValues(alpha: 0.7), fontSize: 10),
+                        style: FluxForgeTheme.dockSans(size: 10, color: Colors.orange.withValues(alpha: 0.7)),
                       ),
                     ],
                   ],
@@ -210,9 +210,9 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
                 const SizedBox(height: 8),
                 Expanded(child: _buildResultsTable()),
               ] else if (_sourcePath != null) ...[
-                const Text(
+                Text(
                   'No audio files found in source folder.',
-                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.white54),
                 ),
               ],
 
@@ -227,11 +227,11 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
                 ],
               ),
               if (!_copyMode)
-                const Padding(
-                  padding: EdgeInsets.only(top: 4),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     '⚠ Original filenames will be permanently changed',
-                    style: TextStyle(color: Colors.orange, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: Colors.orange),
                   ),
                 ),
 
@@ -243,7 +243,7 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(null),
-                    child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                    child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white54)),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
@@ -259,7 +259,7 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
                           )
                         : Text(
                             _copyMode ? 'Rename & Copy' : 'Rename',
-                            style: const TextStyle(color: FluxForgeTheme.accentCyan),
+                            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentCyan),
                           ),
                   ),
                 ],
@@ -276,7 +276,7 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
       children: [
         SizedBox(
           width: 55,
-          child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+          child: Text(label, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white54)),
         ),
         Expanded(
           child: Container(
@@ -287,8 +287,7 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
             ),
             child: Text(
               path ?? '—',
-              style: const TextStyle(color: Colors.white70, fontSize: 10, fontFamily: 'monospace'),
-              overflow: TextOverflow.ellipsis,
+              style: FluxForgeTheme.dockMono(size: 10, color: Colors.white70).copyWith(overflow: TextOverflow.ellipsis),
             ),
           ),
         ),
@@ -298,7 +297,7 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
           height: 24,
           child: TextButton(
             onPressed: onPick,
-            child: const Text('Browse', style: TextStyle(fontSize: 10, color: FluxForgeTheme.accentCyan)),
+            child: Text('Browse', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentCyan)),
           ),
         ),
       ],
@@ -317,7 +316,7 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
             color: _copyMode == value ? FluxForgeTheme.accentCyan : Colors.white38,
           ),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70)),
         ],
       ),
     );
@@ -348,15 +347,14 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
                 flex: 4,
                 child: Text(
                   r.originalName,
-                  style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'),
-                  overflow: TextOverflow.ellipsis,
+                  style: FluxForgeTheme.dockMono(size: 10, color: Colors.white54).copyWith(overflow: TextOverflow.ellipsis),
                 ),
               ),
 
               // Arrow
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Text('→', style: TextStyle(color: Colors.white24, fontSize: 10)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text('→', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white24)),
               ),
 
               // FFNC name or unmatched
@@ -365,12 +363,7 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
                 child: displayName != null
                     ? Text(
                         displayName,
-                        style: const TextStyle(
-                          color: FluxForgeTheme.accentCyan,
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                        style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.accentCyan).copyWith(overflow: TextOverflow.ellipsis),
                       )
                     : _buildUnmatchedRow(r),
               ),
@@ -385,9 +378,9 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
     final suggestions = _renamer.suggestStage(r.originalName);
 
     if (suggestions.isEmpty) {
-      return const Text(
+      return Text(
         '??? (no match)',
-        style: TextStyle(color: Colors.orange, fontSize: 10, fontFamily: 'monospace'),
+        style: FluxForgeTheme.dockMono(size: 10, color: Colors.orange),
       );
     }
 
@@ -402,12 +395,12 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
         children: [
           Text(
             suggestions.first.ffncName,
-            style: const TextStyle(color: Colors.orange, fontSize: 10, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(size: 10, color: Colors.orange),
           ),
           const SizedBox(width: 4),
           Text(
             '(typo? d=${suggestions.first.distance})',
-            style: TextStyle(color: Colors.orange.withValues(alpha: 0.6), fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: Colors.orange.withValues(alpha: 0.6)),
           ),
         ],
       ),

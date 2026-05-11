@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ale_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Rule list and editor widget
 class RuleEditor extends StatefulWidget {
@@ -115,12 +116,12 @@ class _RuleEditorState extends State<RuleEditor> {
         children: [
           const Icon(Icons.rule, color: Color(0xFFff9040), size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Rules',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
             ),
           ),
           const SizedBox(width: 8),
@@ -134,9 +135,9 @@ class _RuleEditorState extends State<RuleEditor> {
               filteredCount == totalCount
                   ? '$totalCount'
                   : '$filteredCount/$totalCount',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: Color(0xFF888888),
-                fontSize: 11,
               ),
             ),
           ),
@@ -201,7 +202,7 @@ class _RuleEditorState extends State<RuleEditor> {
             widget.filterContextId != null
                 ? 'No rules for this context'
                 : 'No rules defined',
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFF666666)),
           ),
           const SizedBox(height: 12),
           TextButton.icon(
@@ -260,10 +261,10 @@ class _RuleEditorState extends State<RuleEditor> {
               Expanded(
                 child: Text(
                   rule.name,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.w600,
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
                   ),
                 ),
               ),
@@ -275,10 +276,10 @@ class _RuleEditorState extends State<RuleEditor> {
                 ),
                 child: Text(
                   'P${rule.priority}',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
+                    weight: FontWeight.w600,
                     color: Color(0xFFff9040),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -351,9 +352,9 @@ class _RuleEditorState extends State<RuleEditor> {
 
   Widget _buildConditionDisplay(AleRule rule) {
     if (rule.signalId == null) {
-      return const Text(
+      return Text(
         'Always true',
-        style: TextStyle(color: Color(0xFF888888), fontSize: 12),
+        style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFF888888)),
       );
     }
 
@@ -370,20 +371,19 @@ class _RuleEditorState extends State<RuleEditor> {
           ),
           child: Text(
             rule.signalId!,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 11,
+              weight: FontWeight.w500,
               color: Color(0xFF4a9eff),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ),
         const SizedBox(width: 8),
         Text(
           '$opString $valueString',
-          style: const TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 12,
             color: Color(0xFFcccccc),
-            fontSize: 12,
-            fontFamily: 'monospace',
           ),
         ),
       ],
@@ -403,10 +403,10 @@ class _RuleEditorState extends State<RuleEditor> {
       ),
       child: Text(
         '$actionString$valueString',
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 12,
+          weight: FontWeight.w500,
           color: Color(0xFF40ff90),
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -449,13 +449,13 @@ class _RuleEditorState extends State<RuleEditor> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a20),
-        title: const Text(
+        title: Text(
           'Add Rule',
-          style: TextStyle(color: Colors.white),
+          style: FluxForgeTheme.dockSans(color: Colors.white),
         ),
-        content: const Text(
+        content: Text(
           'Rule creation wizard coming soon.',
-          style: TextStyle(color: Color(0xFF888888)),
+          style: FluxForgeTheme.dockSans(color: Color(0xFF888888)),
         ),
         actions: [
           TextButton(
@@ -521,10 +521,10 @@ class _RuleTile extends StatelessWidget {
                 ),
                 child: Text(
                   '${rule.priority}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    weight: FontWeight.w700,
                     color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -537,21 +537,21 @@ class _RuleTile extends StatelessWidget {
                   children: [
                     Text(
                       rule.name,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
+                        weight: FontWeight.w500,
                         color: rule.enabled
                             ? const Color(0xFFcccccc)
                             : const Color(0xFF666666),
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       _buildConditionPreview(),
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
                         color: Color(0xFF666666),
-                        fontSize: 10,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -568,10 +568,10 @@ class _RuleTile extends StatelessWidget {
                 ),
                 child: Text(
                   _actionShort(rule.action),
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.w600,
                     color: Color(0xFF888888),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -650,10 +650,10 @@ class _DetailSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
             color: Color(0xFF888888),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 4),
@@ -679,9 +679,9 @@ class _ContextChip extends StatelessWidget {
       ),
       child: Text(
         contextId,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 10,
           color: Color(0xFF888888),
-          fontSize: 10,
         ),
       ),
     );
@@ -753,9 +753,9 @@ class _ToolbarDropdown extends StatelessWidget {
           value: value,
           isDense: true,
           dropdownColor: const Color(0xFF2a2a35),
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: Color(0xFFcccccc),
-            fontSize: 11,
           ),
           items: items.entries
               .map((e) => DropdownMenuItem(
@@ -802,9 +802,9 @@ class _ToolbarToggle extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: value ? const Color(0xFFcccccc) : const Color(0xFF666666),
-                fontSize: 11,
               ),
             ),
           ],

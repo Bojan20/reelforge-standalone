@@ -236,11 +236,11 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
                 children: [
                   Text(
                     'SLOT AUDIO',
-                    style: TextStyle(
-                      color: SlotAudioColors.goldLight,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
+                      weight: FontWeight.bold,
                       letterSpacing: 2,
+                      color: SlotAudioColors.goldLight,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -250,10 +250,7 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
               const SizedBox(height: 4),
               Text(
                 'Professional Game Audio Middleware',
-                style: TextStyle(
-                  color: FluxForgeTheme.textSecondary,
-                  fontSize: 11,
-                ),
+                style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
               ),
             ],
           ),
@@ -296,11 +293,11 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
       ),
       child: Text(
         text,
-        style: TextStyle(
-          color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.bold,
+        style: FluxForgeTheme.dockSans(
+          size: 9,
+          weight: FontWeight.bold,
           letterSpacing: 1,
+          color: color,
         ),
       ),
     );
@@ -383,7 +380,7 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
                       children: [
                         Text(
                           category.emoji,
-                          style: const TextStyle(fontSize: 12),
+                          style: FluxForgeTheme.dockSans(size: 12),
                         ),
                         const SizedBox(width: 4),
                         Icon(
@@ -396,10 +393,10 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
                     const SizedBox(height: 4),
                     Text(
                       category.name,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: isSelected ? FontWeight.bold : FontWeight.normal,
                         color: isSelected ? category.color : FluxForgeTheme.textPrimary,
-                        fontSize: 10,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                       textAlign: TextAlign.center,
                       maxLines: 1,
@@ -747,15 +744,15 @@ class _StageEventsCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Text('🔗', style: TextStyle(fontSize: 13)),
+                Text('🔗', style: FluxForgeTheme.dockSans(size: 13)),
                 const SizedBox(width: 8),
                 Text(
                   'STAGE EVENTS',
-                  style: TextStyle(
-                    color: SlotAudioColors.casinoGreen,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.bold,
                     letterSpacing: 1,
+                    color: SlotAudioColors.casinoGreen,
                   ),
                 ),
                 const Spacer(),
@@ -767,10 +764,10 @@ class _StageEventsCard extends StatelessWidget {
                   ),
                   child: Text(
                     'UNIVERSAL',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.bold,
                       color: SlotAudioColors.casinoGreen,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -798,11 +795,7 @@ class _StageEventsCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         name,
-                        style: TextStyle(
-                          color: FluxForgeTheme.textPrimary,
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                        ),
+                        style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textPrimary),
                       ),
                       const Spacer(),
                       Container(
@@ -888,15 +881,15 @@ class _QuickActionsCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(emoji, style: const TextStyle(fontSize: 13)),
+                Text(emoji, style: FluxForgeTheme.dockSans(size: 13)),
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.bold,
                     letterSpacing: 1,
+                    color: color,
                   ),
                 ),
               ],
@@ -1003,12 +996,12 @@ class _ActionButtonState extends State<_ActionButton> {
               Flexible(
                 child: Text(
                   widget.label,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: _isHovered ? FontWeight.bold : FontWeight.normal,
                     color: _isHovered || _isPressed
                         ? widget.color
                         : FluxForgeTheme.textPrimary,
-                    fontSize: 10,
-                    fontWeight: _isHovered ? FontWeight.bold : FontWeight.normal,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1056,7 +1049,7 @@ class _FeatureCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(emoji, style: const TextStyle(fontSize: 13)),
+                Text(emoji, style: FluxForgeTheme.dockSans(size: 13)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -1064,19 +1057,16 @@ class _FeatureCard extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
+                          weight: FontWeight.bold,
                           letterSpacing: 1,
+                          color: color,
                         ),
                       ),
                       Text(
                         subtitle,
-                        style: TextStyle(
-                          color: FluxForgeTheme.textSecondary,
-                          fontSize: 9,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textSecondary),
                       ),
                     ],
                   ),
@@ -1149,10 +1139,10 @@ class _QuickPresetButtonState extends State<_QuickPresetButton> {
               const SizedBox(width: 6),
               Text(
                 widget.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: widget.color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -1190,10 +1180,10 @@ class _StatPill extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
               color: count > 0 ? color : FluxForgeTheme.textTertiary,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 6),
@@ -1205,10 +1195,10 @@ class _StatPill extends StatelessWidget {
             ),
             child: Text(
               '$count',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.bold,
                 color: count > 0 ? Colors.white : FluxForgeTheme.bgMid,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),

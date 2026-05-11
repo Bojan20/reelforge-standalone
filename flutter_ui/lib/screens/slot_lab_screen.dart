@@ -5559,9 +5559,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           flex: 2,
           child: Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: isTotal ? Colors.white : Colors.white70,
-              fontWeight: isTotal ? FontWeight.w600 : FontWeight.normal,
+              weight: isTotal ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ),
@@ -7149,7 +7149,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+              child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
             ),
             TextButton(
               onPressed: () {
@@ -7158,7 +7158,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   Navigator.pop(context);
                 }
               },
-              child: Text('Add', style: TextStyle(color: selectedColor)),
+              child: Text('Add', style: FluxForgeTheme.dockSans(color: selectedColor)),
             ),
           ],
         ),
@@ -7255,7 +7255,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -7264,7 +7264,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               });
               Navigator.pop(context);
             },
-            child: const Text('Delete', style: TextStyle(color: Color(0xFFE74C3C))),
+            child: Text('Delete', style: FluxForgeTheme.dockSans(color: Color(0xFFE74C3C))),
           ),
         ],
       ),
@@ -7440,7 +7440,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+              child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
             ),
             TextButton(
               onPressed: () {
@@ -7460,7 +7460,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 provider.addContext(contextDef);
                 Navigator.pop(ctx);
               },
-              child: const Text('Add', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+              child: Text('Add', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue)),
             ),
           ],
         ),
@@ -7498,7 +7498,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -7513,7 +7513,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               }
               setState(() {});
             },
-            child: const Text('Reset All', style: TextStyle(color: FluxForgeTheme.accentRed)),
+            child: Text('Reset All', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed)),
           ),
         ],
       ),
@@ -13804,7 +13804,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.settings_applications, color: Colors.white70, size: 18),
                     const SizedBox(width: 8),
-                    const Text('Game Config', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Text('Game Config', style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
@@ -13854,7 +13854,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.surround_sound, color: Colors.white70, size: 18),
                     const SizedBox(width: 8),
-                    const Text('AutoSpatial', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Text('AutoSpatial', style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
@@ -13894,7 +13894,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.theaters, color: Colors.white70, size: 18),
                     const SizedBox(width: 8),
-                    const Text('Scenarios', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Text('Scenarios', style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
@@ -13934,7 +13934,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.terminal, color: Colors.white70, size: 18),
                     const SizedBox(width: 8),
-                    const Text('Command Builder', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Text('Command Builder', style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
@@ -13974,7 +13974,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.videogame_asset, color: Color(0xFF40C8FF), size: 18),
                     const SizedBox(width: 8),
-                    const Text('Gameplay-Aware DAW', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Text('Gameplay-Aware DAW', style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
@@ -14014,7 +14014,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.shield_outlined, color: Color(0xFF4CAF50), size: 18),
                     const SizedBox(width: 8),
-                    const Text('Scale & Stability Suite', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Text('Scale & Stability Suite', style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
@@ -14054,7 +14054,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.shield, color: Color(0xFFFF6B6B), size: 18),
                     const SizedBox(width: 8),
-                    const Text('RGAI™ Compliance', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Text('RGAI™ Compliance', style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
@@ -14094,7 +14094,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.surround_sound, color: Color(0xFF7C4DFF), size: 18),
                     const SizedBox(width: 8),
-                    const Text('3D Spatial Audio', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Text('3D Spatial Audio', style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
@@ -14134,7 +14134,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.science, color: Color(0xFFFFBB33), size: 18),
                     const SizedBox(width: 8),
-                    const Text('A/B Testing Analytics', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Text('A/B Testing Analytics', style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),
@@ -14174,7 +14174,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     const Icon(Icons.file_download, color: Color(0xFF40C8FF), size: 18),
                     const SizedBox(width: 8),
-                    const Text('UCP Export™', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Text('UCP Export™', style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.w600)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18, color: Colors.white54),

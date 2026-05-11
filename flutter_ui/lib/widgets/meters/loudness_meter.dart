@@ -154,9 +154,9 @@ class LoudnessMeter extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             'LOUDNESS',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w700,
               letterSpacing: 1,
               color: FluxForgeTheme.accentCyan,
             ),
@@ -192,9 +192,9 @@ class LoudnessMeter extends StatelessWidget {
           children: [
             Text(
               _targetLabel,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -234,11 +234,11 @@ class LoudnessMeter extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label, style: const TextStyle(fontSize: 12)),
+              Text(label, style: FluxForgeTheme.dockSans(size: 12)),
               Text(
                 sublabel,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: FluxForgeTheme.textTertiary,
                 ),
               ),
@@ -371,9 +371,9 @@ class LoudnessMeter extends StatelessWidget {
             width: 20,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: isMain ? 16 : 12,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: isMain ? 16 : 12,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.accentCyan,
               ),
             ),
@@ -383,8 +383,8 @@ class LoudnessMeter extends StatelessWidget {
           Expanded(
             child: Text(
               description,
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: FluxForgeTheme.textTertiary,
               ),
             ),
@@ -393,18 +393,17 @@ class LoudnessMeter extends StatelessWidget {
           // Value
           Text(
             isValid ? value.toStringAsFixed(1) : '-∞',
-            style: TextStyle(
-              fontSize: isMain ? 20 : 14,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: isMain ? 20 : 14,
+              weight: FontWeight.w600,
               color: valueColor,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             'LUFS',
-            style: TextStyle(
-              fontSize: isMain ? 10 : 8,
+            style: FluxForgeTheme.dockSans(
+              size: isMain ? 10 : 8,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -424,10 +423,9 @@ class LoudnessMeter extends StatelessWidget {
               ),
               child: Text(
                 '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: isOnTarget
                       ? FluxForgeTheme.accentGreen
                       : isOver
@@ -462,9 +460,9 @@ class LoudnessMeter extends StatelessWidget {
           // Label
           Text(
             'TP',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
               color: isOver
                   ? FluxForgeTheme.accentRed
                   : FluxForgeTheme.accentOrange,
@@ -473,8 +471,8 @@ class LoudnessMeter extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             'True Peak',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -483,10 +481,9 @@ class LoudnessMeter extends StatelessWidget {
           // Value
           Text(
             isValid ? truePeak.toStringAsFixed(1) : '-∞',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 16,
+              weight: FontWeight.w600,
               color: isOver
                   ? FluxForgeTheme.accentRed
                   : isValid
@@ -497,8 +494,8 @@ class LoudnessMeter extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             'dBTP',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -527,8 +524,8 @@ class LoudnessMeter extends StatelessWidget {
                   const SizedBox(width: 2),
                   Text(
                     _truePeakCeiling.toStringAsFixed(0),
-                    style: TextStyle(
-                      fontSize: 9,
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
                       color: isOver
                           ? FluxForgeTheme.accentRed
                           : FluxForgeTheme.textSecondary,
@@ -583,8 +580,8 @@ class LoudnessMeter extends StatelessWidget {
       child: Center(
         child: Text(
           'History Graph',
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textTertiary,
           ),
         ),
@@ -859,18 +856,17 @@ class CompactLoudnessDisplay extends StatelessWidget {
             // LUFS
             Text(
               'LUFS',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: FluxForgeTheme.textTertiary,
               ),
             ),
             const SizedBox(width: 4),
             Text(
               isLufsValid ? lufs.toStringAsFixed(1) : '-∞',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w600,
                 color: isLufsValid
                     ? FluxForgeTheme.textPrimary
                     : FluxForgeTheme.textTertiary,
@@ -888,8 +884,8 @@ class CompactLoudnessDisplay extends StatelessWidget {
             // True Peak
             Text(
               'TP',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: isTpOver
                     ? FluxForgeTheme.accentRed
                     : FluxForgeTheme.textTertiary,
@@ -898,10 +894,9 @@ class CompactLoudnessDisplay extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               isTpValid ? tp.toStringAsFixed(1) : '-∞',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w600,
                 color: isTpOver
                     ? FluxForgeTheme.accentRed
                     : isTpValid
