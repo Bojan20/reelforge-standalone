@@ -90,8 +90,8 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
                 _DnaField('Brand', _brand, (v) => setState(() => _brand = v)),
                 const SizedBox(height: 8),
                 Row(children: [
-                  const SizedBox(width: 80, child: Text('Root Key',
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+                  SizedBox(width: 80, child: Text('Root Key',
+                    style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary))),
                   Expanded(child: Wrap(spacing: 4, runSpacing: 4, children: _keys.map((k) =>
                     GestureDetector(
                       onTap: () => setState(() => _rootKey = k),
@@ -102,15 +102,15 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(color: _rootKey == k ? FluxForgeTheme.accentPink : FluxForgeTheme.borderSubtle),
                         ),
-                        child: Text(k, style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                        child: Text(k, style: FluxForgeTheme.dockMono(size: 9,
                           color: _rootKey == k ? FluxForgeTheme.accentPink : FluxForgeTheme.textTertiary)),
                       ),
                     )).toList())),
                 ]),
                 const SizedBox(height: 8),
                 Row(children: [
-                  const SizedBox(width: 80, child: Text('Mode',
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+                  SizedBox(width: 80, child: Text('Mode',
+                    style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary))),
                   Expanded(child: Wrap(spacing: 4, runSpacing: 4, children: _modes.map((m) =>
                     GestureDetector(
                       onTap: () => setState(() => _mode = m),
@@ -121,7 +121,7 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(color: _mode == m ? FluxForgeTheme.accentPurple : FluxForgeTheme.borderSubtle),
                         ),
-                        child: Text(m, style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                        child: Text(m, style: FluxForgeTheme.dockMono(size: 8,
                           color: _mode == m ? FluxForgeTheme.accentPurple : FluxForgeTheme.textTertiary)),
                       ),
                     )).toList())),
@@ -162,9 +162,9 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
                           border: Border.all(color: active ? FluxForgeTheme.accentCyan.withValues(alpha: 0.5) : FluxForgeTheme.borderSubtle),
                         ),
                         child: Text(inst.replaceAll('_', ' '),
-                          style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                          style: FluxForgeTheme.dockMono(size: 9,
                             color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
-                            fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
+                            weight: active ? FontWeight.w600 : FontWeight.normal)),
                       ),
                     );
                   }).toList()),
@@ -206,13 +206,13 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('FINGERPRINT', style: TextStyle(fontFamily: 'monospace', fontSize: 8,
-                        color: FluxForgeTheme.accentPink, fontWeight: FontWeight.w600)),
+                      Text('FINGERPRINT', style: FluxForgeTheme.dockMono(size: 8,
+                        color: FluxForgeTheme.accentPink, weight: FontWeight.w600)),
                       const SizedBox(height: 6),
                       Text('$_rootKey $_mode  ${_bpmMin.round()}-${_bpmMax.round()} BPM',
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary)),
+                        style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textPrimary)),
                       Text(_instruments.join(' · '),
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary),
+                        style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary),
                         overflow: TextOverflow.ellipsis, maxLines: 2),
                     ],
                   ),
@@ -299,7 +299,7 @@ class _DnaApplyButtonState extends State<_DnaApplyButton> {
         ),
         child: Center(child: Text(
           _applied ? '✓ DNA APPLIED' : 'APPLY DNA TO PROJECT',
-          style: TextStyle(fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockMono(size: 9, weight: FontWeight.w700,
             color: _applied ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentPink),
         )),
       ),
@@ -342,12 +342,12 @@ class _DnaFieldState extends State<_DnaField> {
   @override
   Widget build(BuildContext context) => Row(children: [
     SizedBox(width: 80, child: Text(widget.label,
-      style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+      style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary))),
     Expanded(child: SizedBox(
       height: 24,
       child: TextField(
         controller: _ctrl,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary),
+        style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textPrimary),
         decoration: InputDecoration(
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

@@ -73,7 +73,10 @@ import 'package:flutter_test/flutter_test.dart';
 // `panels/export_panel.dart` (-22), `spine/spine_audio_assign.dart`
 // (-18), `spine/spine_misc.dart` (-17), `panels/ab_panel.dart` (-17),
 // `helpers/context_lenses.dart` (-17). Ukupan Sprint 15 B.2 pad: -196.
-const int _kRawTextStyleBaseline = 9061;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 4) -59 za intel/
+// audio/audio_dna/bt/math/timeline/cloud/spine_chrome paneli.
+// Ukupan Sprint 15 B.2 pad: -255.
+const int _kRawTextStyleBaseline = 9002;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -98,7 +101,10 @@ const int _kRawTextStyleBaseline = 9061;
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 3) -78 za export/
 // spine_audio_assign/spine_misc/ab/context_lenses — agent migration.
 // Ukupan Sprint 15 B.2 pad: -176.
-const int _kRawFontFamilyBaseline = 1054;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 4) -53 za intel/
+// audio/audio_dna/bt/math/timeline/cloud/spine_chrome paneli.
+// Ukupan Sprint 15 B.2 pad: -229.
+const int _kRawFontFamilyBaseline = 1001;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -121,7 +127,10 @@ const int _kRawFontFamilyBaseline = 1054;
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 3) -91 za export/
 // spine_audio_assign/spine_misc/ab/context_lenses — agent migration.
 // Ukupan Sprint 15 B.2 pad: -196.
-const int _kRawFontSizeBaseline = 8618;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 4) -59 za intel/
+// audio/audio_dna/bt/math/timeline/cloud/spine_chrome paneli.
+// Ukupan Sprint 15 B.2 pad: -255.
+const int _kRawFontSizeBaseline = 8559;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

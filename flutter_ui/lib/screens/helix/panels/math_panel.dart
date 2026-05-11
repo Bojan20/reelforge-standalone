@@ -160,18 +160,18 @@ class _MathPanelState extends State<_MathPanel> {
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
-                      const Text('WIN DISTRIBUTION', style: TextStyle(
-                        fontFamily: 'monospace', fontSize: 8,
+                      Text('WIN DISTRIBUTION', style: FluxForgeTheme.dockMono(
+                        size: 8,
                         color: FluxForgeTheme.textTertiary, letterSpacing: 1.0)),
                       const Spacer(),
-                      Text('${wins.length} wins', style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                      Text('${wins.length} wins', style: FluxForgeTheme.dockMono(
+                        size: 8, color: FluxForgeTheme.textTertiary)),
                     ]),
                     const SizedBox(height: 6),
                     Expanded(
                       child: wins.isEmpty
-                        ? const Center(child: Text('Run sim to populate',
-                            style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary)))
+                        ? Center(child: Text('Run sim to populate',
+                            style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textTertiary)))
                         : CustomPaint(
                             painter: _WinDistributionPainter(
                               tierCounts: tierCounts,
@@ -292,7 +292,7 @@ class _WinDistributionPainter extends CustomPainter {
         if (barH > 14) {
           final tp = TextPainter(
             text: TextSpan(text: '$count',
-              style: TextStyle(fontFamily: 'monospace', fontSize: 7, color: color)),
+              style: FluxForgeTheme.dockMono(size: 7, color: color)),
             textDirection: TextDirection.ltr)..layout();
           tp.paint(canvas, Offset(x + (barW - tp.width) / 2, y + 3));
         }
@@ -302,7 +302,7 @@ class _WinDistributionPainter extends CustomPainter {
       final label = 'W$tier';
       final tp = TextPainter(
         text: TextSpan(text: label,
-          style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+          style: FluxForgeTheme.dockMono(size: 7,
             color: color.withValues(alpha: count > 0 ? 0.9 : 0.3))),
         textDirection: TextDirection.ltr)..layout();
       tp.paint(canvas, Offset(x + (barW - tp.width) / 2, chartH + 3));
@@ -377,14 +377,14 @@ class _RunSimButtonState extends State<_RunSimButton> {
             ),
           ),
           const SizedBox(width: 8),
-          const Text('Simulating 1000 spins...', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 10,
+          Text('Simulating 1000 spins...', style: FluxForgeTheme.dockMono(
+            size: 10,
             color: FluxForgeTheme.accentGreen)),
         ] else ...[
           Icon(Icons.play_circle_rounded, size: 14, color: FluxForgeTheme.accentGreen),
           const SizedBox(width: 6),
-          const Text('Run Simulation (1000 spins)', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 10,
+          Text('Run Simulation (1000 spins)', style: FluxForgeTheme.dockMono(
+            size: 10,
             color: FluxForgeTheme.accentGreen)),
         ],
       ]),

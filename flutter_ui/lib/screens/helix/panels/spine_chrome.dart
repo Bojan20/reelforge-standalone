@@ -84,9 +84,9 @@ class _SpineItemState extends State<_SpineItem> {
         const SizedBox(height: 4),
         Text(
           widget.label,
-          style: TextStyle(
-            fontSize: 8.5,
-            fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockSans(
+            size: 8.5,
+            weight: FontWeight.w700,
             color: widget.active
                 ? FluxForgeTheme.accentBlue
                 : FluxForgeTheme.textTertiary,
@@ -135,8 +135,8 @@ class _SpineOverlay extends StatelessWidget {
               Container(width: 3, height: 14, decoration: BoxDecoration(
                 color: FluxForgeTheme.accentBlue, borderRadius: BorderRadius.circular(1.5))),
               const SizedBox(width: 8),
-              Text(title, style: const TextStyle(
-                fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w700,
+              Text(title, style: FluxForgeTheme.dockMono(
+                size: 11, weight: FontWeight.w700,
                 color: FluxForgeTheme.textPrimary, letterSpacing: 0.12)),
               const Spacer(),
               GestureDetector(

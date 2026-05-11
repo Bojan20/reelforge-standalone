@@ -113,9 +113,9 @@ class _TimelinePanelState extends State<_TimelinePanel> {
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: _snapGridMs > 0 ? FluxForgeTheme.accentCyan.withValues(alpha: 0.4) : FluxForgeTheme.borderSubtle)),
                 child: Text(_snapGridMs > 0 ? 'SNAP ${_snapGridMs.toInt()}ms' : 'SNAP OFF',
-                  style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                  style: FluxForgeTheme.dockMono(size: 7,
                     color: _snapGridMs > 0 ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
-                    fontWeight: FontWeight.w600)),
+                    weight: FontWeight.w600)),
               ),
             ),
             const SizedBox(width: 8),
@@ -128,7 +128,7 @@ class _TimelinePanelState extends State<_TimelinePanel> {
             ),
             const SizedBox(width: 4),
             Text('${_zoomLevel.toStringAsFixed(1)}x',
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+              style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary)),
             const SizedBox(width: 4),
             GestureDetector(
               onTap: () => setState(() {
@@ -144,8 +144,8 @@ class _TimelinePanelState extends State<_TimelinePanel> {
                 decoration: BoxDecoration(
                   color: FluxForgeTheme.bgSurface,
                   borderRadius: BorderRadius.circular(3)),
-                child: const Text('FIT', style: TextStyle(fontFamily: 'monospace', fontSize: 7,
-                  color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600)),
+                child: Text('FIT', style: FluxForgeTheme.dockMono(size: 7,
+                  color: FluxForgeTheme.textTertiary, weight: FontWeight.w600)),
               ),
             ),
           ]),
@@ -218,8 +218,8 @@ class _TimelinePanelState extends State<_TimelinePanel> {
                       return Positioned(
                         left: 80 + frac * rulerWidth,
                         top: 2,
-                        child: Text(label, style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 9,
+                        child: Text(label, style: FluxForgeTheme.dockMono(
+                          size: 9,
                           color: FluxForgeTheme.textTertiary)),
                       );
                     }),
@@ -265,9 +265,9 @@ class _TimelinePanelState extends State<_TimelinePanel> {
                 }
               },
               child: sortedTracks.isEmpty
-                ? const Center(child: Text('No events on timeline.\nAssign composite events in SlotLab.',
+                ? Center(child: Text('No events on timeline.\nAssign composite events in SlotLab.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, height: 1.5)))
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary, height: 1.5)))
                 : LayoutBuilder(builder: (_, constraints) {
                     final trackAreaWidth = constraints.maxWidth - 80;
                     return Stack(

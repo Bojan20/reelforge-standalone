@@ -114,8 +114,8 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                         decoration: BoxDecoration(
                           color: FluxForgeTheme.accentCyan.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4)),
-                        child: const Text('AUTO', style: TextStyle(fontFamily: 'monospace', fontSize: 7,
-                          color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+                        child: Text('AUTO', style: FluxForgeTheme.dockMono(size: 7,
+                          color: FluxForgeTheme.accentCyan, weight: FontWeight.w600)),
                       ),
                     ),
                   const SizedBox(width: 4),
@@ -127,8 +127,8 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                         decoration: BoxDecoration(
                           color: FluxForgeTheme.accentPink.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4)),
-                        child: const Text('CLEAR', style: TextStyle(fontFamily: 'monospace', fontSize: 7,
-                          color: FluxForgeTheme.accentPink, fontWeight: FontWeight.w600)),
+                        child: Text('CLEAR', style: FluxForgeTheme.dockMono(size: 7,
+                          color: FluxForgeTheme.accentPink, weight: FontWeight.w600)),
                       ),
                     ),
                 ]),
@@ -153,9 +153,9 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                               color: isActive ? catColor.withValues(alpha: 0.55) : FluxForgeTheme.borderSubtle,
                             ),
                           ),
-                          child: Text(cat, style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                          child: Text(cat, style: FluxForgeTheme.dockMono(size: 8,
                             color: isActive ? catColor : FluxForgeTheme.textTertiary,
-                            fontWeight: FontWeight.w600)),
+                            weight: FontWeight.w600)),
                         ),
                       );
                     }).toList(),
@@ -183,9 +183,9 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                             Expanded(child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(name, style: TextStyle(fontFamily: 'monospace', fontSize: 10,
-                                  color: _categoryColor(_selectedCategory), fontWeight: FontWeight.w600)),
-                                Text(desc, style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                                Text(name, style: FluxForgeTheme.dockMono(size: 10,
+                                  color: _categoryColor(_selectedCategory), weight: FontWeight.w600)),
+                                Text(desc, style: FluxForgeTheme.dockMono(size: 9,
                                   color: FluxForgeTheme.textTertiary), maxLines: 1, overflow: TextOverflow.ellipsis),
                               ],
                             )),
@@ -221,7 +221,7 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                   ],
                   const Spacer(),
                   Text('${nodes.length} nodes  ${edges.length} edges',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                    style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary)),
                   const SizedBox(width: 12),
                   if (selectedId != null)
                     GestureDetector(
@@ -231,8 +231,8 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                         decoration: BoxDecoration(
                           color: FluxForgeTheme.accentPink.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4)),
-                        child: const Text('DELETE', style: TextStyle(fontFamily: 'monospace', fontSize: 8,
-                          color: FluxForgeTheme.accentPink, fontWeight: FontWeight.w600)),
+                        child: Text('DELETE', style: FluxForgeTheme.dockMono(size: 8,
+                          color: FluxForgeTheme.accentPink, weight: FontWeight.w600)),
                       ),
                     ),
                 ]),
@@ -246,11 +246,11 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                         ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                             Icon(Icons.hub_rounded, size: 48, color: FluxForgeTheme.accentOrange.withValues(alpha: 0.15)),
                             const SizedBox(height: 12),
-                            const Text('Click a node in the palette to add it',
-                              style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                            Text('Click a node in the palette to add it',
+                              style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textTertiary)),
                             const SizedBox(height: 4),
                             Text('Click two nodes to connect them',
-                              style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6))),
+                              style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6))),
                           ]))
                         : CustomPaint(
                             painter: _BtConnectionPainter(nodes, edges),
@@ -280,8 +280,8 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                                           width: selected ? 2 : 1),
                                       ),
                                       child: Center(child: Text(node.name,
-                                        style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-                                          color: _categoryColor(node.category), fontWeight: FontWeight.w600),
+                                        style: FluxForgeTheme.dockMono(size: 9,
+                                          color: _categoryColor(node.category), weight: FontWeight.w600),
                                         textAlign: TextAlign.center)),
                                     ),
                                   ),

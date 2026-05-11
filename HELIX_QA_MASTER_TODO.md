@@ -375,9 +375,19 @@ slediće u budućim sprintovima.
   (-17), `helpers/context_lenses.dart` (-17). Ukupno -91 TextStyle, -91
   fontSize, -78 fontFamily. Posle batch 3 baseline: TextStyle 9061,
   fontFamily 1054, fontSize 8618. **Sprint 15 B.2 cumulative: -196 / -176 / -196.**
-- [ ] Preostali helix/ paneli (spine_game_config.dart 112×, intel_panel 13×,
-  audio_panel 13×, audio_dna_panel 12×, bt_panel 11×, math_panel 11×,
-  timeline_panel, cloud_panel, …) — sledeći Sprint 16 batch-evi.
+- [x] **B.2 batch 4 — 8 manjih panela migrirano** — `intel_panel.dart` (-10),
+  `audio_panel.dart` (-3), `audio_dna_panel.dart` (-11), `bt_panel.dart`
+  (-10), `math_panel.dart` (-7), `timeline_panel.dart` (-5),
+  `cloud_panel.dart` (-11), `spine_chrome.dart` (-2). Ukupno -59 TextStyle,
+  -59 fontSize, -53 fontFamily. Posle batch 4 baseline:
+  TextStyle 9002, fontFamily 1001, fontSize 8559.
+- [ ] **Preostalo:** `spine/spine_game_config.dart` (3289 LOC + 112× fontSize)
+  — preopasno za jednu rundu, sledeći sprint će ga migrirati po sekcijama.
+
+**Sprint 15 B.2 GRAND TOTAL (4 batch-eva, 17 fajlova migrirano):**
+- TextStyle: 9257 → **9002** (-255 / -2.75%)
+- fontFamily: 1230 → **1001** (-229 / -18.6%)
+- fontSize: 8814 → **8559** (-255 / -2.89%)
 - [ ] 35+ raw `Duration(milliseconds: ...)` → `FluxForgeTheme.fastDuration/
   normalDuration/slowDuration` tokens — odloženo, motion ratchet pokriva.
 

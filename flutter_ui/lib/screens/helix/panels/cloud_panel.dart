@@ -76,9 +76,9 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: _cloud.provider == p ? FluxForgeTheme.accentBlue.withValues(alpha: 0.4) : FluxForgeTheme.borderSubtle),
                     ),
-                    child: Text(p.name.toUpperCase(), style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                    child: Text(p.name.toUpperCase(), style: FluxForgeTheme.dockMono(size: 8,
                       color: _cloud.provider == p ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
-                      fontWeight: FontWeight.w600)),
+                      weight: FontWeight.w600)),
                   ),
                 )).toList()),
                 const Spacer(),
@@ -111,8 +111,8 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                         size: 13, color: _autoSyncEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary),
                       const SizedBox(width: 7),
                       Text('Auto-Sync ${_autoSyncEnabled ? "ON" : "OFF"}',
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-                          fontWeight: _autoSyncEnabled ? FontWeight.w600 : FontWeight.w400,
+                        style: FluxForgeTheme.dockMono(size: 9,
+                          weight: _autoSyncEnabled ? FontWeight.w600 : FontWeight.w400,
                           color: _autoSyncEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary)),
                     ]),
                   ),
@@ -148,11 +148,11 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3)),
                       ),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.cloud_upload_rounded, size: 12, color: FluxForgeTheme.accentBlue),
-                        SizedBox(width: 4),
-                        Text('UPLOAD', style: TextStyle(fontFamily: 'monospace', fontSize: 8,
-                          color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w600)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.cloud_upload_rounded, size: 12, color: FluxForgeTheme.accentBlue),
+                        const SizedBox(width: 4),
+                        Text('UPLOAD', style: FluxForgeTheme.dockMono(size: 8,
+                          color: FluxForgeTheme.accentBlue, weight: FontWeight.w600)),
                       ]),
                     ),
                   ),
@@ -169,11 +169,11 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3)),
                       ),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.sync_rounded, size: 12, color: FluxForgeTheme.accentGreen),
-                        SizedBox(width: 4),
-                        Text('SYNC ALL', style: TextStyle(fontFamily: 'monospace', fontSize: 8,
-                          color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w600)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.sync_rounded, size: 12, color: FluxForgeTheme.accentGreen),
+                        const SizedBox(width: 4),
+                        Text('SYNC ALL', style: FluxForgeTheme.dockMono(size: 8,
+                          color: FluxForgeTheme.accentGreen, weight: FontWeight.w600)),
                       ]),
                     ),
                   ),
@@ -184,11 +184,11 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                     ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.cloud_off_rounded, size: 36, color: FluxForgeTheme.accentBlue.withValues(alpha: 0.15)),
                         const SizedBox(height: 10),
-                        const Text('No cloud projects', style: TextStyle(
-                          fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                        Text('No cloud projects', style: FluxForgeTheme.dockMono(
+                          size: 11, color: FluxForgeTheme.textTertiary)),
                         const SizedBox(height: 4),
                         Text('Upload a project to start syncing',
-                          style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6))),
+                          style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6))),
                       ]))
                     : ListView.builder(
                         itemCount: _cloud.projects.length,
@@ -208,10 +208,10 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                               Expanded(child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(p.name, style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
-                                    color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.w600)),
+                                  Text(p.name, style: FluxForgeTheme.dockMono(size: 10,
+                                    color: FluxForgeTheme.textPrimary, weight: FontWeight.w600)),
                                   Text('ID: ${p.id}  Updated: ${p.updatedAt.toString().substring(0, 16)}',
-                                    style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                                    style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary)),
                                 ],
                               )),
                               GestureDetector(
@@ -244,7 +244,7 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                   ),
                   const SizedBox(height: 4),
                   Text(_cloud.currentOperation ?? 'Syncing...',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                    style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary)),
                 ],
               ],
             ),
@@ -264,9 +264,9 @@ class _CloudStatusRow extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 6),
     child: Row(children: [
       SizedBox(width: 90, child: Text(label,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary))),
+        style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary))),
       Expanded(child: Text(value,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary),
+        style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary),
         overflow: TextOverflow.ellipsis)),
     ]),
   );

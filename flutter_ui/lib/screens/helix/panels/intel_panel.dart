@@ -99,12 +99,12 @@ class _IntelPanelState extends State<_IntelPanel> {
                         _DockLabel('AI COPILOT', color: FluxForgeTheme.accentPurple),
                         const Spacer(),
                         if (allRemediations.isNotEmpty)
-                          Text('${allRemediations.length} suggestions', style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentYellow)),
+                          Text('${allRemediations.length} suggestions', style: FluxForgeTheme.dockMono(
+                            size: 8, color: FluxForgeTheme.accentYellow)),
                       ]),
                       const SizedBox(height: 4),
                       Text(copilotText,
-                        style: const TextStyle(fontSize: 10, height: 1.4,
+                        style: FluxForgeTheme.dockSans(size: 10, height: 1.4,
                           color: FluxForgeTheme.textSecondary)),
                       const SizedBox(height: 3),
                       // Apply top suggestion button
@@ -145,8 +145,8 @@ class _IntelPanelState extends State<_IntelPanel> {
                               Icon(Icons.auto_fix_high_rounded, size: 10,
                                 color: FluxForgeTheme.accentPurple),
                               const SizedBox(width: 5),
-                              const Text('Apply suggestion', style: TextStyle(
-                                fontFamily: 'monospace', fontSize: 9,
+                              Text('Apply suggestion', style: FluxForgeTheme.dockMono(
+                                size: 9,
                                 color: FluxForgeTheme.accentPurple)),
                             ]),
                           ),
@@ -192,9 +192,9 @@ class _IntelPanelState extends State<_IntelPanel> {
                                   border: Border.all(
                                     color: isActive ? c.withValues(alpha: 0.6) : c.withValues(alpha: 0.25)),
                                   borderRadius: BorderRadius.circular(4)),
-                                child: Text(a, style: TextStyle(
-                                  fontFamily: 'monospace', fontSize: 8,
-                                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                                child: Text(a, style: FluxForgeTheme.dockMono(
+                                  size: 8,
+                                  weight: isActive ? FontWeight.w700 : FontWeight.w500,
                                   color: isActive ? c : c.withValues(alpha: 0.7))),
                               ),
                             ),
@@ -222,17 +222,17 @@ class _IntelPanelState extends State<_IntelPanel> {
                               color: FluxForgeTheme.accentCyan.withValues(alpha: 0.06),
                               border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3)),
                               borderRadius: BorderRadius.circular(5)),
-                            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(Icons.play_circle_outlined, size: 10, color: FluxForgeTheme.accentCyan),
-                              SizedBox(width: 4),
-                              Text('Simulate 200 spins', style: TextStyle(
-                                fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.play_circle_outlined, size: 10, color: FluxForgeTheme.accentCyan),
+                              const SizedBox(width: 4),
+                              Text('Simulate 200 spins', style: FluxForgeTheme.dockMono(
+                                size: 9, color: FluxForgeTheme.accentCyan)),
                             ]),
                           ),
                         ),
                         const SizedBox(width: 6),
                         Text(neuro.responsibleGamingMode ? '⚠ RG MODE' : '✓ RG stable',
-                          style: TextStyle(fontSize: 9,
+                          style: FluxForgeTheme.dockSans(size: 9,
                             color: neuro.responsibleGamingMode
                               ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen)),
                       ]),
@@ -287,15 +287,15 @@ class _IntelPanelState extends State<_IntelPanel> {
                                 color: rgai.isAnalyzing ? FluxForgeTheme.accentYellow : FluxForgeTheme.accentPurple),
                               const SizedBox(width: 4),
                               Text(rgai.isAnalyzing ? 'Analyzing...' : 'Run Analysis',
-                                style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                                style: FluxForgeTheme.dockMono(size: 8,
                                   color: rgai.isAnalyzing ? FluxForgeTheme.accentYellow : FluxForgeTheme.accentPurple)),
                             ]),
                           ),
                         ),
                         const SizedBox(width: 6),
                         if (summary != null)
-                          Text('${summary.passedAssets}/${summary.totalAssets}', style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                          Text('${summary.passedAssets}/${summary.totalAssets}', style: FluxForgeTheme.dockMono(
+                            size: 9, color: FluxForgeTheme.textTertiary)),
                       ]),
                       const SizedBox(height: 8),
                       _IntelRow('Stimulation index',
@@ -327,12 +327,12 @@ class _IntelPanelState extends State<_IntelPanel> {
                 _DockLabel('ENGAGEMENT SCORE', color: FluxForgeTheme.accentPurple),
                 const Spacer(),
                 Text(score.toStringAsFixed(1),
-                  style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 40,
-                    color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w300)),
+                  style: FluxForgeTheme.dockMono(
+                    size: 40,
+                    color: FluxForgeTheme.accentBlue, weight: FontWeight.w300)),
                 Text('/ 10.0 — ${_engagementLabel(score)}',
-                  style: const TextStyle(
-                    fontSize: 9, color: FluxForgeTheme.textTertiary,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9, color: FluxForgeTheme.textTertiary,
                     letterSpacing: 0.05)),
                 const Spacer(),
                 // 4 real mini metrics from NeuroAudioProvider — 2×2 Row layout
