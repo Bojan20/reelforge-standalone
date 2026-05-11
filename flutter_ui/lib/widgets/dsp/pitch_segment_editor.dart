@@ -191,13 +191,13 @@ class _PitchSegmentEditorState extends State<PitchSegmentEditor> {
         children: [
           Icon(Icons.tune, color: FluxForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'PITCH EDITOR',
-            style: TextStyle(
-              color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const Spacer(),
@@ -205,9 +205,9 @@ class _PitchSegmentEditorState extends State<PitchSegmentEditor> {
             // Segment count
             Text(
               '${_segments.length} segments',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 12,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
               ),
             ),
             const SizedBox(width: 16),
@@ -257,9 +257,9 @@ class _PitchSegmentEditorState extends State<PitchSegmentEditor> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
               ),
             ),
           ],
@@ -278,9 +278,11 @@ class _PitchSegmentEditorState extends State<PitchSegmentEditor> {
               valueColor: AlwaysStoppedAnimation(FluxForgeTheme.accentCyan),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Analyzing pitch...',
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(
+                color: FluxForgeTheme.textSecondary,
+              ),
             ),
           ] else ...[
             Icon(
@@ -289,19 +291,19 @@ class _PitchSegmentEditorState extends State<PitchSegmentEditor> {
               color: FluxForgeTheme.textTertiary,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No pitch analysis available',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 16,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 16,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Click Analyze to detect pitch segments',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 12,
               ),
             ),
             const SizedBox(height: 24),
@@ -424,10 +426,10 @@ class _PitchSegmentEditorState extends State<PitchSegmentEditor> {
             child: Center(
               child: Text(
                 segment.targetNoteName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),

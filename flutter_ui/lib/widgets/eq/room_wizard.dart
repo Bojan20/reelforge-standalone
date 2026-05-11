@@ -189,9 +189,9 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         duration: const Duration(seconds: 2),
         backgroundColor: FluxForgeTheme.bgElevated,
-        content: const Text(
+        content: Text(
           'No correction curve to save — run analysis first.',
-          style: TextStyle(color: FluxForgeTheme.accentOrange),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentOrange),
         ),
       ));
       return;
@@ -225,7 +225,7 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
       backgroundColor: FluxForgeTheme.bgElevated,
       content: Text(
         '💾 Preset saved → ${filePath.split('/').last}',
-        style: const TextStyle(color: FluxForgeTheme.accentGreen),
+        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentGreen),
       ),
     ));
   }
@@ -240,9 +240,9 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         duration: const Duration(seconds: 2),
         backgroundColor: FluxForgeTheme.bgElevated,
-        content: const Text(
+        content: Text(
           'No correction curve to export — run analysis first.',
-          style: TextStyle(color: FluxForgeTheme.accentOrange),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentOrange),
         ),
       ));
       return;
@@ -278,7 +278,7 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
       backgroundColor: FluxForgeTheme.bgElevated,
       content: Text(
         '📤 Exported → ${savePath.split('/').last}',
-        style: const TextStyle(color: FluxForgeTheme.accentGreen),
+        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentGreen),
       ),
     ));
   }
@@ -974,7 +974,7 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                         backgroundColor: FluxForgeTheme.bgElevated,
                         content: Text(
                           '🎙 Calibration loaded: ${paths.first.split('/').last}',
-                          style: const TextStyle(
+                          style: FluxForgeTheme.dockSans(
                               color: FluxForgeTheme.brandGold),
                         ),
                       ),
@@ -1337,10 +1337,10 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
               borderRadius: BorderRadius.circular(8),
             ),
             child: _averageResponse.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'No measurements to analyze',
-                      style: TextStyle(color: FluxForgeTheme.textTertiary),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary),
                     ),
                   )
                 : CustomPaint(
@@ -1387,13 +1387,13 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                 color: _successGreen.withAlpha(26),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.check_circle, color: _successGreen),
-                  SizedBox(width: 12),
+                  const Icon(Icons.check_circle, color: _successGreen),
+                  const SizedBox(width: 12),
                   Text(
                     'No significant problems detected!',
-                    style: TextStyle(color: _successGreen),
+                    style: FluxForgeTheme.dockSans(color: _successGreen),
                   ),
                 ],
               ),
@@ -1815,10 +1815,10 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
               borderRadius: BorderRadius.circular(8),
             ),
             child: _averageResponse.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'No data to preview',
-                      style: TextStyle(color: FluxForgeTheme.textTertiary),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary),
                     ),
                   )
                 : CustomPaint(

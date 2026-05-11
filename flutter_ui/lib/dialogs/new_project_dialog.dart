@@ -142,16 +142,16 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
             // Project name
             Text(
               'Project Name',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
               ),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _nameController,
               autofocus: true,
-              style: TextStyle(color: FluxForgeTheme.textPrimary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
               decoration: InputDecoration(
                 filled: true,
                 fillColor: FluxForgeTheme.bgSurface,
@@ -180,9 +180,9 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
             // Template selection
             Text(
               'Template',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
               ),
             ),
             const SizedBox(height: 8),
@@ -210,16 +210,16 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
                     children: [
                       Text(
                         'Sample Rate',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 12,
                         ),
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<int>(
                         value: _sampleRate,
                         dropdownColor: FluxForgeTheme.bgMid,
-                        style: TextStyle(color: FluxForgeTheme.textPrimary),
+                        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: FluxForgeTheme.bgSurface,
@@ -255,16 +255,16 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
                     children: [
                       Text(
                         'Tempo (BPM)',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 12,
                         ),
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _tempoController,
                         keyboardType: TextInputType.number,
-                        style: TextStyle(color: FluxForgeTheme.textPrimary),
+                        style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textPrimary),
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: FluxForgeTheme.bgSurface,
@@ -354,9 +354,9 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
       onSelected: (_) => setState(() => _selectedTemplate = template),
       backgroundColor: FluxForgeTheme.bgSurface,
       selectedColor: FluxForgeTheme.accentBlue,
-      labelStyle: TextStyle(
+      labelStyle: FluxForgeTheme.dockSans(
+        size: 12,
         color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
-        fontSize: 12,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     );

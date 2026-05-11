@@ -15,6 +15,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
@@ -363,10 +364,10 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
           Icon(Icons.surround_sound, size: 14, color: FabFilterColors.cyan),
           const SizedBox(width: 6),
           Text('FF-IMG  Stereo Imager',
-              style: TextStyle(
-                  color: FabFilterColors.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600)),
+              style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w600,
+                  color: FabFilterColors.textPrimary)),
           const Spacer(),
           FabCompactAB(
             isStateB: isStateB,
@@ -423,10 +424,9 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
           Row(
             children: [
               Text('-1',
-                  style: TextStyle(
-                      color: FabFilterColors.textTertiary,
-                      fontSize: 8,
-                      fontFamily: 'JetBrains Mono')),
+                  style: FluxForgeTheme.dockMono(
+                      size: 8,
+                      color: FabFilterColors.textTertiary)),
               Expanded(
                 child: Container(
                   height: 6,
@@ -472,20 +472,18 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
                 ),
               ),
               Text('+1',
-                  style: TextStyle(
-                      color: FabFilterColors.textTertiary,
-                      fontSize: 8,
-                      fontFamily: 'JetBrains Mono')),
+                  style: FluxForgeTheme.dockMono(
+                      size: 8,
+                      color: FabFilterColors.textTertiary)),
             ],
           ),
           const SizedBox(height: 2),
           Text(
             'CORRELATION  ${_correlation.toStringAsFixed(2)}',
-            style: TextStyle(
-                color: corrColor,
-                fontSize: 8,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.8),
+            style: FluxForgeTheme.dockMono(
+                size: 8,
+                weight: FontWeight.w600,
+                color: corrColor),
           ),
         ],
       ),
@@ -606,11 +604,11 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('PAN LAW',
-            style: TextStyle(
-                color: FabFilterColors.textTertiary,
-                fontSize: 8,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.8)),
+            style: FluxForgeTheme.dockSans(
+                size: 8,
+                weight: FontWeight.w600,
+                letterSpacing: 0.8,
+                color: FabFilterColors.textTertiary)),
         const SizedBox(height: 3),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -755,11 +753,10 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
           ),
           child: Text(
             'WIDTH ${(_width * 100).round()}%',
-            style: TextStyle(
-                color: FabFilterColors.cyan,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'JetBrains Mono'),
+            style: FluxForgeTheme.dockMono(
+                size: 9,
+                weight: FontWeight.w600,
+                color: FabFilterColors.cyan),
           ),
         ),
       ],
@@ -785,10 +782,9 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
           // dB readout
           Text(
             '${dbL.toStringAsFixed(1)} / ${dbR.toStringAsFixed(1)} dB',
-            style: TextStyle(
-                color: FabFilterColors.textTertiary,
-                fontSize: 8,
-                fontFamily: 'JetBrains Mono'),
+            style: FluxForgeTheme.dockMono(
+                size: 8,
+                color: FabFilterColors.textTertiary),
           ),
         ],
       ),
@@ -801,10 +797,10 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(label,
-            style: TextStyle(
-                color: FabFilterColors.textTertiary,
-                fontSize: 8,
-                fontWeight: FontWeight.w600)),
+            style: FluxForgeTheme.dockSans(
+                size: 8,
+                weight: FontWeight.w600,
+                color: FabFilterColors.textTertiary)),
         const SizedBox(width: 3),
         Container(
           width: 80,

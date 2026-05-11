@@ -21,6 +21,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../fabfilter/fabfilter_theme.dart';
 import '../fabfilter/fabfilter_knob.dart';
 import '../fabfilter/fabfilter_panel_base.dart';
@@ -483,11 +484,11 @@ class _SaturationPanelState extends State<SaturationPanel>
                     ),
                     child: Text(
                       '${_drive >= 0 ? '+' : ''}${_drive.toStringAsFixed(1)} dB',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 9,
+                        weight: FontWeight.bold,
                         color: _type.color,
-                        fontSize: 9, fontWeight: FontWeight.bold,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                      ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                     ),
                   ),
                 ),
@@ -496,9 +497,10 @@ class _SaturationPanelState extends State<SaturationPanel>
                   left: 4, top: 4,
                   child: Text(
                     _type.label.toUpperCase(),
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.bold,
                       color: FabFilterColors.textTertiary,
-                      fontSize: 8, fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -534,11 +536,11 @@ class _SaturationPanelState extends State<SaturationPanel>
                     ),
                     child: Text(
                       'MIX ${_mix.round()}%  OUT ${_output >= 0 ? '+' : ''}${_output.toStringAsFixed(1)}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 8,
+                        weight: FontWeight.bold,
                         color: FabFilterProcessorColors.satAccent,
-                        fontSize: 8, fontWeight: FontWeight.bold,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                      ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                     ),
                   ),
                 ),
@@ -547,9 +549,10 @@ class _SaturationPanelState extends State<SaturationPanel>
                   left: 4, top: 4,
                   child: Text(
                     'OS ${_oversampling.label}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.bold,
                       color: FabFilterColors.textTertiary,
-                      fontSize: 8, fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -591,9 +594,10 @@ class _SaturationPanelState extends State<SaturationPanel>
               children: [
                 Icon(t.icon, size: 12, color: active ? t.color : FabFilterColors.textTertiary),
                 const SizedBox(width: 3),
-                Text(t.label, style: TextStyle(
+                Text(t.label, style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: active ? FontWeight.bold : FontWeight.w500,
                   color: active ? t.color : FabFilterColors.textSecondary,
-                  fontSize: 9, fontWeight: active ? FontWeight.bold : FontWeight.w500,
                 )),
               ],
             ),
@@ -908,9 +912,10 @@ class _SaturationPanelState extends State<SaturationPanel>
           ),
         ),
         const SizedBox(width: 3),
-        Text(label, style: TextStyle(
+        Text(label, style: FluxForgeTheme.dockSans(
+          size: 8,
+          weight: FontWeight.bold,
           color: active ? _type.color : FabFilterColors.textDisabled,
-          fontSize: 8, fontWeight: FontWeight.bold,
         )),
       ],
     );

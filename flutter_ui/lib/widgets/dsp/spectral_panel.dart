@@ -122,20 +122,20 @@ class _SpectralPanelState extends State<SpectralPanel> {
           const SizedBox(width: 8),
           Text(
             'SPECTRAL',
-            style: TextStyle(
-              color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const Spacer(),
           Text(
             _modeName(_mode),
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.accentCyan,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -175,9 +175,9 @@ class _SpectralPanelState extends State<SpectralPanel> {
                   child: Center(
                     child: Text(
                       _modeIcon(mode),
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 16,
                         color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                        fontSize: 16,
                       ),
                     ),
                   ),
@@ -245,10 +245,10 @@ class _SpectralPanelState extends State<SpectralPanel> {
                   const SizedBox(width: 8),
                   Text(
                     _learningNoise ? 'LEARNING...' : 'LEARN NOISE PROFILE',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.bold,
                       color: _learningNoise ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -327,11 +327,11 @@ class _SpectralPanelState extends State<SpectralPanel> {
           const SizedBox(height: 24),
           Text(
             _frozen ? 'FROZEN' : 'TAP TO FREEZE',
-            style: TextStyle(
-              color: _frozen ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
+              color: _frozen ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
             ),
           ),
           const SizedBox(height: 32),
@@ -387,7 +387,7 @@ class _SpectralPanelState extends State<SpectralPanel> {
         children: [
           Text(
             'Automatically detects and removes clicks, pops, and crackles.',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textTertiary),
           ),
           const SizedBox(height: 24),
           _buildSlider('SENSITIVITY', _declickThreshold, 1, 20, 'dB', (v) {
@@ -415,19 +415,19 @@ class _SpectralPanelState extends State<SpectralPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(
-                color: FluxForgeTheme.textTertiary,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.bold,
                 letterSpacing: 1.0,
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
             Text(
               '${value.toStringAsFixed(1)} $unit',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 12,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.accentCyan,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ],

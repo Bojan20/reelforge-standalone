@@ -53,13 +53,13 @@ class _InputBusPanelState extends State<InputBusPanel> {
                 ),
                 child: Row(
                   children: [
-                    const Text(
+                    Text(
                       'INPUT BUSES',
-                      style: TextStyle(
-                        color: FluxForgeTheme.textPrimary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
+                        weight: FontWeight.w600,
                         letterSpacing: 1.2,
+                        color: FluxForgeTheme.textPrimary,
                       ),
                     ),
                     const Spacer(),
@@ -105,9 +105,9 @@ class _InputBusPanelState extends State<InputBusPanel> {
                             const SizedBox(height: 12),
                             Text(
                               'No input buses',
-                              style: TextStyle(
+                              style: FluxForgeTheme.dockSans(
+                                size: 13,
                                 color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-                                fontSize: 13,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -153,9 +153,11 @@ class _InputBusPanelState extends State<InputBusPanel> {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgMid,
-          title: const Text(
+          title: Text(
             'Create Input Bus',
-            style: TextStyle(color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockSans(
+              color: FluxForgeTheme.textPrimary,
+            ),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -175,9 +177,11 @@ class _InputBusPanelState extends State<InputBusPanel> {
               // Stereo/Mono toggle
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'Channels:',
-                    style: TextStyle(color: FluxForgeTheme.textSecondary),
+                    style: FluxForgeTheme.dockSans(
+                      color: FluxForgeTheme.textSecondary,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   ChoiceChip(
@@ -299,17 +303,17 @@ class _InputBusItem extends StatelessWidget {
                   children: [
                     Text(
                       bus.name,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
+                        weight: FontWeight.w500,
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     Text(
                       bus.channels == 1 ? 'Mono' : 'Stereo',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -376,9 +380,9 @@ class _PeakMeter extends StatelessWidget {
           width: 16,
           child: Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-              fontSize: 10,
             ),
           ),
         ),
@@ -406,10 +410,9 @@ class _PeakMeter extends StatelessWidget {
           width: 40,
           child: Text(
             peakDb > -100 ? '${peakDb.toStringAsFixed(1)} dB' : '-∞',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-              fontSize: 9,
-              fontFamily: 'monospace',
             ),
           ),
         ),
