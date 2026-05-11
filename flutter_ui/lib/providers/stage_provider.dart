@@ -44,6 +44,7 @@ class StageProvider extends ChangeNotifier {
   // ─── Playback State ───────────────────────────────────────────────────────
   TimingProfile _timingProfile = TimingProfile.normal;
   double _playbackPosition = 0.0;
+  double _lastFirePosition = 0.0; // G.2: tracks last audio-fire position
   bool _isPlaying = false;
   Timer? _playbackTimer;
 
@@ -249,6 +250,7 @@ class StageProvider extends ChangeNotifier {
     if (_currentTimedTrace == null) return;
     if (_isPlaying) return;
 
+    _lastFirePosition = _playbackPosition; // G.2: start firing from now
     _isPlaying = true;
     _playbackTimer?.cancel();
 
@@ -273,12 +275,14 @@ class StageProvider extends ChangeNotifier {
     _isPlaying = false;
     _playbackTimer?.cancel();
     _playbackPosition = 0.0;
+    _lastFirePosition = 0.0; // G.2: reset fire cursor
     notifyListeners();
   }
 
   /// Seek to position
   void seek(double positionMs) {
     _playbackPosition = positionMs.clamp(0.0, traceDuration);
+    _lastFirePosition = _playbackPosition; // G.2: rebase fire cursor after seek
     _throttledNotify();
   }
 
@@ -307,10 +311,20 @@ class StageProvider extends ChangeNotifier {
     _throttledNotify();
   }
 
-  /// Fire events that should trigger at current position
+  /// Fire events that should trigger at current position.
+  /// Implements G.2: triggers audio via StageAudioMapper for all timed
+  /// events whose absoluteTimeMs falls in (_lastFirePosition, _playbackPosition].
   void _fireEventsAtPosition() {
-    // TODO: Trigger audio for events at this position
-    // This will integrate with the audio engine
+    if (_audioMapper == null || _currentTimedTrace == null) return;
+    final lo = _lastFirePosition;
+    final hi = _playbackPosition;
+    for (final timed in _currentTimedTrace!.events) {
+      final t = timed.absoluteTimeMs;
+      if (t > lo && t <= hi) {
+        _audioMapper!.mapAndTrigger(timed.event);
+      }
+    }
+    _lastFirePosition = hi;
   }
 
   void _throttledNotify() {
@@ -657,18 +671,91 @@ class AdapterWizardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Finish wizard and generate config
+  /// Finish wizard and generate config.
+  /// G.3: Applies _eventMappingOverrides into the [event_mapping] TOML section.
   Future<String?> finish() async {
-    // Generate final config with overrides
     final baseToml = result?.configToml ?? '';
-
-    // TODO: Apply _eventMappingOverrides to config
-    // For now, return base config
+    final finalToml = _applyOverridesToToml(baseToml, _eventMappingOverrides);
 
     _currentStep = WizardStep.complete;
     notifyListeners();
 
-    return baseToml;
+    return finalToml;
+  }
+
+  /// Apply event_mapping overrides into a TOML config string.
+  ///
+  /// Strategy (no external TOML parser required):
+  /// 1. If overrides empty → return toml unchanged.
+  /// 2. Build the override lines block.
+  /// 3. If toml has `[event_mapping]` section → inject lines immediately after
+  ///    the section header, replacing existing keys where they match.
+  /// 4. If no section → append a full `[event_mapping]` block at the end.
+  /// Test-only shim — delegates to the private implementation.
+  // ignore: unused_element
+  static String applyOverridesToTomlForTest(String toml, Map<String, String> overrides) =>
+      _applyOverridesToToml(toml, overrides);
+
+  static String _applyOverridesToToml(String toml, Map<String, String> overrides) {
+    if (overrides.isEmpty) return toml;
+
+    // Build k=v lines
+    final lines = overrides.entries
+        .map((e) => '${e.key} = "${e.value}"')
+        .join('\n');
+
+    const sectionHeader = '[event_mapping]';
+    final sectionIdx = toml.indexOf(sectionHeader);
+
+    if (sectionIdx == -1) {
+      // No section — append at end
+      final sep = toml.endsWith('\n') ? '' : '\n';
+      return '$toml$sep\n$sectionHeader\n$lines\n';
+    }
+
+    // Section exists — find end of section (next [section] header or EOF)
+    final afterHeader = sectionIdx + sectionHeader.length;
+    final nextSection = RegExp(r'\n\[').firstMatch(toml.substring(afterHeader));
+    final sectionEnd = nextSection == null
+        ? toml.length
+        : afterHeader + nextSection.start;
+
+    final sectionBody = toml.substring(afterHeader, sectionEnd);
+
+    // For each override, replace existing key or accumulate new keys
+    final newKeys = <String, String>{};
+    for (final e in overrides.entries) {
+      newKeys[e.key] = e.value;
+    }
+
+    // Rebuild section body: keep existing lines, replace/add overrides
+    final bodyLines = sectionBody.split('\n');
+    final result = StringBuffer();
+    final replaced = <String>{};
+
+    for (final line in bodyLines) {
+      final eq = line.indexOf(' = ');
+      if (eq != -1) {
+        final key = line.substring(0, eq).trim();
+        if (newKeys.containsKey(key)) {
+          result.writeln('$key = "${newKeys[key]}"');
+          replaced.add(key);
+          continue;
+        }
+      }
+      result.writeln(line);
+    }
+
+    // Append any keys not already in section
+    for (final e in newKeys.entries) {
+      if (!replaced.contains(e.key)) {
+        result.writeln('${e.key} = "${e.value}"');
+      }
+    }
+
+    return toml.substring(0, afterHeader) +
+        result.toString() +
+        toml.substring(sectionEnd);
   }
 
   /// Reset wizard
