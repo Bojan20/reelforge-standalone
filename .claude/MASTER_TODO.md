@@ -796,7 +796,7 @@ ostaje kao potencijalno proširenje za >6 return tačaka (P3+).
 - [x] **OrbMixer Phase 9: Live Play Companion Mode** ✅ DONE (2026-04-22) — commits `717703d1` + stability `4c850c33`
 - [x] **OrbMixer Phase 10: 130-Voice Live Mix Orchestra** ✅ DONE (2026-04-22) — 5 commits: foundation / rendering / UX / alerts / inbox
 - [x] **OrbMixer Phase 10e-2: Audio ring buffer capture** ✅ DONE (2026-05-11) — `orb_ring_init`, `orb_ring_frames_written`, `orb_capture_last_n_seconds`, `orb_ring_rearm` u Rust FFI + Dart bindings + `ProblemsInboxService._captureClipFor()`
-- [ ] **NeuralBindOrb Phase 2: Ghost slot indikatori** — stage-ovi bez audio bindinga prikazani kao ghost u orbu (gap analysis integration)
+- [x] **NeuralBindOrb Phase 2: Ghost slot indikatori** ✅ DONE (2026-05-11) — `_drawUnboundNode` dashed amber ring + "+" glyph u `_NeuralVizPainter`, `_GhostBindRatioChip` bound/ghost counter, `_buildGhostIndicator` sa live `GhostStageIndicator`, `_buildNodes` setuje `isBound` per stage. 16 widget testova u `ghost_stage_indicator_test.dart`
 
 ---
 
