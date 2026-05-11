@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/slot_lab/ail_provider.dart';
+import '../../../theme/flux_forge_theme.dart';
 
 /// UCP-6: AIL Panel Integration
 ///
@@ -69,10 +70,10 @@ class _AilPanelZoneState extends State<AilPanelZone> {
         const SizedBox(width: 4),
         Text(
           'AIL Recommendations',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
             color: Colors.white.withValues(alpha: 0.8),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
           ),
         ),
         const Spacer(),
@@ -81,7 +82,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
             onTap: () => _provider?.runAnalysis(),
             child: Text(
               'Run',
-              style: TextStyle(color: const Color(0xFFFFAB40).withValues(alpha: 0.7), fontSize: 8),
+              style: FluxForgeTheme.dockSans(size: 8, color: const Color(0xFFFFAB40).withValues(alpha: 0.7)),
             ),
           ),
       ],
@@ -91,7 +92,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
   Widget _buildEmpty() {
     return Text(
       'Run AIL analysis to see recommendations',
-      style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8),
+      style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.2)),
     );
   }
 
@@ -101,12 +102,12 @@ class _AilPanelZoneState extends State<AilPanelZone> {
       children: [
         Text(
           '${p.score.toStringAsFixed(0)}',
-          style: TextStyle(color: _statusColor(), fontSize: 14, fontWeight: FontWeight.w700),
+          style: FluxForgeTheme.dockMono(size: 14, weight: FontWeight.w700, color: _statusColor()),
         ),
         const SizedBox(width: 4),
         Text(
           p.status.displayName,
-          style: TextStyle(color: _statusColor(), fontSize: 9, fontWeight: FontWeight.w500),
+          style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w500, color: _statusColor()),
         ),
         const Spacer(),
         _countChip('${p.criticalCount}C', const Color(0xFFEF5350)),
@@ -125,7 +126,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(2),
       ),
-      child: Text(text, style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.w500)),
+      child: Text(text, style: FluxForgeTheme.dockMono(size: 7, weight: FontWeight.w500, color: color)),
     );
   }
 
@@ -134,7 +135,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
     if (recs.isEmpty) {
       return Text(
         'No recommendations',
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
+        style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.3)),
       );
     }
 
@@ -156,13 +157,13 @@ class _AilPanelZoneState extends State<AilPanelZone> {
                 Expanded(
                   child: Text(
                     rec.title,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 8),
+                    style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.6)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Text(
                   '${rec.impactScore.toStringAsFixed(0)}',
-                  style: TextStyle(color: _recColor(rec.level), fontSize: 7),
+                  style: FluxForgeTheme.dockMono(size: 7, color: _recColor(rec.level)),
                 ),
               ],
             ),

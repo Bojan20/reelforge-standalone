@@ -8,6 +8,7 @@
 /// - Skip/complete actions
 
 import 'package:flutter/material.dart';
+import '../../theme/flux_forge_theme.dart';
 import 'tutorial_step.dart';
 
 /// Tutorial overlay widget
@@ -351,10 +352,10 @@ class _TutorialCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         step.title,
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          size: 16,
+                          weight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -365,11 +366,10 @@ class _TutorialCard extends StatelessWidget {
                 // Description
                 Text(
                   step.content,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
+                    size: 14,
+                  ).copyWith(height: 1.5),
                 ),
 
                 // Image (if present)
@@ -425,9 +425,9 @@ class _TutorialCard extends StatelessWidget {
           // Step counter
           Text(
             '${currentStep + 1} / $totalSteps',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 12,
+              size: 12,
             ),
           ),
         ],
@@ -526,12 +526,12 @@ class TutorialLauncher extends StatelessWidget {
               children: [
                 const Icon(Icons.school, color: Color(0xFF4A9EFF), size: 20),
                 const SizedBox(width: 12),
-                const Text(
+                Text(
                   'Interactive Tutorials',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    size: 16,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 const Spacer(),
@@ -574,10 +574,10 @@ class TutorialLauncher extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           category.displayName,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white54,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
       ],
@@ -606,18 +606,18 @@ class TutorialLauncher extends StatelessWidget {
                 children: [
                   Text(
                     tutorial.name,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      size: 14,
+                      weight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     tutorial.description,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 12,
+                      size: 12,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -637,19 +637,19 @@ class TutorialLauncher extends StatelessWidget {
                   ),
                   child: Text(
                     tutorial.difficulty.displayName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: tutorial.difficulty.color,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      size: 10,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${tutorial.estimatedMinutes} min',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 10,
+                    size: 10,
                   ),
                 ),
               ],

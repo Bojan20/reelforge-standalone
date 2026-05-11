@@ -45,7 +45,7 @@ class ValidationPanelDialog extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     warnings.isEmpty ? 'Validation Passed' : 'Validation Results',
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                    style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.bold, color: Colors.white),
                   ),
                 ],
               ),
@@ -60,7 +60,7 @@ class ValidationPanelDialog extends StatelessWidget {
                   if (warns.isNotEmpty) const SizedBox(width: 8),
                   if (infos.isNotEmpty) _buildCountBadge(infos.length, 'info', Colors.white38),
                   if (warnings.isEmpty)
-                    const Text('No issues found', style: TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 11)),
+                    Text('No issues found', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.accentGreen)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -68,14 +68,14 @@ class ValidationPanelDialog extends StatelessWidget {
               // Warning list
               Expanded(
                 child: warnings.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check_circle_outline, color: FluxForgeTheme.accentGreen, size: 40),
-                            SizedBox(height: 8),
+                            const Icon(Icons.check_circle_outline, color: FluxForgeTheme.accentGreen, size: 40),
+                            const SizedBox(height: 8),
                             Text('All stages configured correctly',
-                                style: TextStyle(color: Colors.white38, fontSize: 11)),
+                                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white38)),
                           ],
                         ),
                       )
@@ -104,14 +104,14 @@ class ValidationPanelDialog extends StatelessWidget {
               Row(
                 children: [
                   if (warnings.isNotEmpty)
-                    const Text(
+                    Text(
                       'Click any row to jump to that stage',
-                      style: TextStyle(color: Colors.white24, fontSize: 9),
+                      style: FluxForgeTheme.dockSans(size: 9, color: Colors.white24),
                     ),
                   const Spacer(),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Close', style: TextStyle(color: Colors.white54)),
+                    child: Text('Close', style: FluxForgeTheme.dockSans(color: Colors.white54)),
                   ),
                 ],
               ),
@@ -131,7 +131,7 @@ class ValidationPanelDialog extends StatelessWidget {
       ),
       child: Text(
         '$count $label',
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+        style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: color),
       ),
     );
   }
@@ -139,7 +139,7 @@ class ValidationPanelDialog extends StatelessWidget {
   Widget _buildSectionHeader(String title, Color color) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4, top: 2),
-      child: Text(title, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+      child: Text(title, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w700, letterSpacing: 0.5, color: color)),
     );
   }
 
@@ -170,7 +170,7 @@ class ValidationPanelDialog extends StatelessWidget {
               width: 130,
               child: Text(
                 warning.stage,
-                style: TextStyle(color: color, fontSize: 9, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                style: FluxForgeTheme.dockMono(size: 9, weight: FontWeight.w600, color: color),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -178,7 +178,7 @@ class ValidationPanelDialog extends StatelessWidget {
             Expanded(
               child: Text(
                 warning.message,
-                style: const TextStyle(color: Colors.white54, fontSize: 9),
+                style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54),
                 overflow: TextOverflow.ellipsis,
               ),
             ),

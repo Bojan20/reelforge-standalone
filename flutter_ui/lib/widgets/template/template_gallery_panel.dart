@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import '../../models/template_models.dart';
 import '../../services/template/template_auto_wire_service.dart';
 import '../../services/template/template_builder_service.dart';
+import '../../theme/flux_forge_theme.dart';
 
 /// Template gallery panel
 class TemplateGalleryPanel extends StatefulWidget {
@@ -242,11 +243,11 @@ class _TemplateGalleryPanelState extends State<TemplateGalleryPanel> {
         children: [
           const Icon(Icons.dashboard, color: Color(0xFF4a9eff)),
           const SizedBox(width: 12),
-          const Text(
+          Text(
             'Template Gallery',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 18,
+              weight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
@@ -331,7 +332,9 @@ class _TemplateGalleryPanelState extends State<TemplateGalleryPanel> {
               _searchQuery.isNotEmpty || _filterCategory != null
                   ? 'No templates match your filters'
                   : 'No templates available',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+              style: FluxForgeTheme.dockSans(
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
             ),
           ],
         ),
@@ -377,7 +380,7 @@ class _TemplateGalleryPanelState extends State<TemplateGalleryPanel> {
           const SizedBox(height: 16),
           Text(
             _error!,
-            style: const TextStyle(color: Colors.red),
+            style: FluxForgeTheme.dockSans(color: Colors.red),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -408,7 +411,7 @@ class _TemplateGalleryPanelState extends State<TemplateGalleryPanel> {
               const SizedBox(width: 12),
               Text(
                 _wireProgress?.message ?? 'Wiring template...',
-                style: const TextStyle(color: Colors.white),
+                style: FluxForgeTheme.dockSans(color: Colors.white),
               ),
             ],
           ),
@@ -494,9 +497,9 @@ class _TemplateCard extends StatelessWidget {
                       children: [
                         Text(
                           template.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                          style: FluxForgeTheme.dockSans(
+                            weight: FontWeight.bold,
+                            size: 14,
                             color: Colors.white,
                           ),
                           maxLines: 1,
@@ -504,8 +507,8 @@ class _TemplateCard extends StatelessWidget {
                         ),
                         Text(
                           template.author ?? 'Unknown',
-                          style: TextStyle(
-                            fontSize: 11,
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
                             color: Colors.white.withValues(alpha: 0.5),
                           ),
                         ),
@@ -520,8 +523,8 @@ class _TemplateCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   template.description,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: Colors.white.withValues(alpha: 0.7),
                   ),
                   maxLines: 3,
@@ -637,16 +640,16 @@ class _StatItem extends StatelessWidget {
       children: [
         Text(
           value,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
+          style: FluxForgeTheme.dockMono(
+            weight: FontWeight.bold,
+            size: 13,
             color: Colors.white,
           ),
         ),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: Colors.white.withValues(alpha: 0.5),
           ),
         ),

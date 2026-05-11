@@ -10,6 +10,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../services/localization_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Full language dropdown with flags and names
 class LanguageSelector extends StatefulWidget {
@@ -64,19 +65,19 @@ class _LanguageSelectorState extends State<LanguageSelector> {
           isExpanded: true,
           dropdownColor: const Color(0xFF1A1A20),
           icon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
-          style: const TextStyle(color: Colors.white, fontSize: 13),
+          style: FluxForgeTheme.dockSans(size: 13, color: Colors.white),
           items: kSupportedLocales.map((locale) {
             return DropdownMenuItem<String>(
               value: locale.locale.languageCode,
               child: Row(
                 children: [
                   if (widget.showFlag) ...[
-                    Text(locale.flag, style: const TextStyle(fontSize: 16)),
+                    Text(locale.flag, style: FluxForgeTheme.dockSans(size: 16)),
                     const SizedBox(width: 8),
                   ],
                   Text(
                     widget.showNativeName ? locale.nativeName : locale.displayName,
-                    style: const TextStyle(fontSize: 13),
+                    style: FluxForgeTheme.dockSans(size: 13),
                   ),
                 ],
               ),
@@ -146,13 +147,13 @@ class _LanguageSelectorCompactState extends State<LanguageSelectorCompact> {
           value: locale.locale.languageCode,
           child: Row(
             children: [
-              Text(locale.flag, style: const TextStyle(fontSize: 16)),
+              Text(locale.flag, style: FluxForgeTheme.dockSans(size: 16)),
               const SizedBox(width: 8),
               Text(
                 locale.nativeName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isSelected ? const Color(0xFF4A9EFF) : Colors.white,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
               const Spacer(),
@@ -184,7 +185,7 @@ class _LanguageSelectorCompactState extends State<LanguageSelectorCompact> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(currentInfo.flag, style: TextStyle(fontSize: widget.iconSize)),
+              Text(currentInfo.flag, style: FluxForgeTheme.dockSans(size: widget.iconSize)),
               const SizedBox(width: 4),
               Icon(
                 Icons.arrow_drop_down,
@@ -231,12 +232,12 @@ class _LanguageSettingsPanelState extends State<LanguageSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Language / Jezik / Sprache',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.w500,
             color: Colors.white70,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 12),
@@ -263,26 +264,26 @@ class _LanguageSettingsPanelState extends State<LanguageSettingsPanel> {
                 ),
                 child: Row(
                   children: [
-                    Text(locale.flag, style: const TextStyle(fontSize: 20)),
+                    Text(locale.flag, style: FluxForgeTheme.dockSans(size: 20)),
                     const SizedBox(width: 12),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           locale.nativeName,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: isSelected
                                 ? const Color(0xFF4A9EFF)
                                 : Colors.white,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
+                            weight: FontWeight.w500,
+                            size: 14,
                           ),
                         ),
                         Text(
                           locale.displayName,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: Colors.white54,
-                            fontSize: 11,
+                            size: 11,
                           ),
                         ),
                       ],

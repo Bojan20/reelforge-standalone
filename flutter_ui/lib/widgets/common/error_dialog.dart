@@ -77,17 +77,17 @@ class _ErrorDialogState extends State<ErrorDialog> {
               children: [
                 Text(
                   widget.error.title,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 16,
+                    weight: FontWeight.w600,
                     color: colors.text,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   _getSeverityLabel(widget.error.severity),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: colors.text.withValues(alpha: 0.7),
-                    fontSize: 12,
                   ),
                 ),
               ],
@@ -101,10 +101,9 @@ class _ErrorDialogState extends State<ErrorDialog> {
             ),
             child: Text(
               widget.error.code,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: colors.icon,
-                fontSize: 10,
-                fontFamily: 'JetBrainsMono',
               ),
             ),
           ),
@@ -120,9 +119,9 @@ class _ErrorDialogState extends State<ErrorDialog> {
       children: [
         Text(
           widget.error.message,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 14,
             color: Colors.white,
-            fontSize: 14,
           ),
         ),
         if (widget.error.details != null) ...[
@@ -141,9 +140,9 @@ class _ErrorDialogState extends State<ErrorDialog> {
                 const SizedBox(width: 4),
                 Text(
                   _showDetails ? 'Hide Details' : 'Show Details',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 12,
                   ),
                 ),
               ],
@@ -159,10 +158,9 @@ class _ErrorDialogState extends State<ErrorDialog> {
               ),
               child: SelectableText(
                 widget.error.details!,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 11,
-                  fontFamily: 'JetBrainsMono',
                 ),
               ),
             ),
@@ -179,9 +177,9 @@ class _ErrorDialogState extends State<ErrorDialog> {
       actions.add(
         TextButton(
           onPressed: () => Navigator.of(context).pop('dismiss'),
-          child: const Text(
+          child: Text(
             'Dismiss',
-            style: TextStyle(color: FluxForgeTheme.textSecondary),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
           ),
         ),
       );
@@ -206,7 +204,7 @@ class _ErrorDialogState extends State<ErrorDialog> {
                 onPressed: () => Navigator.of(context).pop(action.id),
                 child: Text(
                   action.label,
-                  style: TextStyle(color: colors.icon),
+                  style: FluxForgeTheme.dockSans(color: colors.icon),
                 ),
               ),
       );
@@ -348,16 +346,16 @@ void showErrorSnackbar(BuildContext context, AppError error) {
               children: [
                 Text(
                   error.title,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    weight: FontWeight.w600,
                     color: colors.text,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   error.message,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: colors.text.withValues(alpha: 0.8),
-                    fontSize: 12,
                   ),
                 ),
               ],

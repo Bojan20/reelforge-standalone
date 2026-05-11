@@ -9,6 +9,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../theme/flux_forge_theme.dart';
 
 // =============================================================================
 // STAGE TIMING MODEL
@@ -126,13 +127,13 @@ class _StageTimingEditorState extends State<StageTimingEditor> {
         children: [
           const Icon(Icons.timer, size: 16, color: Color(0xFF40FF90)),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Stage Timing',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold),
           ),
           const Spacer(),
           // Grid snap selector
-          const Text('Snap: ', style: TextStyle(fontSize: 10)),
+          Text('Snap: ', style: FluxForgeTheme.dockSans(size: 10)),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
@@ -143,7 +144,7 @@ class _StageTimingEditorState extends State<StageTimingEditor> {
               value: _gridSnap,
               underline: const SizedBox(),
               isDense: true,
-              style: const TextStyle(fontSize: 10, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white),
               dropdownColor: const Color(0xFF242430),
               items: GridSnap.values.map((snap) => DropdownMenuItem(
                 value: snap,
@@ -261,7 +262,7 @@ class _StageTimingEditorState extends State<StageTimingEditor> {
           child: Center(
             child: Text(
               stage.stageName,
-              style: const TextStyle(fontSize: 9, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 9, color: Colors.white),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -307,14 +308,14 @@ class _StageTimingEditorState extends State<StageTimingEditor> {
                 Expanded(
                   child: Text(
                     stage.stageName,
-                    style: const TextStyle(fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 // Base time
                 Text(
                   '${stage.baseTimeMs.toInt()}ms',
-                  style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+                  style: FluxForgeTheme.dockMono(size: 9, color: Colors.grey[600]),
                 ),
                 const SizedBox(width: 8),
                 // Delay adjustment
@@ -324,16 +325,16 @@ class _StageTimingEditorState extends State<StageTimingEditor> {
                     children: [
                       Text(
                         stage.delayMs >= 0 ? '+' : '',
-                        style: TextStyle(
-                          fontSize: 9,
+                        style: FluxForgeTheme.dockMono(
+                          size: 9,
                           color: stage.delayMs >= 0 ? const Color(0xFF40FF90) : const Color(0xFFFF6B6B),
                         ),
                       ),
                       Text(
                         '${stage.delayMs.toInt()}ms',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockMono(
+                          size: 9,
+                          weight: FontWeight.bold,
                           color: stage.delayMs >= 0 ? const Color(0xFF40FF90) : const Color(0xFFFF6B6B),
                         ),
                       ),

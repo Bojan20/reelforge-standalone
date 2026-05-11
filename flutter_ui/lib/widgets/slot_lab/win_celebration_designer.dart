@@ -352,20 +352,20 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
         children: [
           Icon(Icons.celebration, size: 16, color: widget.accentColor),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Win Celebration Designer',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const Spacer(),
           Text(
             '${_currentCelebration.layers.length} layers',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
             ),
           ),
         ],
@@ -412,10 +412,10 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
           children: [
             Text(
               tier.name,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 color: isSelected ? tier.color : FluxForgeTheme.textSecondary,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
             if (layerCount > 0)
@@ -428,9 +428,9 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
                 ),
                 child: Text(
                   '$layerCount',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: tier.color,
-                    fontSize: 9,
                   ),
                 ),
               ),
@@ -495,10 +495,10 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
                         child: Center(
                           child: Text(
                             'Drop audio here',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 12,
+                              weight: FontWeight.w500,
                               color: tierConfig.color,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
@@ -550,9 +550,9 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
               Expanded(
                 child: Text(
                   layer.label,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: Colors.white,
-                    fontSize: 10,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -604,10 +604,9 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
             ),
             child: Text(
               '${(_playheadMs / 1000).toStringAsFixed(1)}s / ${(celebration.totalDurationMs / 1000).toStringAsFixed(1)}s',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -629,10 +628,10 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
                 const SizedBox(width: 4),
                 Text(
                   '${tierConfig.name} Win',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w500,
                     color: tierConfig.color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
