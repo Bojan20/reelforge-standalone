@@ -208,10 +208,10 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
           const SizedBox(width: 10),
           Text(
             widget.title,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -279,10 +279,9 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
                   Expanded(
                     child: Text(
                       _currentDirectory,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
                         color: Colors.white54,
-                        fontSize: 10,
-                        fontFamily: 'monospace',
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -315,7 +314,7 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
             const SizedBox(height: 12),
             Text(
               _errorMessage!,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54),
             ),
           ],
         ),
@@ -331,12 +330,12 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
             const SizedBox(height: 12),
             Text(
               'No audio files in this directory',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white38),
             ),
             const SizedBox(height: 4),
             Text(
               'Supported: ${widget.allowedExtensions.join(", ")}',
-              style: TextStyle(color: Colors.white24, fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white24),
             ),
           ],
         ),
@@ -388,7 +387,7 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
             return Center(
               child: Text(
                 'No subfolders',
-                style: TextStyle(color: Colors.white24, fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10, color: Colors.white24),
               ),
             );
           }
@@ -415,9 +414,9 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
                       Expanded(
                         child: Text(
                           name,
-                          style: const TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
                             color: Colors.white70,
-                            fontSize: 11,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -476,10 +475,10 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
             Expanded(
               child: Text(
                 _selectedFile!.name,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.w500,
                   color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -489,7 +488,7 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
             Expanded(
               child: Text(
                 'Select an audio file',
-                style: TextStyle(color: Colors.white38, fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white38),
               ),
             ),
           ],
@@ -503,7 +502,7 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
               foregroundColor: Colors.white54,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
-            child: const Text('Cancel', style: TextStyle(fontSize: 12)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(size: 12)),
           ),
 
           const SizedBox(width: 8),
@@ -520,9 +519,9 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
-            child: const Text(
+            child: Text(
               'Select',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.w600),
             ),
           ),
         ],
@@ -564,9 +563,9 @@ class _QuickAccessButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: isActive ? FluxForgeTheme.accentBlue : Colors.white54,
-            fontSize: 10,
           ),
         ),
       ),

@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auto_spatial_provider.dart';
 import '../../spatial/auto_spatial.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'spatial_widgets.dart';
 
 /// Stats and Config panel
@@ -170,7 +171,7 @@ class SpatialStatsPanel extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.clear_all, size: 14),
-                  label: const Text('Clear Events', style: TextStyle(fontSize: 10)),
+                  label: Text('Clear Events', style: FluxForgeTheme.dockSans(size: 10)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white54,
                     side: const BorderSide(color: Colors.white24),
@@ -182,7 +183,7 @@ class SpatialStatsPanel extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.refresh, size: 14),
-                  label: const Text('Reset Config', style: TextStyle(fontSize: 10)),
+                  label: Text('Reset Config', style: FluxForgeTheme.dockSans(size: 10)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white54,
                     side: const BorderSide(color: Colors.white24),
@@ -443,7 +444,7 @@ class SpatialStatsPanel extends StatelessWidget {
             ),
             onPressed: () =>
                 provider.setListenerPosition(ListenerPosition.center),
-            child: const Text('Reset to Center', style: TextStyle(fontSize: 10)),
+            child: Text('Reset to Center', style: FluxForgeTheme.dockSans(size: 10)),
           ),
         ),
       ],
@@ -463,10 +464,10 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: Colors.white54,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+          size: 10,
+          weight: FontWeight.w600,
           letterSpacing: 0.5,
         ),
       ),
@@ -502,15 +503,14 @@ class _StatCard extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(color: Colors.white38, fontSize: 9),
+                  style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9),
                 ),
                 Text(
                   value,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
+                    size: 12,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -562,7 +562,7 @@ class _FeatureToggle extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(color: color, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: color, size: 10),
             ),
           ],
         ),
@@ -629,10 +629,10 @@ class _RenderModeSelector extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isSelected ? const Color(0xFF4a9eff) : Colors.white54,
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    size: 11,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ],
@@ -669,15 +669,14 @@ class _CompactStat extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 8),
+            style: FluxForgeTheme.dockSans(color: color.withValues(alpha: 0.7), size: 8),
           ),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -715,7 +714,7 @@ class _ConfigChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(color: color, fontSize: 9),
+          style: FluxForgeTheme.dockSans(color: color, size: 9),
         ),
       ),
     );

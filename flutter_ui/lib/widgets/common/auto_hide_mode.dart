@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Panels that support auto-hide
 enum AutoHidePanel {
@@ -548,20 +549,20 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
       children: [
         const Icon(Icons.auto_awesome, size: 18, color: Color(0xFF4A9EFF)),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'Auto-Hide Mode',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 14,
+            weight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
         const Spacer(),
         TextButton(
           onPressed: () => provider.showAllPanels(),
-          child: const Text(
+          child: Text(
             'Show All',
-            style: TextStyle(fontSize: 11, color: Color(0xFF808080)),
+            style: FluxForgeTheme.dockSans(size: 11, color: const Color(0xFF808080)),
           ),
         ),
       ],
@@ -596,15 +597,15 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Enable Auto-Hide',
-                  style: TextStyle(fontSize: 13, color: Colors.white),
+                  style: FluxForgeTheme.dockSans(size: 13, color: Colors.white),
                 ),
                 Text(
                   config.globalEnabled
                       ? 'Panels hide when not in use'
                       : 'All panels always visible',
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF808080)),
+                  style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF808080)),
                 ),
               ],
             ),
@@ -623,9 +624,9 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Show Trigger',
-          style: TextStyle(fontSize: 12, color: Color(0xFF808080)),
+          style: FluxForgeTheme.dockSans(size: 12, color: const Color(0xFF808080)),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -650,8 +651,8 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
                 ),
                 child: Text(
                   trigger.displayName,
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: isSelected
                         ? const Color(0xFF4A9EFF)
                         : const Color(0xFF808080),
@@ -669,9 +670,9 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Panels',
-          style: TextStyle(fontSize: 12, color: Color(0xFF808080)),
+          style: FluxForgeTheme.dockSans(size: 12, color: const Color(0xFF808080)),
         ),
         const SizedBox(height: 8),
         ...AutoHidePanel.values.map((panel) {
@@ -685,7 +686,7 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
                 Expanded(
                   child: Text(
                     panel.displayName,
-                    style: const TextStyle(fontSize: 12, color: Colors.white),
+                    style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                   ),
                 ),
                 Switch(
@@ -741,14 +742,13 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF808080)),
+              style: FluxForgeTheme.dockSans(size: 11, color: const Color(0xFF808080)),
             ),
             Text(
               '${value.toInt()}ms',
-              style: const TextStyle(
-                fontSize: 11,
-                fontFamily: 'monospace',
-                color: Color(0xFF4A9EFF),
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                color: const Color(0xFF4A9EFF),
               ),
             ),
           ],
@@ -809,11 +809,11 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF808080)),
+                  style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF808080)),
                 ),
               ],
             ),

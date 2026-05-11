@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auto_spatial_provider.dart';
 import '../../spatial/auto_spatial.dart';
+import '../../theme/flux_forge_theme.dart';
 import 'spatial_widgets.dart';
 
 /// Bus Policy Editor widget
@@ -34,10 +35,10 @@ class BusPolicyEditor extends StatelessWidget {
             Expanded(
               child: provider.selectedBus != null
                   ? _buildPolicyEditor(context, provider)
-                  : const Center(
+                  : Center(
                       child: Text(
                         'Select a bus to edit',
-                        style: TextStyle(color: Colors.white38, fontSize: 12),
+                        style: FluxForgeTheme.dockSans(size: 12, color: Colors.white38),
                       ),
                     ),
             ),
@@ -57,13 +58,9 @@ class BusPolicyEditor extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Row(
             children: [
-              const Text(
+              Text(
                 'Audio Buses',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70, weight: FontWeight.w600),
               ),
               const Spacer(),
               TextButton(
@@ -72,9 +69,9 @@ class BusPolicyEditor extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   minimumSize: const Size(0, 24),
                 ),
-                child: const Text(
+                child: Text(
                   'Reset All',
-                  style: TextStyle(fontSize: 10, color: Colors.white54),
+                  style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54),
                 ),
               ),
             ],
@@ -125,16 +122,12 @@ class BusPolicyEditor extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 _busDisplayName(bus),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: FluxForgeTheme.dockSans(size: 14, color: Colors.white, weight: FontWeight.w600),
               ),
               const Spacer(),
               TextButton.icon(
                 icon: const Icon(Icons.refresh, size: 14),
-                label: const Text('Reset', style: TextStyle(fontSize: 11)),
+                label: Text('Reset', style: FluxForgeTheme.dockSans(size: 11)),
                 style: TextButton.styleFrom(foregroundColor: Colors.white54),
                 onPressed: () => provider.resetBusPolicyToDefault(bus),
               ),
@@ -143,7 +136,7 @@ class BusPolicyEditor extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             _busDescription(bus),
-            style: const TextStyle(color: Colors.white38, fontSize: 11),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.white38),
           ),
           const SizedBox(height: 20),
 
@@ -345,18 +338,15 @@ class _BusListTile extends StatelessWidget {
                   children: [
                     Text(
                       bus.name.toUpperCase(),
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: isSelected ? Colors.white : Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        weight: FontWeight.w600,
                       ),
                     ),
                     Text(
                       'W:${(policy.widthMul * 100).round()}% P:${(policy.maxPanMul * 100).round()}%',
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 9,
-                      ),
+                      style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38),
                     ),
                   ],
                 ),
@@ -368,12 +358,12 @@ class _BusListTile extends StatelessWidget {
                     color: const Color(0xFF40c8ff).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(2),
                   ),
-                  child: const Text(
+                  child: Text(
                     'HRTF',
-                    style: TextStyle(
-                      color: Color(0xFF40c8ff),
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 7,
+                      color: const Color(0xFF40c8ff),
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -415,10 +405,10 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 10,
           color: Colors.white54,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+          weight: FontWeight.w600,
           letterSpacing: 0.5,
         ),
       ),

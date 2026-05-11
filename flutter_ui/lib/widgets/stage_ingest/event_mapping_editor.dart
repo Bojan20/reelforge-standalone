@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../providers/stage_ingest_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Canonical stage types for mapping
 const List<String> _canonicalStages = [
@@ -215,18 +216,18 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
           const SizedBox(width: 8),
           Text(
             'Event Mapping',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              size: 13,
+              weight: FontWeight.w500,
             ),
           ),
           const Spacer(),
           Text(
             '${_mappings.values.where((v) => v != null).length}/${widget.detectedEvents.length} mapped',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 11,
+              size: 11,
             ),
           ),
         ],
@@ -270,10 +271,10 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
       ),
       child: TextField(
         onChanged: onChanged,
-        style: const TextStyle(color: Colors.white, fontSize: 12),
+        style: FluxForgeTheme.dockSans(size: 12),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+          hintStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3)),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           isDense: true,
@@ -289,7 +290,7 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
       return Center(
         child: Text(
           'No events match filter',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5)),
         ),
       );
     }
@@ -343,10 +344,9 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
                 Expanded(
                   child: Text(
                     eventName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: Colors.white.withValues(alpha: hasMapping ? 0.9 : 0.6),
-                      fontSize: 11,
-                      fontFamily: 'monospace',
+                      size: 11,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -395,10 +395,10 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
         isExpanded: true,
         underline: const SizedBox(),
         dropdownColor: const Color(0xFF242430),
-        style: const TextStyle(color: Colors.white, fontSize: 11),
+        style: FluxForgeTheme.dockMono(size: 11),
         hint: Text(
           '-- Select Stage --',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 11),
         ),
         icon: Icon(Icons.arrow_drop_down, size: 18, color: Colors.white.withValues(alpha: 0.5)),
         items: [
@@ -406,7 +406,7 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
             value: null,
             child: Text(
               '-- None --',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+              style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5)),
             ),
           ),
           ...filteredStages.map((stage) {
@@ -414,10 +414,9 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
               value: stage,
               child: Text(
                 stage,
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: _getStageColor(stage),
-                  fontFamily: 'monospace',
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
             );
@@ -460,9 +459,9 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
           const SizedBox(width: 12),
           Text(
             '$percentage% complete',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 11,
+              size: 11,
             ),
           ),
           const SizedBox(width: 12),

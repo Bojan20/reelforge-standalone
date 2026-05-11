@@ -267,10 +267,9 @@ class _CoverageBadgeState extends State<CoverageBadge> {
               const SizedBox(width: 4),
               Text(
                 'N/A',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: Colors.white38,
-                  fontSize: 10,
-                  fontFamily: 'monospace',
+                  size: 10,
                 ),
               ),
             ],
@@ -305,24 +304,22 @@ class _CoverageBadgeState extends State<CoverageBadge> {
             const SizedBox(width: 4),
             Text(
               '${_data.linePercent.toStringAsFixed(0)}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
             if (widget.showBranchCoverage && _data.branchPercent > 0) ...[
               Text(
                 ' / ',
-                style: TextStyle(color: Colors.white24, fontSize: 10),
+                style: FluxForgeTheme.dockSans(color: Colors.white24, size: 10),
               ),
               Text(
                 '${_data.branchPercent.toStringAsFixed(0)}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: color.withValues(alpha: 0.7),
-                  fontSize: 10,
-                  fontFamily: 'monospace',
+                  size: 10,
                 ),
               ),
             ],
@@ -444,10 +441,10 @@ class _CoverageDetailPanelState extends State<CoverageDetailPanel> {
               const SizedBox(width: 8),
               Text(
                 'TEST COVERAGE',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: _data.healthColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
@@ -500,14 +497,14 @@ class _CoverageDetailPanelState extends State<CoverageDetailPanel> {
             const SizedBox(height: 12),
             Text(
               'Last updated: ${_formatDate(_data.lastUpdated!)}',
-              style: TextStyle(color: Colors.white24, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white24, size: 10),
             ),
           ],
           if (_data.source != null) ...[
             const SizedBox(height: 4),
             Text(
               'Source: ${_data.source}',
-              style: TextStyle(color: Colors.white24, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white24, size: 10),
             ),
           ],
         ],
@@ -527,23 +524,22 @@ class _CoverageDetailPanelState extends State<CoverageDetailPanel> {
         children: [
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              size: 24,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(color: Colors.white54, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
           ),
           if (subValue != null) ...[
             const SizedBox(height: 2),
             Text(
               subValue,
-              style: TextStyle(color: Colors.white38, fontSize: 10),
+              style: FluxForgeTheme.dockMono(color: Colors.white38, size: 10),
             ),
           ],
         ],
@@ -558,13 +554,13 @@ class _CoverageDetailPanelState extends State<CoverageDetailPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Coverage', style: TextStyle(color: Colors.white54, fontSize: 10)),
+            Text('Coverage', style: FluxForgeTheme.dockSans(color: Colors.white54, size: 10)),
             Text(
               _data.healthStatus.toUpperCase(),
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _data.healthColor,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ],

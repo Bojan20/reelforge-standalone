@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../providers/slot_lab/feature_composer_provider.dart';
+import '../../theme/flux_forge_theme.dart';
 
 /// UCP Export™ Panel — Universal Compliance Package Overview.
 ///
@@ -79,10 +80,10 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
         const SizedBox(width: 4),
         Text(
           'UCP Export',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            weight: FontWeight.w600,
           ),
         ),
         const SizedBox(width: 8),
@@ -95,17 +96,13 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
           ),
           child: Text(
             coverage >= 1.0 ? 'READY' : '${(coverage * 100).toStringAsFixed(0)}% COVERAGE',
-            style: TextStyle(
-              color: readyColor,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, color: readyColor, weight: FontWeight.w700),
           ),
         ),
         const Spacer(),
         Text(
           '${assignments.length}/${stages.length} stages',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9),
+          style: FluxForgeTheme.dockMono(size: 9, color: Colors.white.withValues(alpha: 0.4)),
         ),
       ],
     );
@@ -126,10 +123,10 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
       children: [
         Row(
           children: [
-            Text('Audio Coverage', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+            Text('Audio Coverage', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white.withValues(alpha: 0.5))),
             const Spacer(),
             Text('${(coverage * 100).toStringAsFixed(1)}%',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w600)),
+                style: FluxForgeTheme.dockMono(size: 9, color: Colors.white.withValues(alpha: 0.7), weight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 4),
@@ -208,11 +205,7 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
       ),
       child: Text(
         mechanic.displayName,
-        style: const TextStyle(
-          color: Color(0xFF40C8FF),
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-        ),
+        style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF40C8FF), weight: FontWeight.w600),
       ),
     );
   }
@@ -236,10 +229,10 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
           Expanded(
             child: Text(
               stageName,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: Colors.white.withValues(alpha: hasAudio ? 0.8 : 0.4),
-                fontSize: 9,
-                fontWeight: hasAudio ? FontWeight.w500 : FontWeight.normal,
+                weight: hasAudio ? FontWeight.w500 : FontWeight.normal,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -252,7 +245,7 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
             ),
             child: Text(
               source,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 7),
+              style: FluxForgeTheme.dockSans(size: 7, color: Colors.white.withValues(alpha: 0.3)),
             ),
           ),
         ],
@@ -263,11 +256,7 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: TextStyle(
-        color: Colors.white.withValues(alpha: 0.8),
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
-      ),
+      style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.8), weight: FontWeight.w600),
     );
   }
 
@@ -279,11 +268,11 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
           SizedBox(
             width: 100,
             child: Text(key,
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+                style: FluxForgeTheme.dockSans(size: 9, color: Colors.white.withValues(alpha: 0.5))),
           ),
           Expanded(
             child: Text(value,
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 9)),
+                style: FluxForgeTheme.dockMono(size: 9, color: Colors.white.withValues(alpha: 0.8))),
           ),
         ],
       ),

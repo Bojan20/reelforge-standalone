@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/analytics_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Analytics dashboard panel
 class AnalyticsDashboard extends StatefulWidget {
@@ -91,12 +92,12 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         children: [
           const Icon(Icons.analytics, color: Color(0xFF40c8ff), size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Analytics Dashboard',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
             ),
           ),
           const Spacer(),
@@ -106,11 +107,11 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             children: [
               Text(
                 _analytics.enabled ? 'Enabled' : 'Disabled',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: _analytics.enabled
                       ? const Color(0xFF40ff90)
                       : const Color(0xFF888888),
-                  fontSize: 11,
                 ),
               ),
               const SizedBox(width: 8),
@@ -229,18 +230,18 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
           const SizedBox(height: 12),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 28,
+              weight: FontWeight.bold,
               color: color,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              color: const Color(0xFF888888),
             ),
           ),
         ],
@@ -259,9 +260,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             padding: const EdgeInsets.all(24),
             child: Text(
               'No feature usage data yet',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 12,
               ),
             ),
           ),
@@ -286,7 +287,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                   width: 120,
                   child: Text(
                     entry.key,
-                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -319,9 +320,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                   width: 40,
                   child: Text(
                     entry.value.toString(),
-                    style: const TextStyle(
-                      color: Color(0xFF888888),
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockMono(
+                      size: 11,
+                      color: const Color(0xFF888888),
                     ),
                     textAlign: TextAlign.right,
                   ),
@@ -363,9 +364,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
               children: [
                 Text(
                   entry.key,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: _getTypeColor(entry.key),
-                    fontSize: 10,
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -377,10 +378,10 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                   ),
                   child: Text(
                     entry.value.toString(),
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
+                      weight: FontWeight.bold,
                       color: Colors.black,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -415,10 +416,10 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.w500,
                     color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -440,18 +441,18 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         children: [
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 20,
+              weight: FontWeight.bold,
               color: valueColor ?? const Color(0xFF4a9eff),
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              color: const Color(0xFF888888),
             ),
           ),
         ],
