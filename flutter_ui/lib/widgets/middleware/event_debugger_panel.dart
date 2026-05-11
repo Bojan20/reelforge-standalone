@@ -18,6 +18,7 @@ import '../../providers/middleware_provider.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../services/event_audit_service.dart';
 import '../../services/event_registry.dart';
+import '../predictive/assignment_gap_panel.dart';
 import '../../services/event_orphan_detector.dart';
 import '../../services/stage_configuration_service.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -89,7 +90,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     eventRegistry.addListener(_onEventRegistryUpdate);
   }
 
@@ -307,6 +308,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                 _buildStatsTab(),
                 _buildOrphansTab(),
                 _buildAuditTab(),
+                const _GapsTabContent(),
               ],
             ),
           ),
@@ -429,6 +431,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
           Tab(text: 'STATS'),
           Tab(text: 'ORPHANS'),
           Tab(text: 'AUDIT'),
+          Tab(text: 'GAPS'),
         ],
       ),
     );
@@ -1569,6 +1572,21 @@ class _AuditTabContentState extends State<_AuditTabContent> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// FAZA 4.4.3 — GAPS tab content host. Standalone widget koji embed-uje
+/// `AssignmentGapPanel` u Event Debugger TabBarView. Bez extra state-a —
+/// panel sam upravlja lifecycle-om i listenerima.
+class _GapsTabContent extends StatelessWidget {
+  const _GapsTabContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(8),
+      child: AssignmentGapPanel(),
     );
   }
 }

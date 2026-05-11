@@ -26,6 +26,7 @@ import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 import '../widgets/common/keyboard_shortcuts_overlay.dart';
 import '../widgets/common/command_palette.dart';
 import '../widgets/helix/game_config_recommender_dialog.dart';
+import '../widgets/predictive/assignment_gap_panel.dart';
 import '../services/command_registry.dart';
 import '../widgets/daw/auto_color_rules_panel.dart';
 import '../widgets/slot_lab/sfx_pipeline_wizard.dart';
@@ -469,6 +470,37 @@ class _MainLayoutState extends State<MainLayout>
           showDialog(
             context: context,
             builder: (_) => const GameConfigRecommenderDialog(),
+          );
+        },
+      ),
+    );
+    // FAZA 4.4.3 UI wire — AssignmentGapPanel dialog preko Cmd+K.
+    // Search keys: "gap", "predict", "assign", "audio", "auto", "fill".
+    CommandRegistry.instance.register(
+      PaletteCommand(
+        id: 'audio.predictive_gap_detector',
+        label: 'Predictive Gap Detector',
+        description:
+            'Auto-suggest audio fajl za svaki unbound stage (Spectral DNA)',
+        category: PaletteCategory.tools,
+        icon: Icons.auto_fix_high,
+        keywords: const [
+          'gap', 'predict', 'predictive', 'assign', 'audio', 'auto',
+          'fill', 'suggest', 'routing', 'stage', 'unbound', 'dna',
+        ],
+        onExecute: () {
+          showDialog(
+            context: context,
+            builder: (ctx) => Dialog(
+              backgroundColor: Colors.transparent,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 720,
+                  maxHeight: 600,
+                ),
+                child: const AssignmentGapPanel(),
+              ),
+            ),
           );
         },
       ),
