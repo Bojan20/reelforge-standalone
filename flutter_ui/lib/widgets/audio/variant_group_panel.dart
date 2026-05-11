@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import '../../models/audio_variant_group.dart';
 import '../../services/audio_variant_service.dart';
 import '../../services/audio_playback_service.dart';
+import '../../services/native_file_picker.dart';
 import '../../providers/middleware_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../slot_lab/audio_ab_comparison.dart';
@@ -543,20 +544,78 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
   // DIALOGS
   // ============================================================================
 
-  void _showCreateGroupDialog(BuildContext context, AudioVariantService service) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Create group: Use drag-drop or file picker (TODO)')),
+  /// G.14: Create group — pick ≥2 audio files + name dialog.
+  Future<void> _showCreateGroupDialog(BuildContext context, AudioVariantService service) async {
+    final paths = await NativeFilePicker.pickAudioFiles();
+    if (paths.isEmpty || !context.mounted) return;
+
+    final nameCtrl = TextEditingController(
+      text: paths.length == 1
+          ? paths.first.split('/').last.replaceAll(RegExp(r'\.\w+$'), '')
+          : 'Variant Group',
     );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        title: Text('Create Variant Group', style: FluxForgeTheme.dockSans(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${paths.length} file(s) selected',
+                style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textSecondary)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              style: FluxForgeTheme.dockSans(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Group name',
+                labelStyle: FluxForgeTheme.dockSans(color: Colors.white38),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final name = nameCtrl.text.trim().isEmpty ? 'Variant Group' : nameCtrl.text.trim();
+    await service.createGroup(name: name, audioPaths: paths);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Created "$name" with ${paths.length} variant(s)',
+            style: FluxForgeTheme.dockMono(size: 11)),
+        backgroundColor: FluxForgeTheme.bgSurface,
+      ));
+    }
   }
 
-  void _showAddVariantDialog(
+  /// G.14: Add variant to existing group via file picker.
+  Future<void> _showAddVariantDialog(
     BuildContext context,
     AudioVariantService service,
     AudioVariantGroup group,
-  ) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add variant: Use file picker (TODO)')),
-    );
+  ) async {
+    final paths = await NativeFilePicker.pickAudioFiles();
+    if (paths.isEmpty || !context.mounted) return;
+    for (final p in paths) {
+      await service.addVariantToGroup(group.id, p);
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Added ${paths.length} variant(s) to "${group.name}"',
+            style: FluxForgeTheme.dockMono(size: 11)),
+        backgroundColor: FluxForgeTheme.bgSurface,
+      ));
+    }
   }
 
   void _showRenameDialog(
@@ -649,10 +708,13 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
       if (result == null) return;
 
       if (result == 'swap') {
-        // Swap A and B
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Swap functionality: TODO')),
-        );
+        // G.14: Swap A and B positions in the group
+        service.swapVariants(group.id, variantA.id, variantB.id);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Swapped ${variantA.label} ↔ ${variantB.label}',
+              style: FluxForgeTheme.dockMono(size: 11)),
+          backgroundColor: FluxForgeTheme.bgSurface,
+        ));
       } else {
         // Set selected variant as active
         final selectedVariant =

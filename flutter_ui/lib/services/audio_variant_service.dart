@@ -175,6 +175,21 @@ class AudioVariantService extends ChangeNotifier {
   }
 
   /// Rename group
+  /// G.14: Swap positions of two variants within a group.
+  /// Used by A/B comparison "Swap A↔B" action.
+  void swapVariants(String groupId, String variantIdA, String variantIdB) {
+    final group = getGroup(groupId);
+    if (group == null) return;
+    final idxA = group.variants.indexWhere((v) => v.id == variantIdA);
+    final idxB = group.variants.indexWhere((v) => v.id == variantIdB);
+    if (idxA == -1 || idxB == -1 || idxA == idxB) return;
+    final swapped = List<AudioVariant>.from(group.variants);
+    final tmp = swapped[idxA];
+    swapped[idxA] = swapped[idxB];
+    swapped[idxB] = tmp;
+    _replaceGroup(groupId, group.copyWith(variants: swapped, updatedAt: DateTime.now()));
+  }
+
   void renameGroup(String groupId, String newName) {
     final group = getGroup(groupId);
     if (group == null) return;
