@@ -980,9 +980,9 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
         InspectorSection(
           id: 'general',
           title: 'General',
-          content: const Text(
+          content: Text(
             'Event settings will appear here',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
           ),
         ),
       ],
@@ -999,10 +999,10 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
           id: 'editor',
           label: 'Editor',
           icon: Icons.edit,
-          content: const Center(
+          content: Center(
             child: Text(
               'Editor View',
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             ),
           ),
         ),
@@ -1010,10 +1010,10 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
           id: 'browser',
           label: 'Browser',
           icon: Icons.folder,
-          content: const Center(
+          content: Center(
             child: Text(
               'Browser View',
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             ),
           ),
         ),
@@ -1045,25 +1045,16 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
             const SizedBox(height: 8),
             Text(
               'Flutter UI Migration Demo',
-              style: TextStyle(
-                color: FluxForgeTheme.textSecondary,
-                fontSize: 14,
-              ),
+              style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textSecondary),
             ),
             const SizedBox(height: 32),
             Text(
               'Press Ctrl+L/R/B to toggle zones',
-              style: TextStyle(
-                color: FluxForgeTheme.textTertiary,
-                fontSize: 12,
-              ),
+              style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textTertiary),
             ),
             Text(
               'Space to play/pause, R to record',
-              style: TextStyle(
-                color: FluxForgeTheme.textTertiary,
-                fontSize: 12,
-              ),
+              style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textTertiary),
             ),
           ],
         ),

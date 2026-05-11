@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../services/offline_service.dart';
+import '../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // OFFLINE STATUS BADGE
@@ -62,11 +63,10 @@ class OfflineStatusBadge extends StatelessWidget {
                 // Status text
                 Text(
                   status.displayName,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: _getStatusColor(status),
-                  ),
+                  ).copyWith(fontWeight: FontWeight.w500),
                 ),
 
                 // Pending count badge
@@ -83,11 +83,10 @@ class OfflineStatusBadge extends StatelessWidget {
                     ),
                     child: Text(
                       '$pendingCount',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
                         color: Colors.white,
-                      ),
+                      ).copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -204,19 +203,15 @@ class OfflineBanner extends StatelessWidget {
                       isOffline
                           ? 'You are offline'
                           : 'Syncing pending operations...',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
                         color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
+                      ).copyWith(fontWeight: FontWeight.w600),
                     ),
                     if (pendingCount > 0)
                       Text(
                         '$pendingCount operation${pendingCount == 1 ? '' : 's'} pending',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 11,
-                        ),
+                        style: FluxForgeTheme.dockMono(size: 11, color: Colors.white.withValues(alpha: 0.8)),
                       ),
                   ],
                 ),
@@ -515,11 +510,8 @@ class OfflineStatusPanel extends StatelessWidget {
           ),
           child: Text(
             value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: color,
-            ),
+            style: FluxForgeTheme.dockSans(size: 12, color: color)
+                .copyWith(fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -577,10 +569,7 @@ class OfflineStatusPanel extends StatelessWidget {
               ),
               child: Text(
                 '${op.retryCount}x',
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Colors.orange,
-                ),
+                style: FluxForgeTheme.dockMono(size: 10, color: Colors.orange),
               ),
             ),
           const SizedBox(width: 4),

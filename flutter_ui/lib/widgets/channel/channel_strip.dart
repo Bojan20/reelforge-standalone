@@ -115,7 +115,7 @@ class ChannelStrip extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('🎚️', style: TextStyle(fontSize: 32)),
+          Text('🎚️', style: FluxForgeTheme.dockSans(size: 32)),
           const SizedBox(height: 8),
           Text(
             'Select a track to view channel strip',
@@ -148,7 +148,7 @@ class ChannelStrip extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(_typeIcons[ch.type] ?? '🎵', style: const TextStyle(fontSize: 16)),
+                Text(_typeIcons[ch.type] ?? '🎵', style: FluxForgeTheme.dockSans(size: 16)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -324,9 +324,9 @@ class _ChannelButton extends StatelessWidget {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w600,
               color: isActive ? FluxForgeTheme.bgDeep : FluxForgeTheme.textSecondary,
             ),
           ),
@@ -653,8 +653,8 @@ class _InsertSlotWidget extends StatelessWidget {
                 ),
                 child: Text(
                   'OFF',
-                  style: TextStyle(
-                    fontSize: 8,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
                     color: FluxForgeTheme.accentOrange,
                   ),
                 ),
@@ -755,8 +755,8 @@ class _SendSlotWidget extends StatelessWidget {
             if (send!.preFader)
               Text(
                 'PRE',
-                style: TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: FluxForgeTheme.accentCyan,
                 ),
               ),
@@ -799,8 +799,8 @@ class _EQPreview extends StatelessWidget {
                 ),
                 child: Text(
                   enabled ? 'ON' : 'OFF',
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: enabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
                   ),
                 ),

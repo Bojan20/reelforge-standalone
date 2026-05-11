@@ -349,11 +349,7 @@ class _PunchControl extends StatelessWidget {
               const Text('Punch In'),
               const Spacer(),
               Text(_formatTimeShort(punchInTime),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: FluxForgeTheme.textTertiary,
-                  fontFamily: 'JetBrains Mono',
-                )),
+                style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textTertiary)),
             ],
           ),
         ),
@@ -367,11 +363,7 @@ class _PunchControl extends StatelessWidget {
               const Text('Punch Out'),
               const Spacer(),
               Text(_formatTimeShort(punchOutTime),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: FluxForgeTheme.textTertiary,
-                  fontFamily: 'JetBrains Mono',
-                )),
+                style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textTertiary)),
             ],
           ),
         ),
@@ -395,8 +387,7 @@ class _PunchControl extends StatelessWidget {
               const SizedBox(width: 8),
               const Text('Set Punch In'),
               const Spacer(),
-              Text('I', style: TextStyle(
-                fontSize: 11, color: FluxForgeTheme.textTertiary)),
+              Text('I', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary)),
             ],
           ),
         ),
@@ -408,8 +399,7 @@ class _PunchControl extends StatelessWidget {
               const SizedBox(width: 8),
               const Text('Set Punch Out'),
               const Spacer(),
-              Text('O', style: TextStyle(
-                fontSize: 11, color: FluxForgeTheme.textTertiary)),
+              Text('O', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary)),
             ],
           ),
         ),
@@ -447,9 +437,9 @@ class _PunchControl extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               'PUNCH',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
                 letterSpacing: 0.5,
                 color: isActive
                     ? FluxForgeTheme.accentRed

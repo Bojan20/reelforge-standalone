@@ -244,11 +244,10 @@ class _FpsCounterState extends State<FpsCounter>
           const SizedBox(width: 4),
           Text(
             '${fps.toStringAsFixed(1)} FPS',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 12,
+              weight: FontWeight.bold,
               color: _getFpsColor(fps),
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -266,21 +265,20 @@ class _FpsCounterState extends State<FpsCounter>
             const SizedBox(width: 6),
             Text(
               'FPS',
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w500,
                 color: FluxForgeTheme.textSecondary,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
         ),
         Text(
           fps.toStringAsFixed(1),
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockMono(
+            size: 20,
+            weight: FontWeight.bold,
             color: _getFpsColor(fps),
-            fontFamily: 'monospace',
           ),
         ),
       ],
@@ -330,17 +328,16 @@ class _FpsCounterState extends State<FpsCounter>
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: valueColor ?? FluxForgeTheme.textPrimary,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -457,11 +454,10 @@ class _FpsBadgeState extends State<FpsBadge>
       ),
       child: Text(
         '${_currentFps.toStringAsFixed(0)} fps',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+        style: FluxForgeTheme.dockMono(
+          size: 10,
+          weight: FontWeight.w600,
           color: color,
-          fontFamily: 'monospace',
         ),
       ),
     );

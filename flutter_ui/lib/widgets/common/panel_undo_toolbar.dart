@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../providers/panel_undo_manager.dart';
+import '../../theme/flux_forge_theme.dart';
 import 'flux_tooltip.dart';
 
 /// Compact toolbar for panel undo/redo
@@ -93,7 +94,7 @@ class PanelUndoToolbar extends StatelessWidget {
             ),
             child: Text(
               '${manager.undoStackSize}',
-              style: TextStyle(fontSize: 9, color: color),
+              style: FluxForgeTheme.dockMono(size: 9, color: color),
             ),
           ),
         ],
@@ -142,10 +143,7 @@ class PanelUndoToolbar extends StatelessWidget {
             // History count
             Text(
               '${manager.undoStackSize} actions',
-              style: TextStyle(
-                fontSize: 10,
-                color: color.withValues(alpha: 0.7),
-              ),
+              style: FluxForgeTheme.dockMono(size: 10, color: color.withValues(alpha: 0.7)),
             ),
             const SizedBox(width: 4),
             // Clear button
@@ -196,10 +194,7 @@ class PanelUndoToolbar extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: enabled ? color : color.withValues(alpha: 0.3),
-                ),
+                style: FluxForgeTheme.dockSans(size: 10, color: enabled ? color : color.withValues(alpha: 0.3)),
               ),
             ],
           ),
@@ -236,10 +231,7 @@ class PanelUndoHistoryDropdown extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Text(
               'No undo history',
-              style: TextStyle(
-                fontSize: 10,
-                color: color.withValues(alpha: 0.5),
-              ),
+              style: FluxForgeTheme.dockSans(size: 10, color: color.withValues(alpha: 0.5)),
             ),
           );
         }
@@ -283,19 +275,15 @@ class PanelUndoHistoryDropdown extends StatelessWidget {
             Expanded(
               child: Text(
                 action.description,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: isRecent ? color : color.withValues(alpha: 0.7),
-                  fontWeight: isRecent ? FontWeight.w500 : FontWeight.normal,
-                ),
+                ).copyWith(fontWeight: isRecent ? FontWeight.w500 : FontWeight.normal),
               ),
             ),
             Text(
               _formatTimestamp(action.timestamp),
-              style: TextStyle(
-                fontSize: 8,
-                color: color.withValues(alpha: 0.4),
-              ),
+              style: FluxForgeTheme.dockSans(size: 8, color: color.withValues(alpha: 0.4)),
             ),
           ],
         ),

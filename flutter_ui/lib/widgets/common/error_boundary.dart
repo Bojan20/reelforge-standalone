@@ -18,6 +18,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ERROR BOUNDARY WIDGET
@@ -88,10 +89,10 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
           const SizedBox(height: 16),
           Text(
             widget.errorTitle ?? 'Something went wrong',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFE5E5E5), // textPrimary
+            style: FluxForgeTheme.dockSans(
+              size: 18,
+              weight: FontWeight.bold,
+              color: const Color(0xFFE5E5E5), // textPrimary
             ),
             textAlign: TextAlign.center,
           ),
@@ -104,10 +105,9 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
             ),
             child: SelectableText(
               _getErrorMessage(_error!),
-              style: const TextStyle(
-                fontSize: 12,
-                fontFamily: 'monospace',
-                color: Color(0xFF909090), // textMuted
+              style: FluxForgeTheme.dockMono(
+                size: 12,
+                color: const Color(0xFF909090), // textMuted
               ),
               textAlign: TextAlign.center,
             ),
@@ -134,9 +134,12 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                 const SnackBar(content: Text('Error details would be copied (Clipboard API needed)')),
               );
             },
-            child: const Text(
+            child: Text(
               'Copy Error Details',
-              style: TextStyle(fontSize: 12, color: Color(0xFF909090)),
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                color: const Color(0xFF909090),
+              ),
             ),
           ),
         ],
@@ -248,19 +251,19 @@ class ErrorPanel extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFE5E5E5),
+            style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.bold,
+              color: const Color(0xFFE5E5E5),
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
             message,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF909090),
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              color: const Color(0xFF909090),
             ),
             textAlign: TextAlign.center,
           ),
@@ -274,10 +277,9 @@ class ErrorPanel extends StatelessWidget {
               ),
               child: Text(
                 error.toString(),
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'monospace',
-                  color: Color(0xFF606060),
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  color: const Color(0xFF606060),
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 3,

@@ -347,10 +347,10 @@ class _InternalProcessorEditorWindowState
               ),
               child: Text(
                 widget.node.type.shortName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: typeColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -361,10 +361,10 @@ class _InternalProcessorEditorWindowState
             Expanded(
               child: Text(
                 widget.node.name,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w500,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -450,10 +450,10 @@ class _InternalProcessorEditorWindowState
         alignment: Alignment.center,
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w700,
             color: isActive ? typeColor : Colors.white.withValues(alpha: 0.35),
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -628,9 +628,9 @@ class _InternalProcessorEditorWindowState
   // ═════════════════════════════════════════════════════════════════════════════
 
   Widget _buildGenericParamsForType() {
-    return const Text(
+    return Text(
       'No editor available',
-      style: TextStyle(color: FluxForgeTheme.textDisabled),
+      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textDisabled),
     );
   }
 
@@ -754,9 +754,9 @@ class _ParamSlider extends StatelessWidget {
           width: 90,
           child: Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 12,
             ),
           ),
         ),
@@ -783,10 +783,9 @@ class _ParamSlider extends StatelessWidget {
           width: 65,
           child: Text(
             _formatValue(),
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 11,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontFamily: 'JetBrains Mono',
             ),
             textAlign: TextAlign.right,
           ),
