@@ -161,16 +161,16 @@ class _HotbarLabel extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.bolt, size: 12, color: FluxForgeTheme.brandGold),
-          SizedBox(width: 4),
+          const Icon(Icons.bolt, size: 12, color: FluxForgeTheme.brandGold),
+          const SizedBox(width: 4),
           Text(
             'HOTBAR',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w700,
               color: FluxForgeTheme.brandGold,
               letterSpacing: 1.0,
             ),
@@ -307,9 +307,9 @@ class _HotbarSlotState extends State<_HotbarSlot> {
           ),
           child: Text(
             '${widget.index + 1}',
-            style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockMono(
+              size: 9,
+              weight: FontWeight.w700,
               color: FluxForgeTheme.brandGold,
             ),
           ),
@@ -321,10 +321,10 @@ class _HotbarSlotState extends State<_HotbarSlot> {
             _displayLabel ?? '',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Color(0xFFE8E8EA),
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              color: const Color(0xFFE8E8EA),
+              weight: FontWeight.w500,
             ),
           ),
         ),
@@ -356,21 +356,20 @@ class _HotbarSlotState extends State<_HotbarSlot> {
           ),
           child: Text(
             '${widget.index + 1}',
-            style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF707080),
+            style: FluxForgeTheme.dockMono(
+              size: 9,
+              weight: FontWeight.w600,
+              color: const Color(0xFF707080),
             ),
           ),
         ),
         const SizedBox(width: 6),
         Text(
           'empty',
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: const Color(0xFF707080).withAlpha(180),
-            fontStyle: FontStyle.italic,
-          ),
+          ).copyWith(fontStyle: FontStyle.italic),
         ),
       ],
     );

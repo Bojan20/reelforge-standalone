@@ -15,6 +15,7 @@ library;
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
 import '../../../midi/piano_roll_widget.dart';
+import '../../../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PIANO ROLL PANEL
@@ -58,19 +59,19 @@ class PianoRollPanel extends StatelessWidget {
                       color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'No MIDI Track Selected',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
+                        weight: FontWeight.w500,
                         color: LowerZoneColors.textMuted,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       'Select a MIDI track to edit notes',
-                      style: TextStyle(
-                        fontSize: 10,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: LowerZoneColors.textTertiary,
                       ),
                     ),
@@ -96,19 +97,19 @@ class PianoRollPanel extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 'PIANO ROLL — Track $selectedTrackId',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.dawAccent,
                   letterSpacing: 0.5,
                 ),
               ),
               const Spacer(),
               // Info: The piano roll widget has its own toolbar
-              const Text(
+              Text(
                 'Use toolbar in editor to draw/select/erase notes',
-                style: TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: LowerZoneColors.textTertiary,
                 ),
               ),
@@ -143,9 +144,9 @@ class PianoRollPanel extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent,
             letterSpacing: 0.5,
           ),

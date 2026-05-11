@@ -323,8 +323,8 @@ class _LeftZoneState extends State<LeftZone> {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textTertiary,
               height: 1.5,
             ),
@@ -479,10 +479,10 @@ class _Tab extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: color,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                weight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -527,9 +527,9 @@ class _ModeIndicator extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               color: accentColor,
               letterSpacing: 0.5,
             ),
@@ -580,10 +580,10 @@ class _SearchBar extends StatelessWidget {
                 child: TextField(
                   controller: controller,
                   onChanged: onChanged,
-                  style: const TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary),
+                  style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
                   decoration: InputDecoration(
                     hintText: placeholder,
-                    hintStyle: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                    hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
                     isDense: true,

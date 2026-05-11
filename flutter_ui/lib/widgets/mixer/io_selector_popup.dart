@@ -121,10 +121,10 @@ class _IoSelectorPopupState extends State<IoSelectorPopup> {
               // Label
               Text(
                 widget.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: accent.withValues(alpha: 0.6),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -133,10 +133,10 @@ class _IoSelectorPopupState extends State<IoSelectorPopup> {
               Expanded(
                 child: Text(
                   widget.isNarrow ? _abbreviate(widget.currentRoute) : widget.currentRoute,
-                  style: const TextStyle(
-                    color: Color(0xFFCCCCDD),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    color: const Color(0xFFCCCCDD),
+                    weight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -259,12 +259,12 @@ class _IoSelectorPopupState extends State<IoSelectorPopup> {
           Expanded(
             child: Text(
               route.displayName,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: route.isAvailable
                     ? (isSelected ? const Color(0xFF4A9EFF) : const Color(0xFFCCCCDD))
                     : const Color(0xFF666680),
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                weight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ),
@@ -280,10 +280,10 @@ class _IoSelectorPopupState extends State<IoSelectorPopup> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(
-          color: Color(0xFF888899),
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
+        style: FluxForgeTheme.dockSans(
+          size: 9,
+          color: const Color(0xFF888899),
+          weight: FontWeight.w700,
           letterSpacing: 1.0,
         ),
       ),
@@ -308,10 +308,10 @@ class _IoSelectorPopupState extends State<IoSelectorPopup> {
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Color(0xFF999AAA),
-          fontSize: 7,
-          fontWeight: FontWeight.w600,
+        style: FluxForgeTheme.dockSans(
+          size: 7,
+          color: const Color(0xFF999AAA),
+          weight: FontWeight.w600,
         ),
       ),
     );

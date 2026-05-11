@@ -138,7 +138,27 @@ class ProfileImporter {
             case ConflictResolution.overwrite:
               break; // Continue to apply
             case ConflictResolution.merge:
-              break; // TODO: merge layers
+              // G.20: Merge layers — find existing event, append new layers
+              // that don't share an audioPath with any existing layer.
+              final existing = existingEvents.firstWhere(
+                (e) => e.id == event.id,
+                orElse: () => event,
+              );
+              final existingPaths = existing.layers.map((l) => l.audioPath).toSet();
+              final newLayers = event.layers
+                  .where((l) => l.audioPath.isEmpty || !existingPaths.contains(l.audioPath))
+                  .toList();
+              if (newLayers.isEmpty) {
+                eventsSkipped++;
+                continue;
+              }
+              final merged = existing.copyWith(
+                layers: [...existing.layers, ...newLayers],
+                modifiedAt: DateTime.now(),
+              );
+              addOrUpdateEvent(merged);
+              eventsImported++;
+              continue;
           }
         }
 

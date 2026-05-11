@@ -81,9 +81,9 @@ class StubTabPlaceholder extends StatelessWidget {
               Center(
                 child: Text(
                   tabName,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                  style: FluxForgeTheme.dockSans(
+                    size: 20,
+                    weight: FontWeight.w800,
                     color: FluxForgeTheme.brandGold,
                     letterSpacing: 4.0,
                   ),
@@ -96,8 +96,8 @@ class StubTabPlaceholder extends StatelessWidget {
                 child: Text(
                   description,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textSecondary,
                     height: 1.5,
                     letterSpacing: 0.2,
@@ -120,12 +120,11 @@ class StubTabPlaceholder extends StatelessWidget {
                   ),
                   child: Text(
                     estimatedPhase,
-                    style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
+                      weight: FontWeight.w700,
                       color: FluxForgeTheme.brandGoldBright,
                       letterSpacing: 1.6,
-                      fontFamily: 'JetBrainsMono',
                     ),
                   ),
                 ),
@@ -164,8 +163,8 @@ class StubTabPlaceholder extends StatelessWidget {
                     Expanded(
                       child: Text(
                         feat,
-                        style: const TextStyle(
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: FluxForgeTheme.textPrimary,
                           height: 1.4,
                           letterSpacing: 0.15,
@@ -190,9 +189,9 @@ class StubTabPlaceholder extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       'COMING IN $estimatedPhase',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
+                        weight: FontWeight.w700,
                         color: FluxForgeTheme.brandGoldBright.withValues(alpha: 0.85),
                         letterSpacing: 1.8,
                       ),

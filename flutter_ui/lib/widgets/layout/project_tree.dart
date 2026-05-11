@@ -186,7 +186,7 @@ class _ProjectTreeState extends State<ProjectTree> {
             child: ElevatedButton.icon(
               onPressed: () => widget.onAdd?.call(TreeItemType.event),
               icon: const Icon(Icons.add, size: 14),
-              label: const Text('Add Event', style: TextStyle(fontSize: 11)),
+              label: Text('Add Event', style: FluxForgeTheme.dockSans(size: 11)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: FluxForgeTheme.bgElevated,
                 foregroundColor: FluxForgeTheme.textPrimary,
@@ -369,10 +369,9 @@ class _TreeItemState extends State<_TreeItem> with SingleTickerProviderStateMixi
             Expanded(
               child: Text(
                 widget.node.label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontFamily: FluxForgeTheme.fontFamily,
-                  fontWeight: isFolder ? FontWeight.w600 : FontWeight.w400,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: isFolder ? FontWeight.w600 : FontWeight.w400,
                   color: matchesSearch
                       ? FluxForgeTheme.accentCyan
                       : isSelected
@@ -397,9 +396,8 @@ class _TreeItemState extends State<_TreeItem> with SingleTickerProviderStateMixi
                 ),
                 child: Text(
                   widget.node.duration!,
-                  style: TextStyle(
-                    fontFamily: FluxForgeTheme.monoFontFamily,
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: FluxForgeTheme.textTertiary,
                     letterSpacing: 0.3,
                   ),
@@ -421,10 +419,9 @@ class _TreeItemState extends State<_TreeItem> with SingleTickerProviderStateMixi
                 ),
                 child: Text(
                   '${widget.node.count}',
-                  style: TextStyle(
-                    fontFamily: FluxForgeTheme.monoFontFamily,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
+                    weight: FontWeight.w600,
                     color: typeColor.withValues(alpha: 0.8),
                   ),
                 ),
@@ -468,10 +465,9 @@ class _TreeItemState extends State<_TreeItem> with SingleTickerProviderStateMixi
                 const SizedBox(width: 6),
                 Text(
                   widget.node.label,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textPrimary,
-                    fontFamily: FluxForgeTheme.fontFamily,
                   ),
                 ),
               ],

@@ -6,6 +6,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'ultimate_mixer.dart' show SendData, SendTapPoint;
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SEND SLOT WIDGET
@@ -80,19 +81,19 @@ class _SendSlotWidgetState extends State<SendSlotWidget> {
               // Slot label
               Text(
                 widget.slotLabel,
-                style: const TextStyle(
-                  color: Color(0xFF555566),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  color: const Color(0xFF555566),
+                  weight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
               // Empty indicator
-              const Text(
+              Text(
                 '—',
-                style: TextStyle(
-                  color: Color(0xFF444455),
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  color: const Color(0xFF444455),
                 ),
               ),
             ],
@@ -136,12 +137,12 @@ class _SendSlotWidgetState extends State<SendSlotWidget> {
                   widget.isNarrow
                       ? _abbreviate(widget.send.destination ?? '')
                       : (widget.send.destination ?? ''),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: widget.send.muted
                         ? const Color(0xFF666680)
                         : const Color(0xFFCCCCDD),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
+                    weight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -181,14 +182,13 @@ class _SendSlotWidgetState extends State<SendSlotWidget> {
                 alignment: Alignment.center,
                 child: Text(
                   levelText,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 8,
                     color: widget.send.level > 1.0
                         ? const Color(0xFFFF9040)
                         : const Color(0xFF9999AA),
-                    fontSize: 8,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                    weight: FontWeight.w600,
+                  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                 ),
               ),
             ),
@@ -262,12 +262,12 @@ class _SendSlotWidgetState extends State<SendSlotWidget> {
         ),
         child: Text(
           isPreFader ? 'P' : '',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 7,
             color: isPreFader
                 ? const Color(0xFF40FF90)
                 : const Color(0xFF555566),
-            fontSize: 7,
-            fontWeight: FontWeight.w700,
+            weight: FontWeight.w700,
           ),
         ),
       ),
