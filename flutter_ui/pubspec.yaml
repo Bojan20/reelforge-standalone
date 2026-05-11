@@ -55,6 +55,9 @@ dependencies:
   media_kit_video: ^1.2.4
   media_kit_libs_macos_video: ^1.1.4
 
+  # Embedded Lua VM (G.12 — scripting engine)
+  lua: ^0.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
