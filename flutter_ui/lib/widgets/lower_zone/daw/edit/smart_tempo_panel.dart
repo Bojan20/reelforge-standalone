@@ -6,6 +6,7 @@ import '../../../../src/rust/native_ffi.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_knob.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
+import '../../../../theme/flux_forge_theme.dart';
 
 class SmartTempoPanel extends StatefulWidget {
   final int? selectedTrackId;
@@ -250,9 +251,9 @@ class _SmartTempoPanelState extends State<SmartTempoPanel> {
               )
             : Text(
                 'DETECT',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w700,
                   color: FabFilterColors.cyan,
                   letterSpacing: 0.5,
                 ),
@@ -306,20 +307,18 @@ class _SmartTempoPanelState extends State<SmartTempoPanel> {
               children: [
                 Text(
                   displayBpm.toStringAsFixed(1),
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w300,
+                  style: FluxForgeTheme.dockMono(
+                    size: 36,
+                    weight: FontWeight.w300,
                     color: _confidenceColor,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                 ),
                 Text(
                   'BPM',
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
                     color: FabFilterColors.textTertiary,
-                    letterSpacing: 1.5,
-                  ),
+                  ).copyWith(letterSpacing: 1.5),
                 ),
               ],
             ),
@@ -378,10 +377,10 @@ class _SmartTempoPanelState extends State<SmartTempoPanel> {
                       ),
                       child: Text(
                         '${entry.value.toStringAsFixed(1)}',
-                        style: TextStyle(
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockMono(
+                          size: 11,
                           color: isSelected ? FabFilterColors.cyan : FabFilterColors.textSecondary,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -405,9 +404,9 @@ class _SmartTempoPanelState extends State<SmartTempoPanel> {
         ),
         child: Column(
           children: [
-            Text(label, style: TextStyle(fontSize: 8, color: FabFilterColors.textTertiary, letterSpacing: 0.5)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.textTertiary, letterSpacing: 0.5)),
             const SizedBox(height: 2),
-            Text(value, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+            Text(value, style: FluxForgeTheme.dockMono(size: 12, color: color, weight: FontWeight.w600)),
           ],
         ),
       ),
@@ -448,9 +447,9 @@ class _SmartTempoPanelState extends State<SmartTempoPanel> {
               child: Text(
                 hasResult ? 'APPLY ${displayBpm.toStringAsFixed(1)} BPM' : 'APPLY',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w700,
                   color: hasResult ? FabFilterColors.green : FabFilterColors.textTertiary,
                   letterSpacing: 0.5,
                 ),
@@ -481,9 +480,9 @@ class _SmartTempoPanelState extends State<SmartTempoPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.w600,
             color: FabFilterColors.textSecondary,
           ),
         ),

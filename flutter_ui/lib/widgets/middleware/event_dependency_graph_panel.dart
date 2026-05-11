@@ -175,10 +175,10 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
           const SizedBox(width: 8),
           Text(
             'Event Dependency Graph',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              size: 14,
+              weight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -206,10 +206,10 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
                   const SizedBox(width: 6),
                   Text(
                     '$cycleCount CYCLE${cycleCount > 1 ? 'S' : ''} DETECTED',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.errorRed,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      size: 11,
+                      weight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -237,10 +237,10 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
                   const SizedBox(width: 6),
                   Text(
                     'NO CYCLES',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.successGreen,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      size: 11,
+                      weight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -280,19 +280,18 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
         children: [
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'monospace',
+              size: 12,
+              weight: FontWeight.w700,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color,
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ],
@@ -359,12 +358,12 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
                   const SizedBox(height: 2),
                   Text(
                     event.name.length > 8 ? '${event.name.substring(0, 8)}...' : event.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isInCycle
                           ? FluxForgeTheme.textPrimary
                           : (isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textMuted),
-                      fontSize: 8,
-                      fontWeight: FontWeight.w600,
+                      size: 8,
+                      weight: FontWeight.w600,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -405,10 +404,9 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
           ),
           Text(
             '${(_zoomLevel * 100).toInt()}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textMuted,
-              fontSize: 11,
-              fontFamily: 'monospace',
+              size: 11,
             ),
           ),
           IconButton(
@@ -443,9 +441,9 @@ class _EventDependencyGraphPanelState extends State<EventDependencyGraphPanel> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textMuted,
-            fontSize: 10,
+            size: 10,
           ),
         ),
       ],

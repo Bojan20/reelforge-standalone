@@ -455,12 +455,12 @@ class _AudioGraphPanelState extends State<AudioGraphPanel>
         children: [
           Icon(Icons.account_tree, color: FluxForgeTheme.accentBlue, size: 16),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'AUDIO ROUTING GRAPH',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 1,
             ),
           ),
@@ -475,10 +475,9 @@ class _AudioGraphPanelState extends State<AudioGraphPanel>
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               '${(_canvasScale * 100).toInt()}%',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
+                size: 10,
               ),
             ),
           ),
@@ -549,9 +548,9 @@ class _AudioGraphPanelState extends State<AudioGraphPanel>
           const SizedBox(width: 12),
           Text(
             '$edgeCount connections',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
+              size: 9,
             ),
           ),
           const Spacer(),
@@ -571,20 +570,19 @@ class _AudioGraphPanelState extends State<AudioGraphPanel>
                   const SizedBox(width: 4),
                   Text(
                     selectedNode.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: selectedNode.color,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                      size: 10,
+                      weight: FontWeight.w600,
                     ),
                   ),
                   if (selectedNode.latencyMs != null && selectedNode.latencyMs! > 0) ...[
                     const SizedBox(width: 8),
                     Text(
                       'PDC: ${selectedNode.latencyMs}ms',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: FluxForgeTheme.textSecondary,
-                        fontSize: 9,
-                        fontFamily: 'JetBrains Mono',
+                        size: 9,
                       ),
                     ),
                   ],
@@ -594,11 +592,11 @@ class _AudioGraphPanelState extends State<AudioGraphPanel>
           ],
           // Instructions
           if (selectedNode == null) ...[
-            const Text(
+            Text(
               'Drag nodes to reposition | Scroll to zoom | Middle-click to pan',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 9,
+                size: 9,
               ),
             ),
           ],
@@ -622,9 +620,9 @@ class _AudioGraphPanelState extends State<AudioGraphPanel>
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 9,
+            size: 9,
           ),
         ),
       ],

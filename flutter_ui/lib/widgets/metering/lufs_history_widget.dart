@@ -301,12 +301,12 @@ class _LufsHistoryGraphState extends State<LufsHistoryGraph> {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
-          const Text(
+          Text(
             'LUFS HISTORY',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              size: 10,
+              weight: FontWeight.w600,
               letterSpacing: 0.5,
             ),
           ),
@@ -320,10 +320,9 @@ class _LufsHistoryGraphState extends State<LufsHistoryGraph> {
           const SizedBox(width: 4),
           Text(
             '${_visibleDuration.toInt()}s',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textTertiary,
-              fontSize: 9,
-              fontFamily: 'monospace',
+              size: 9,
             ),
           ),
           const SizedBox(width: 4),
@@ -398,10 +397,9 @@ class _LufsHistoryGraphState extends State<LufsHistoryGraph> {
           if (_hoverSnapshot != null)
             Text(
               't=${_hoverSnapshot!.timestamp.toStringAsFixed(1)}s',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 9,
-                fontFamily: 'monospace',
+                size: 9,
               ),
             ),
         ],
@@ -424,20 +422,19 @@ class _LufsHistoryGraphState extends State<LufsHistoryGraph> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textTertiary,
-            fontSize: 9,
+            size: 9,
           ),
         ),
         if (value != null) ...[
           const SizedBox(width: 4),
           Text(
             '${value.toStringAsFixed(1)} LUFS',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
+              size: 9,
+              weight: FontWeight.w600,
             ),
           ),
         ],

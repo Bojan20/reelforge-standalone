@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../models/behavior_tree_models.dart';
 import '../../providers/slot_lab/behavior_tree_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class BehaviorTreeWidget extends StatefulWidget {
   /// Optional callback when a node is selected
@@ -122,19 +123,19 @@ class _BehaviorTreeWidgetState extends State<BehaviorTreeWidget> {
                   children: [
                     Text(
                       'Coverage: $bound/$total',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                        size: 11,
+                        weight: FontWeight.w500,
                       ),
                     ),
                     const Spacer(),
                     Text(
                       '${(percent * 100).toStringAsFixed(0)}%',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: _getCoverageColor(percent),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        size: 11,
+                        weight: FontWeight.bold,
                       ),
                     ),
                   ],
@@ -206,15 +207,15 @@ class _BehaviorTreeWidgetState extends State<BehaviorTreeWidget> {
                 const SizedBox(width: 4),
                 Text(
                   category.icon,
-                  style: const TextStyle(fontSize: 13),
+                  style: FluxForgeTheme.dockSans(size: 13),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   category.displayName,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    size: 12,
+                    weight: FontWeight.w600,
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -230,12 +231,12 @@ class _BehaviorTreeWidgetState extends State<BehaviorTreeWidget> {
                     ),
                     child: Text(
                       '$boundCount/$totalCount',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: boundCount == totalCount
                             ? const Color(0xFF44BB44)
                             : const Color(0xFFFF8844),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
+                        size: 10,
+                        weight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -296,10 +297,10 @@ class _BehaviorTreeWidgetState extends State<BehaviorTreeWidget> {
             Expanded(
               child: Text(
                 node.nodeType.displayName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isSelected ? Colors.white : Colors.white70,
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                  size: 12,
+                  weight: isSelected ? FontWeight.w500 : FontWeight.normal,
                 ),
               ),
             ),
@@ -315,10 +316,10 @@ class _BehaviorTreeWidgetState extends State<BehaviorTreeWidget> {
                 ),
                 child: Text(
                   '${node.variantCount}v',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: Colors.white54,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
+                    size: 9,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -326,9 +327,9 @@ class _BehaviorTreeWidgetState extends State<BehaviorTreeWidget> {
             // Playback mode badge
             Text(
               _getPlaybackModeShort(node.playbackMode),
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: Colors.white38,
-                fontSize: 9,
+                size: 9,
               ),
             ),
 

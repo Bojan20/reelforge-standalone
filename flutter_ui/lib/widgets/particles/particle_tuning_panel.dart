@@ -11,6 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PARTICLE CONFIGURATION MODEL
@@ -340,12 +341,12 @@ class _ParticleTuningPanelState extends State<ParticleTuningPanel> {
       children: [
         const Icon(Icons.auto_awesome, color: Color(0xFFFFD700), size: 24),
         const SizedBox(width: 12),
-        const Text(
+        Text(
           'Particle Effects',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+            size: 18,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -366,9 +367,9 @@ class _ParticleTuningPanelState extends State<ParticleTuningPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Presets',
-          style: TextStyle(color: Colors.white70, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: Colors.white70, size: 12),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -379,7 +380,7 @@ class _ParticleTuningPanelState extends State<ParticleTuningPanel> {
               label: Text(entry.key),
               onPressed: () => _updateConfig(entry.value),
               backgroundColor: const Color(0xFF2A2A3E),
-              labelStyle: const TextStyle(color: Colors.white70),
+              labelStyle: FluxForgeTheme.dockSans(color: Colors.white70),
             );
           }).toList(),
         ),
@@ -505,7 +506,7 @@ class _ParticleTuningPanelState extends State<ParticleTuningPanel> {
         // Shape selector
         Row(
           children: [
-            const Text('Shape:', style: TextStyle(color: Colors.white70)),
+            Text('Shape:', style: FluxForgeTheme.dockSans(color: Colors.white70)),
             const SizedBox(width: 12),
             ...ParticleShape.values.map((shape) {
               final isSelected = _config.shape == shape;
@@ -543,7 +544,7 @@ class _ParticleTuningPanelState extends State<ParticleTuningPanel> {
         // Glow
         Row(
           children: [
-            const Text('Glow Effect:', style: TextStyle(color: Colors.white70)),
+            Text('Glow Effect:', style: FluxForgeTheme.dockSans(color: Colors.white70)),
             const SizedBox(width: 12),
             Switch(
               value: _config.glow,
@@ -568,10 +569,10 @@ class _ParticleTuningPanelState extends State<ParticleTuningPanel> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title.toUpperCase(),
-      style: const TextStyle(
-        color: Color(0xFF4A9EFF),
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
+      style: FluxForgeTheme.dockSans(
+        color: const Color(0xFF4A9EFF),
+        size: 11,
+        weight: FontWeight.bold,
         letterSpacing: 1.2,
       ),
     );
@@ -592,7 +593,7 @@ class _ParticleTuningPanelState extends State<ParticleTuningPanel> {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: const TextStyle(color: Colors.white70)),
+            child: Text(label, style: FluxForgeTheme.dockSans(color: Colors.white70)),
           ),
           Expanded(
             child: Slider(
@@ -611,7 +612,7 @@ class _ParticleTuningPanelState extends State<ParticleTuningPanel> {
               suffix.isEmpty
                   ? value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1)
                   : '${value.toStringAsFixed(0)}$suffix',
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: FluxForgeTheme.dockMono(color: Colors.white54, size: 12),
               textAlign: TextAlign.right,
             ),
           ),

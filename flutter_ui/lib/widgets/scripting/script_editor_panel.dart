@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/scripting/lua_bridge.dart';
 import '../../services/scripting/json_rpc_server.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class ScriptEditorPanel extends StatefulWidget {
   const ScriptEditorPanel({super.key});
@@ -122,12 +123,12 @@ return fluxforge.getProjectInfo()
             children: [
               const Icon(Icons.code, color: Color(0xFF4A9EFF), size: 20),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Lua Script Editor',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  size: 14,
+                  weight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
@@ -192,15 +193,14 @@ return fluxforge.getProjectInfo()
               controller: _scriptController,
               maxLines: null,
               expands: true,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 13,
+              style: FluxForgeTheme.dockMono(
+                size: 13,
                 color: Colors.white,
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: 'Enter Lua script...',
-                hintStyle: TextStyle(color: Colors.grey),
+                hintStyle: FluxForgeTheme.dockSans(color: Colors.grey),
               ),
             ),
           ),
@@ -219,9 +219,8 @@ return fluxforge.getProjectInfo()
             child: SingleChildScrollView(
               child: SelectableText(
                 _output.isEmpty ? 'Output will appear here...' : _output,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
                   color: _output.contains('Error:')
                       ? const Color(0xFFFF4060)
                       : _output.contains('Success')
@@ -242,9 +241,9 @@ return fluxforge.getProjectInfo()
       children: [
         Text(
           'JSON-RPC Server',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 12,
+            size: 12,
           ),
         ),
         const SizedBox(width: 8),
@@ -264,10 +263,10 @@ return fluxforge.getProjectInfo()
           const SizedBox(width: 8),
           Text(
             ':${_jsonRpcServer.port}',
-            style: const TextStyle(
-              color: Color(0xFF40FF90),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockMono(
+              color: const Color(0xFF40FF90),
+              size: 12,
+              weight: FontWeight.w600,
             ),
           ),
         ],
@@ -286,7 +285,9 @@ return fluxforge.getProjectInfo()
       icon: Icon(icon, size: 16, color: color),
       label: Text(
         label,
-        style: TextStyle(fontSize: 12, color: color),
+        style: color != null
+            ? FluxForgeTheme.dockSans(size: 12, color: color)
+            : FluxForgeTheme.dockSans(size: 12),
       ),
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -388,10 +389,7 @@ class _ApiReferenceDialog extends StatelessWidget {
               dense: true,
               title: Text(
                 functions[index],
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                ),
+                style: FluxForgeTheme.dockMono(size: 12),
               ),
               leading: Icon(Icons.functions, size: 16),
             );

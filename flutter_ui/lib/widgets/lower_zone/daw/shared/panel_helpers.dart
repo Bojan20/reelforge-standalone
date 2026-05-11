@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
+import '../../../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SHARED HEADER BUILDERS
@@ -22,9 +23,9 @@ Widget buildSectionHeader(String title, IconData icon, {Color? color}) {
       const SizedBox(width: 6),
       Text(
         title,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+        style: FluxForgeTheme.dockSans(
+          size: 10,
+          weight: FontWeight.bold,
           color: color ?? LowerZoneColors.dawAccent,
           letterSpacing: 0.5,
         ),
@@ -42,9 +43,9 @@ Widget buildBrowserHeader(String title, IconData icon) {
 Widget buildSubSectionHeader(String label) {
   return Text(
     label,
-    style: const TextStyle(
-      fontSize: 9,
-      fontWeight: FontWeight.bold,
+    style: FluxForgeTheme.dockSans(
+      size: 9,
+      weight: FontWeight.bold,
       color: LowerZoneColors.textMuted,
       letterSpacing: 0.5,
     ),
@@ -70,14 +71,14 @@ Widget buildPropertyRow(String label, String value) {
           width: 70,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
-            overflow: TextOverflow.ellipsis,
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary)
+                .copyWith(overflow: TextOverflow.ellipsis),
           ),
         ),
       ],
@@ -102,14 +103,14 @@ Widget buildInfoRow(String label, String value, IconData icon) {
           width: 60,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
-            overflow: TextOverflow.ellipsis,
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary)
+                .copyWith(overflow: TextOverflow.ellipsis),
           ),
         ),
       ],
@@ -140,9 +141,9 @@ Widget buildEmptyState({
         const SizedBox(height: 12),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.w500,
             color: LowerZoneColors.textMuted,
           ),
         ),
@@ -150,8 +151,8 @@ Widget buildEmptyState({
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: LowerZoneColors.textTertiary,
             ),
           ),
