@@ -4885,10 +4885,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                     ).createShader(bounds),
                     child: Text(
                       tierLabel,
-                      style: TextStyle(
-                        fontSize: tierFontSize + 2,
-                        fontWeight: FontWeight.w900,
+                      style: FluxForgeTheme.dockSans(
+                        size: tierFontSize + 2,
                         color: Colors.white.withValues(alpha: 0.3),
+                        weight: FontWeight.w900,
                         letterSpacing: 6,
                       ),
                     ),
@@ -4908,12 +4908,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                     ).createShader(bounds),
                     child: Text(
                       tierLabel,
-                      style: TextStyle(
-                        fontSize: tierFontSize,
-                        fontWeight: FontWeight.w900,
+                      style: FluxForgeTheme.dockSans(
+                        size: tierFontSize,
                         color: Colors.white,
+                        weight: FontWeight.w900,
                         letterSpacing: 5,
-                        shadows: [
+                      ).copyWith(shadows: [
                           // Sharp inner shadow for emboss effect
                           Shadow(
                             color: Colors.black.withValues(alpha: 0.8),
@@ -4930,8 +4930,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                             color: tierColors.first.withValues(alpha: 0.7),
                             blurRadius: 40,
                           ),
-                        ],
-                      ),
+                        ]),
                     ),
                   ),
                 ],
@@ -4981,13 +4980,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       _isRollingUp
                           ? _formatRtlRollupDisplay(_targetWinAmount, _rtlRollupProgress)
                           : _formatWinAmount(_displayedWinAmount),
-                      style: TextStyle(
-                        fontSize: counterFontSize,
-                        fontWeight: FontWeight.w900,
+                      style: FluxForgeTheme.dockSans(
+                        size: counterFontSize,
                         color: Colors.white,
+                        weight: FontWeight.w900,
                         letterSpacing: 3,
                         height: 1.1,
-                        shadows: [
+                      ).copyWith(shadows: [
                           // Crisp inner highlight
                           const Shadow(
                             color: Colors.white,
@@ -5014,8 +5013,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                             color: tierColors.first.withValues(alpha: glowIntensity * 0.9),
                             blurRadius: 60 * glowIntensity,
                           ),
-                        ],
-                      ),
+                        ]),
                     ),
                   ),
                 ),
@@ -5326,12 +5324,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             const SizedBox(width: 3),
             Text(
               'R${reelIndex + 1}',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: isLocked
                     ? FluxForgeTheme.brandGold
                     : Colors.white.withValues(alpha: 0.4),
+                weight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
             ),
@@ -5373,7 +5371,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               _lockedReels.contains(reelIndex)
                   ? 'Unlock Reel ${reelIndex + 1}'
                   : 'Lock Reel ${reelIndex + 1}',
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: FluxForgeTheme.dockSans(size: 13, color: Colors.white),
             ),
           ]),
         ),
@@ -5382,8 +5380,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           child: Row(children: [
             const Icon(Icons.adjust, size: 14, color: Color(0xFF60AAFF)),
             const SizedBox(width: 8),
-            const Text('Force Outcome…',
-                style: TextStyle(color: Colors.white, fontSize: 13)),
+            Text('Force Outcome…',
+                style: FluxForgeTheme.dockSans(size: 13, color: Colors.white)),
           ]),
         ),
         PopupMenuItem(
@@ -5391,8 +5389,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           child: Row(children: [
             const Icon(Icons.bar_chart, size: 14, color: Color(0xFF80FF60)),
             const SizedBox(width: 8),
-            const Text('Show Distribution',
-                style: TextStyle(color: Colors.white, fontSize: 13)),
+            Text('Show Distribution',
+                style: FluxForgeTheme.dockSans(size: 13, color: Colors.white)),
           ]),
         ),
         PopupMenuItem(
@@ -5401,7 +5399,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             const Icon(Icons.info_outline, size: 14, color: Color(0xFFCCCCCC)),
             const SizedBox(width: 8),
             Text('Probe Reel ${reelIndex + 1}',
-                style: const TextStyle(color: Colors.white, fontSize: 13)),
+                style: FluxForgeTheme.dockSans(size: 13, color: Colors.white)),
           ]),
         ),
       ],
@@ -5434,7 +5432,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message,
-            style: const TextStyle(color: Colors.white, fontSize: 13)),
+            style: FluxForgeTheme.dockSans(size: 13, color: Colors.white)),
         backgroundColor: const Color(0xFF1A1A28),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
@@ -5458,8 +5456,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         ),
         title: Text(
           'Force Reel ${reelIndex + 1} Outcome',
-          style: const TextStyle(
-              color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+          style: FluxForgeTheme.dockSans(size: 15, color: Colors.white, weight: FontWeight.w600),
         ),
         content: SizedBox(
           width: 240,
@@ -5499,7 +5496,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   ),
                   child: Center(
                     child: Text(sym.displayChar,
-                        style: const TextStyle(fontSize: 18)),
+                        style: FluxForgeTheme.dockSans(size: 18)),
                   ),
                 ),
               );
@@ -5509,8 +5506,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel',
-                style: TextStyle(color: Colors.white54)),
+            child: Text('Cancel',
+                style: FluxForgeTheme.dockSans(color: Colors.white54)),
           ),
         ],
       ),
@@ -5541,8 +5538,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         ),
         title: Text(
           'Reel ${reelIndex + 1} — Current Grid Composition',
-          style: const TextStyle(
-              color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+          style: FluxForgeTheme.dockSans(size: 14, color: Colors.white, weight: FontWeight.w600),
         ),
         content: SizedBox(
           width: 260,
@@ -5563,7 +5559,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                     ),
                     child: Center(
                         child: Text(sym.displayChar,
-                            style: const TextStyle(fontSize: 12))),
+                            style: FluxForgeTheme.dockSans(size: 12))),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -5571,8 +5567,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(sym.name,
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 11)),
+                            style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70)),
                         const SizedBox(height: 2),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(2),
@@ -5590,10 +5585,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   const SizedBox(width: 6),
                   Text(
                     '${(pct * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: sym.glowColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600),
+                        weight: FontWeight.w600),
                   ),
                 ]),
               );
@@ -5603,8 +5598,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close',
-                style: TextStyle(color: Colors.white54)),
+            child: Text('Close',
+                style: FluxForgeTheme.dockSans(color: Colors.white54)),
           ),
         ],
       ),
@@ -5724,32 +5719,31 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               // Scatter icon
               Text(
                 '💎',
-                style: TextStyle(fontSize: 18 + pulseValue * 2),
+                style: FluxForgeTheme.dockSans(size: 18 + pulseValue * 2),
               ),
               const SizedBox(width: 8),
               // Counter text
               Text(
                 '$currentCount/$requiredCount',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 20 + pulseValue * 2,
                   color: badgeColor,
-                  fontSize: 20 + pulseValue * 2,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
+                  weight: FontWeight.bold,
+                ).copyWith(shadows: [
                     Shadow(
                       color: badgeColor.withValues(alpha: 0.5),
                       blurRadius: 8,
                     ),
-                  ],
-                ),
+                  ]),
               ),
               const SizedBox(width: 8),
               // Label
               Text(
                 isComplete ? 'TRIGGERED!' : 'SCATTERS',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                   letterSpacing: 1.2,
                 ),
               ),
@@ -5856,7 +5850,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   ),
                   child: Text(
                     tensionLevel == 4 ? '🔥' : '⚡',
-                    style: const TextStyle(fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10),
                   ),
                 ),
             ],
@@ -6164,10 +6158,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                                 ),
                                 child: Text(
                                   symbolName,
-                                  style: const TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
+                                  style: FluxForgeTheme.dockSans(
+                                    size: 8,
                                     color: Colors.black87,
+                                    weight: FontWeight.bold,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
@@ -6523,12 +6517,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       padding: EdgeInsets.only(top: cellSize * 0.08),
       child: Text(
         displayChar,
-        style: TextStyle(
-          fontSize: effectiveSize,
-          fontWeight: FontWeight.w900,
+        style: FluxForgeTheme.dockSans(
+          size: effectiveSize,
           color: Colors.white,
+          weight: FontWeight.w900,
           height: 1.0,
-          shadows: [
+        ).copyWith(shadows: [
             // Deep shadow for 3D depth
             Shadow(
               color: Colors.black.withValues(alpha: 0.8),
@@ -6546,8 +6540,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 color: symbol.gradientColors.first.withValues(alpha: 0.4),
                 blurRadius: 20,
               ),
-          ],
-        ),
+          ]),
       ),
     );
   }
@@ -6584,14 +6577,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       child: Center(
         child: Text(
           '✕',
-          style: TextStyle(
-            fontSize: fontSize * 1.2,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: fontSize * 1.2,
             color: const Color(0xFFFF4060).withValues(alpha: 0.9),
-            shadows: const [
+            weight: FontWeight.bold,
+          ).copyWith(shadows: const [
               Shadow(color: Color(0xFFFF4060), blurRadius: 12),
-            ],
-          ),
+            ]),
         ),
       ),
     );
@@ -6615,10 +6607,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           ),
           child: Text(
             symbol.shortLabel,
-            style: TextStyle(
-              fontSize: (cellSize * 0.15).clamp(7.0, 12.0),
-              fontWeight: FontWeight.w800,
+            style: FluxForgeTheme.dockSans(
+              size: (cellSize * 0.15).clamp(7.0, 12.0),
               color: symbol.labelColor.withValues(alpha: 0.9),
+              weight: FontWeight.w800,
               letterSpacing: 0.8,
             ),
           ),
@@ -7455,7 +7447,7 @@ class SlotMiniPreview extends StatelessWidget {
                   child: Center(
                     child: Text(
                       symbol.name,
-                      style: const TextStyle(fontSize: 6, fontWeight: FontWeight.bold),
+                      style: FluxForgeTheme.dockSans(size: 6, weight: FontWeight.bold),
                       textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
                       maxLines: 2,
@@ -7544,7 +7536,7 @@ class _MathProbeOverlay extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(symbol.displayChar,
-                        style: const TextStyle(fontSize: 22)),
+                        style: FluxForgeTheme.dockSans(size: 22)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -7553,18 +7545,18 @@ class _MathProbeOverlay extends StatelessWidget {
                   children: [
                     Text(
                       symbol.name,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 16,
                         color: symbol.glowColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        weight: FontWeight.w700,
                         letterSpacing: 0.8,
                       ),
                     ),
                     Text(
                       'Reel ${reelIndex + 1} · Row ${rowIndex + 1}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: Colors.white.withValues(alpha: 0.45),
-                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -7581,10 +7573,10 @@ class _MathProbeOverlay extends StatelessWidget {
                           color: symbol.glowColor.withValues(alpha: 0.4)),
                     ),
                     child: Text('SPECIAL',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                            size: 9,
                             color: symbol.glowColor,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
+                            weight: FontWeight.w700,
                             letterSpacing: 1)),
                   ),
               ]),
@@ -7607,7 +7599,7 @@ class _MathProbeOverlay extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
-                  child: const Text('Close', style: TextStyle(fontSize: 13)),
+                  child: Text('Close', style: FluxForgeTheme.dockSans(size: 13)),
                 ),
               ),
             ],
@@ -7624,18 +7616,18 @@ class _MathProbeOverlay extends StatelessWidget {
         Icon(icon, size: 14, color: accentColor.withValues(alpha: 0.7)),
         const SizedBox(width: 8),
         Text('$label:',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: Colors.white.withValues(alpha: 0.45),
-                fontSize: 12,
-                fontWeight: FontWeight.w500)),
+                weight: FontWeight.w500)),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: accentColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600),
+                weight: FontWeight.w600),
             overflow: TextOverflow.ellipsis,
           ),
         ),

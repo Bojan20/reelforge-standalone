@@ -13,6 +13,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/cortex_provider.dart';
+import '../../../../theme/flux_forge_theme.dart';
 import '../../lower_zone_types.dart';
 import '../../../cortex/brain_chat.dart';
 
@@ -263,10 +264,10 @@ class _OverviewPanelState extends State<_OverviewPanel> {
               const SizedBox(width: 8),
               Text(
                 statusLabel,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
                   color: statusColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  weight: FontWeight.w700,
                   letterSpacing: 1.5,
                 ),
               ),
@@ -307,7 +308,7 @@ class _OverviewPanelState extends State<_OverviewPanel> {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: color.withValues(alpha: 0.8)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -421,19 +422,19 @@ class _AwarenessPanel extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 dim.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: _CortexColors.textLight,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
               Text(
                 isAvailable ? '$pct%' : '\u2014',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
                   color: color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  weight: FontWeight.w700,
                 ),
               ),
             ],
@@ -453,10 +454,7 @@ class _AwarenessPanel extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             dim.description,
-            style: TextStyle(
-              color: _CortexColors.textDim,
-              fontSize: 10,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: _CortexColors.textDim),
           ),
         ],
       ),
@@ -664,15 +662,16 @@ class _NeuralPanelState extends State<_NeuralPanel> {
               Expanded(
                 child: Text(
                   r.name,
-                  style: TextStyle(color: color, fontSize: 10, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(size: 10, color: color),
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
                 r.fireCount > 0 ? '${_fmt(r.fireCount)}x' : '\u2014',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: r.fireCount > 0 ? _CortexColors.reflexOrange : _CortexColors.textDim,
-                  fontSize: 10, fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -698,7 +697,7 @@ class _NeuralPanelState extends State<_NeuralPanel> {
               Expanded(
                 child: Text(
                   p.name,
-                  style: TextStyle(color: _CortexColors.textMuted, fontSize: 10, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(size: 10, color: _CortexColors.textMuted),
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -710,7 +709,7 @@ class _NeuralPanelState extends State<_NeuralPanel> {
                 ),
                 child: Text(
                   '${(p.severity * 100).round()}%',
-                  style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600),
+                  style: FluxForgeTheme.dockSans(size: 9, color: color, weight: FontWeight.w600),
                 ),
               ),
             ],
@@ -739,13 +738,13 @@ class _NeuralPanelState extends State<_NeuralPanel> {
               Expanded(
                 child: Text(
                   a.actionTag,
-                  style: TextStyle(color: _CortexColors.textMuted, fontSize: 10, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(size: 10, color: _CortexColors.textMuted),
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
                 a.result,
-                style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 9),
+                style: FluxForgeTheme.dockSans(size: 9, color: color.withValues(alpha: 0.7)),
               ),
             ],
           ),
@@ -855,7 +854,7 @@ class _ImmunePanel extends StatelessWidget {
                           ? Center(
                               child: Text(
                                 'No active antibodies — immune system clear',
-                                style: TextStyle(color: _CortexColors.healthGreen.withValues(alpha: 0.5), fontSize: 10),
+                                style: FluxForgeTheme.dockSans(size: 10, color: _CortexColors.healthGreen.withValues(alpha: 0.5)),
                               ),
                             )
                           : ListView.builder(
@@ -912,15 +911,15 @@ class _ImmunePanel extends StatelessWidget {
                 children: [
                   Text(
                     ab.category,
-                    style: TextStyle(color: _CortexColors.textLight, fontSize: 10, fontFamily: 'monospace'),
+                    style: FluxForgeTheme.dockMono(size: 10, color: _CortexColors.textLight),
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     ab.isChronic ? 'CHRONIC' : ab.escalationLabel,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
                       color: escalationColor.withValues(alpha: 0.7),
-                      fontSize: 8,
-                      fontWeight: FontWeight.w600,
+                      weight: FontWeight.w600,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -936,7 +935,7 @@ class _ImmunePanel extends StatelessWidget {
               ),
               child: Text(
                 '${ab.count}x',
-                style: TextStyle(color: escalationColor, fontSize: 10, fontWeight: FontWeight.w700),
+                style: FluxForgeTheme.dockSans(size: 10, color: escalationColor, weight: FontWeight.w700),
               ),
             ),
             const SizedBox(width: 6),
@@ -970,12 +969,12 @@ class _ImmunePanel extends StatelessWidget {
           children: [
             Text(
               'Healing Rate',
-              style: TextStyle(color: _CortexColors.textMuted, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: _CortexColors.textMuted),
             ),
             const Spacer(),
             Text(
               '${(rate * 100).round()}%',
-              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+              style: FluxForgeTheme.dockSans(size: 12, color: color, weight: FontWeight.w700),
             ),
           ],
         ),
@@ -1010,12 +1009,12 @@ Widget _immuneStatCard(String label, String value, Color color, IconData icon) {
         const SizedBox(width: 8),
         Text(
           label,
-          style: TextStyle(color: _CortexColors.textMuted, fontSize: 11),
+          style: FluxForgeTheme.dockSans(size: 11, color: _CortexColors.textMuted),
         ),
         const Spacer(),
         Text(
           value,
-          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w700),
+          style: FluxForgeTheme.dockSans(size: 13, color: color, weight: FontWeight.w700),
         ),
       ],
     ),
@@ -1057,7 +1056,7 @@ class _EventsPanelState extends State<_EventsPanel> {
                   const SizedBox(width: 12),
                   Text(
                     '${filtered.length} events',
-                    style: TextStyle(color: _CortexColors.textDim, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: _CortexColors.textDim),
                   ),
                   const Spacer(),
                   _filterChip('ALL', null),
@@ -1076,7 +1075,7 @@ class _EventsPanelState extends State<_EventsPanel> {
                     ? Center(
                         child: Text(
                           'No events yet',
-                          style: TextStyle(color: _CortexColors.textDim, fontSize: 12),
+                          style: FluxForgeTheme.dockSans(size: 12, color: _CortexColors.textDim),
                         ),
                       )
                     : ListView.builder(
@@ -1112,10 +1111,10 @@ class _EventsPanelState extends State<_EventsPanel> {
           ),
           child: Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: isActive ? _CortexColors.neuralPink : _CortexColors.textDim,
-              fontSize: 9,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              weight: isActive ? FontWeight.w700 : FontWeight.w500,
               letterSpacing: 0.5,
             ),
           ),
@@ -1139,11 +1138,7 @@ class _EventsPanelState extends State<_EventsPanel> {
           // Timestamp
           Text(
             ts,
-            style: TextStyle(
-              color: _CortexColors.textDim,
-              fontSize: 9,
-              fontFamily: 'monospace',
-            ),
+            style: FluxForgeTheme.dockMono(size: 9, color: _CortexColors.textDim),
           ),
           const SizedBox(width: 6),
           Icon(icon, size: 10, color: color.withValues(alpha: 0.6)),
@@ -1156,10 +1151,10 @@ class _EventsPanelState extends State<_EventsPanel> {
             ),
             child: Text(
               event.eventType.replaceAll('_', ' ').toUpperCase(),
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 8,
                 color: color.withValues(alpha: 0.6),
-                fontSize: 8,
-                fontWeight: FontWeight.w600,
+                weight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
             ),
@@ -1168,11 +1163,7 @@ class _EventsPanelState extends State<_EventsPanel> {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                color: _CortexColors.textMuted,
-                fontSize: 11,
-                fontFamily: 'monospace',
-              ),
+              style: FluxForgeTheme.dockMono(size: 11, color: _CortexColors.textMuted),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1684,10 +1675,10 @@ class _ImmuneGridPainter extends CustomPainter {
 Widget _sectionTitle(String title) {
   return Text(
     title,
-    style: TextStyle(
+    style: FluxForgeTheme.dockSans(
+      size: 9,
       color: Colors.white.withValues(alpha: 0.3),
-      fontSize: 9,
-      fontWeight: FontWeight.w700,
+      weight: FontWeight.w700,
       letterSpacing: 1.5,
     ),
   );
@@ -1708,20 +1699,20 @@ Widget _vitalCard(String label, String value, Color color) {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: Colors.white.withValues(alpha: 0.35),
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+            weight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           value,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 13,
             color: color,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
+            weight: FontWeight.w700,
           ),
         ),
       ],
@@ -1736,12 +1727,12 @@ Widget _statRow(String label, String value, Color color) {
       children: [
         Text(
           label,
-          style: TextStyle(color: _CortexColors.textMuted, fontSize: 11),
+          style: FluxForgeTheme.dockSans(size: 11, color: _CortexColors.textMuted),
         ),
         const Spacer(),
         Text(
           value,
-          style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+          style: FluxForgeTheme.dockSans(size: 12, color: color, weight: FontWeight.w600),
         ),
       ],
     ),

@@ -10,7 +10,7 @@ library;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/fluxforge_theme.dart';
+import '../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DATA MODELS
@@ -360,11 +360,11 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
         children: [
           const Icon(Icons.speed, size: 16, color: _kAccent),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'TEMPO STATE ENGINE',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.bold,
               color: _kAccent,
               letterSpacing: 1.0,
             ),
@@ -392,8 +392,8 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
           const SizedBox(width: 4),
           Text(
             _engineInitialized ? 'LIVE' : 'OFF',
-            style: TextStyle(
-              fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5,
+            style: FluxForgeTheme.dockSans(
+              size: 9, weight: FontWeight.bold, letterSpacing: 0.5,
               color: _engineInitialized ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary,
             ),
           ),
@@ -420,19 +420,19 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
 
   Widget _headerLabel(String text) => Text(
     text,
-    style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, letterSpacing: 0.5),
+    style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary, letterSpacing: 0.5),
   );
 
   Widget _headerValue(String text) => Text(
     text,
-    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: FluxForgeTheme.textSecondary),
+    style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: FluxForgeTheme.textSecondary),
   );
 
   Widget _liveIndicator(String label, String value, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.6), letterSpacing: 0.5)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 9, color: color.withValues(alpha: 0.6), letterSpacing: 0.5)),
         const SizedBox(width: 3),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -443,7 +443,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
           ),
           child: Text(
             value,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.w700, color: color),
           ),
         ),
       ],
@@ -463,8 +463,8 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
       ),
       child: Text(
         phases[phaseIndex],
-        style: TextStyle(
-          fontSize: 9, fontWeight: FontWeight.bold, color: colors[phaseIndex], letterSpacing: 0.8,
+        style: FluxForgeTheme.dockSans(
+          size: 9, weight: FontWeight.bold, color: colors[phaseIndex], letterSpacing: 0.8,
         ),
       ),
     );
@@ -485,7 +485,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
           children: [
             Icon(icon, size: 12, color: color),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color, letterSpacing: 0.5)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: color, letterSpacing: 0.5)),
           ],
         ),
       ),
@@ -530,7 +530,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
         children: [
           Icon(icon, size: 13, color: _kAccent),
           const SizedBox(width: 6),
-          Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _kAccent, letterSpacing: 0.8)),
+          Text(title, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: _kAccent, letterSpacing: 0.8)),
         ],
       ),
     );
@@ -543,7 +543,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
       color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
       child: Row(
         children: [
-          const Text('Source BPM', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          Text('Source BPM', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary)),
           const Spacer(),
           SizedBox(
             width: 80,
@@ -565,7 +565,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
             width: 40,
             child: Text(
               '${_sourceBpm.toInt()}',
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: FluxForgeTheme.textPrimary, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.w600, color: FluxForgeTheme.textPrimary),
               textAlign: TextAlign.right,
             ),
           ),
@@ -608,9 +608,9 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
             Expanded(
               child: Text(
                 state.name,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: isActive ? FontWeight.bold : FontWeight.w500,
                   color: isActive ? color : FluxForgeTheme.textPrimary,
                 ),
               ),
@@ -624,9 +624,8 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
               ),
               child: Text(
                 '${state.targetBpm.toInt()} BPM',
-                style: TextStyle(
-                  fontSize: 9, fontWeight: FontWeight.w700, color: color.withValues(alpha: 0.8),
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 9, weight: FontWeight.w700, color: color.withValues(alpha: 0.8),
                 ),
               ),
             ),
@@ -636,7 +635,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
                 padding: const EdgeInsets.only(left: 6),
                 child: Text(
                   '×${(_sourceBpm / state.targetBpm).toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary),
                 ),
               ),
             // Delete button
@@ -664,10 +663,10 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
               height: 26,
               child: TextField(
                 controller: _nameController,
-                style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'State name...',
-                  hintStyle: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+                  hintStyle: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: FluxForgeTheme.borderSubtle)),
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: FluxForgeTheme.borderSubtle)),
@@ -684,10 +683,10 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
             height: 26,
             child: TextField(
               controller: _bpmController,
-              style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textPrimary),
               decoration: InputDecoration(
                 hintText: 'BPM',
-                hintStyle: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+                hintStyle: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 6),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: FluxForgeTheme.borderSubtle)),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: FluxForgeTheme.borderSubtle)),
@@ -755,9 +754,9 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
                     children: [
                       Icon(Icons.speed, size: 28, color: _kAccent.withValues(alpha: 0.2)),
                       const SizedBox(height: 12),
-                      const Text(
+                      Text(
                         'Engine initializing...',
-                        style: TextStyle(fontSize: 12, color: FluxForgeTheme.textTertiary),
+                        style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textTertiary),
                       ),
                     ],
                   ),
@@ -785,7 +784,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
                   child: Text(
                     'No rules — uses default\n(immediate, no crossfade)',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6)),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6)),
                   ),
                 )
               : ListView.builder(
@@ -871,7 +870,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
               const SizedBox(height: 4),
               Text(
                 '${_syncModeLabels[rule.syncMode]} · ${rule.durationBars} bars · ${_rampTypeLabels[rule.rampType]}',
-                style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary),
+                style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary),
               ),
             ],
           ],
@@ -888,14 +887,14 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
         borderRadius: BorderRadius.circular(3),
         border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
-      child: Text(text, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color)),
+      child: Text(text, style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: color)),
     );
   }
 
   Widget _ruleDropdown(String label, String value, List<String> values, List<String> labels, ValueChanged<String> onChanged) {
     return Row(
       children: [
-        SizedBox(width: 36, child: Text(label, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary))),
+        SizedBox(width: 36, child: Text(label, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary))),
         Expanded(
           child: Container(
             height: 22,
@@ -911,10 +910,10 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
                 isDense: true,
                 isExpanded: true,
                 dropdownColor: FluxForgeTheme.bgElevated,
-                style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary),
+                style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
                 icon: const Icon(Icons.unfold_more, size: 10, color: FluxForgeTheme.textTertiary),
                 items: List.generate(values.length, (i) =>
-                  DropdownMenuItem(value: values[i], child: Text(labels[i], style: const TextStyle(fontSize: 10))),
+                  DropdownMenuItem(value: values[i], child: Text(labels[i], style: FluxForgeTheme.dockSans(size: 10))),
                 ),
                 onChanged: (v) { if (v != null) onChanged(v); },
               ),
@@ -928,7 +927,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
   Widget _ruleSelect(String label, List<String> options, int selected, ValueChanged<int> onChanged) {
     return Row(
       children: [
-        SizedBox(width: 36, child: Text(label, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary))),
+        SizedBox(width: 36, child: Text(label, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary))),
         Expanded(
           child: Wrap(
             spacing: 3,
@@ -945,8 +944,8 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
                   ),
                   child: Text(
                     options[i],
-                    style: TextStyle(
-                      fontSize: 8, fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                    style: FluxForgeTheme.dockSans(
+                      size: 8, weight: isActive ? FontWeight.bold : FontWeight.normal,
                       color: isActive ? _kAccent : FluxForgeTheme.textTertiary,
                     ),
                   ),
@@ -962,7 +961,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
   Widget _ruleSlider(String label, String valueText, double value, double min, double max, ValueChanged<double> onChanged) {
     return Row(
       children: [
-        SizedBox(width: 36, child: Text(label, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary))),
+        SizedBox(width: 36, child: Text(label, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary))),
         Expanded(
           child: SliderTheme(
             data: SliderThemeData(
@@ -978,7 +977,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
         ),
         SizedBox(
           width: 36,
-          child: Text(valueText, style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary, fontFamily: 'monospace'), textAlign: TextAlign.right),
+          child: Text(valueText, style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary), textAlign: TextAlign.right),
         ),
       ],
     );
@@ -999,12 +998,12 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: _kAccent.withValues(alpha: 0.2)),
           ),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add, size: 12, color: _kAccent),
-              SizedBox(width: 4),
-              Text('ADD RULE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _kAccent, letterSpacing: 0.5)),
+              const Icon(Icons.add, size: 12, color: _kAccent),
+              const SizedBox(width: 4),
+              Text('ADD RULE', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: _kAccent, letterSpacing: 0.5)),
             ],
           ),
         ),

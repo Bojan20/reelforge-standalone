@@ -17,6 +17,7 @@ import '../../../services/audio_playback_service.dart';
 import '../../../providers/slot_lab/slot_audio_provider.dart';
 import '../../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../../providers/slot_lab_project_provider.dart';
+import '../../../theme/flux_forge_theme.dart';
 
 class SlotLabMusicLayersPanel extends StatefulWidget {
   const SlotLabMusicLayersPanel({super.key});
@@ -116,10 +117,9 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
                       ),
                       child: SelectableText(
                         _controller.lastCrossfadeDiag,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 10,
-                          color: Color(0xFF88AACC),
+                        style: FluxForgeTheme.dockMono(
+                          size: 10,
+                          color: const Color(0xFF88AACC),
                         ),
                       ),
                     ),
@@ -144,12 +144,12 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
         children: [
           const Icon(Icons.layers, size: 16, color: Color(0xFF40C8FF)),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'DYNAMIC MUSIC LAYERS',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFFE0E0E0),
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
+              color: const Color(0xFFE0E0E0),
               letterSpacing: 1.2,
             ),
           ),
@@ -197,7 +197,7 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
           ),
           child: Text(
             label,
-            style: const TextStyle(fontSize: 10, color: Color(0xFFAAAAAA)),
+            style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFAAAAAA)),
           ),
         ),
       ),
@@ -267,8 +267,8 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
                     _config.revertMode == 'seconds'
                         ? 'Revert za ${_config.revertSeconds.toStringAsFixed(0)}s (timer)'
                         : 'Revert za $spinsLeft spin${spinsLeft == 1 ? '' : 'ova'}',
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: _config.revertMode == 'seconds'
                           ? const Color(0xFFFFAA33)
                           : (spinsLeft <= 2 ? const Color(0xFFFF6B6B) : const Color(0xFFFFAA33)),
@@ -302,24 +302,24 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
         children: [
           Text(
             'L${threshold.layer}',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: isActive ? FontWeight.w700 : FontWeight.w400,
               color: isActive ? color : const Color(0xFF666666),
             ),
           ),
           if (threshold.label.isNotEmpty)
             Text(
               threshold.label,
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: isActive ? color.withValues(alpha: 0.8) : const Color(0xFF555555),
               ),
             ),
           Text(
             threshold.minWinRatio == 0 ? 'base' : '${threshold.minWinRatio}x',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: isActive ? const Color(0xFFAAAAAA) : const Color(0xFF444444),
             ),
           ),
@@ -364,7 +364,7 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
               child: Text(
                 'Missing audio: ${missing.map((l) => 'MUSIC_BASE_L$l').join(', ')}. '
                 'Assign in ASSIGN tab to enable crossfade.',
-                style: const TextStyle(fontSize: 9, color: Color(0xFFFFCC80)),
+                style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFFFFCC80)),
               ),
             ),
           ],
@@ -400,15 +400,19 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
         children: [
           const Icon(Icons.music_note, size: 32, color: Color(0xFF40C8FF)),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Dynamic Music Layers',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFE0E0E0)),
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
+              color: const Color(0xFFE0E0E0),
+            ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Assign MUSIC_BASE_L1-L5 in Ultimate Audio Panel,\nthen pick a preset to auto-crossfade on wins.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: Color(0xFF888888)),
+            style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF888888)),
           ),
           const SizedBox(height: 12),
           Row(
@@ -420,7 +424,7 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
                   backgroundColor: const Color(0xFF40C8FF),
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  textStyle: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600),
                 ),
                 child: const Text('3 Layers'),
               ),
@@ -431,7 +435,7 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
                   foregroundColor: const Color(0xFF40C8FF),
                   side: const BorderSide(color: Color(0xFF40C8FF)),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  textStyle: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600),
                 ),
                 child: const Text('5 Layers'),
               ),
@@ -452,17 +456,22 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'LAYER THRESHOLDS',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF888888), letterSpacing: 1),
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
+            color: const Color(0xFF888888),
+            letterSpacing: 1,
+          ),
         ),
         const SizedBox(height: 4),
         // Header row
-        const Row(
+        Row(
           children: [
-            SizedBox(width: 40, child: Text('Layer', style: TextStyle(fontSize: 9, color: Color(0xFF666666)))),
-            SizedBox(width: 70, child: Text('Label', style: TextStyle(fontSize: 9, color: Color(0xFF666666)))),
-            Expanded(child: Text('Min Win Ratio', style: TextStyle(fontSize: 9, color: Color(0xFF666666)))),
+            SizedBox(width: 40, child: Text('Layer', style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF666666)))),
+            SizedBox(width: 70, child: Text('Label', style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF666666)))),
+            Expanded(child: Text('Min Win Ratio', style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF666666)))),
           ],
         ),
         const Divider(height: 8, color: Color(0xFF333333)),
@@ -520,7 +529,7 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
                 ),
                 const SizedBox(width: 4),
                 Text('L${threshold.layer}',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFFCCCCCC))),
+                  style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w500, color: const Color(0xFFCCCCCC))),
               ],
             ),
           ),
@@ -543,8 +552,9 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
           // Min Win Ratio
           Expanded(
             child: index == 0
-                ? const Text('base (always)',
-                    style: TextStyle(fontSize: 10, color: Color(0xFF666666), fontStyle: FontStyle.italic))
+                ? Text('base (always)',
+                    style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF666666))
+                        .copyWith(fontStyle: FontStyle.italic))
                 : _InlineNumberField(
                     value: threshold.minWinRatio,
                     suffix: 'x bet',
@@ -579,7 +589,7 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
           children: [
             Icon(icon, size: 12, color: const Color(0xFF888888)),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF888888))),
+            Text(label, style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF888888))),
           ],
         ),
       ),
@@ -596,9 +606,14 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'SETTINGS',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF888888), letterSpacing: 1),
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
+            color: const Color(0xFF888888),
+            letterSpacing: 1,
+          ),
         ),
         const SizedBox(height: 6),
         // ── Row 1: Revert mode + value ──
@@ -678,9 +693,9 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
       children: [
         Row(
           children: [
-            Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF888888))),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF888888))),
             const Spacer(),
-            Text('${seconds.toStringAsFixed(1)}s', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: color)),
+            Text('${seconds.toStringAsFixed(1)}s', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500, color: color)),
           ],
         ),
         const SizedBox(height: 2),
@@ -721,14 +736,14 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF666666))),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF666666))),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFFCCCCCC))),
+                Text(value, style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.w500, color: const Color(0xFFCCCCCC))),
                 if (suffix.isNotEmpty) ...[
                   const SizedBox(width: 2),
-                  Text(suffix, style: const TextStyle(fontSize: 9, color: Color(0xFF666666))),
+                  Text(suffix, style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF666666))),
                 ],
               ],
             ),
@@ -810,10 +825,9 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
           ),
           child: Text(
             lines.join('\n'),
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              color: Color(0xFF58A6FF),
+            style: FluxForgeTheme.dockMono(
+              size: 11,
+              color: const Color(0xFF58A6FF),
               height: 1.4,
             ),
           ),
@@ -831,9 +845,10 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
           color: const Color(0xFF0D0D1A),
           borderRadius: BorderRadius.circular(4),
         ),
-        child: const Text(
+        child: Text(
           'No layer transitions yet. Start spinning!',
-          style: TextStyle(fontSize: 10, color: Color(0xFF555555), fontStyle: FontStyle.italic),
+          style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF555555))
+              .copyWith(fontStyle: FontStyle.italic),
         ),
       );
     }
@@ -842,9 +857,14 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'LAYER HISTORY',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF888888), letterSpacing: 1),
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
+            color: const Color(0xFF888888),
+            letterSpacing: 1,
+          ),
         ),
         const SizedBox(height: 4),
         for (final event in recent)
@@ -859,27 +879,27 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
 
     final (String icon, Color color, String text) = switch (t.reason) {
       MusicLayerTransitionReason.escalation => (
-        '\u2191', const Color(0xFF4CAF50), 'L${t.fromLayer} \u2192 L${t.toLayer} (${t.winRatio.toStringAsFixed(1)}x)'),
+        '↑', const Color(0xFF4CAF50), 'L${t.fromLayer} → L${t.toLayer} (${t.winRatio.toStringAsFixed(1)}x)'),
       MusicLayerTransitionReason.revert => (
-        '\u2193', const Color(0xFFFF6B6B), 'L${t.fromLayer} \u2192 L${t.toLayer} (revert)'),
+        '↓', const Color(0xFFFF6B6B), 'L${t.fromLayer} → L${t.toLayer} (revert)'),
       MusicLayerTransitionReason.sustained => (
-        '\u2713', const Color(0xFF40C8FF), 'L${t.toLayer} sustained (${t.winRatio.toStringAsFixed(1)}x)'),
+        '✓', const Color(0xFF40C8FF), 'L${t.toLayer} sustained (${t.winRatio.toStringAsFixed(1)}x)'),
       MusicLayerTransitionReason.countdown => (
-        '\u23F3', const Color(0xFFFFAA33), 'L${t.toLayer} countdown ${t.spinsRemaining ?? '?'}'),
+        '⏳', const Color(0xFFFFAA33), 'L${t.toLayer} countdown ${t.spinsRemaining ?? '?'}'),
       MusicLayerTransitionReason.idle => (
-        '\u00B7', const Color(0xFF444444), 'L${t.toLayer} idle (${t.winRatio.toStringAsFixed(1)}x)'),
+        '·', const Color(0xFF444444), 'L${t.toLayer} idle (${t.winRatio.toStringAsFixed(1)}x)'),
     };
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         children: [
-          Text(time, style: const TextStyle(fontSize: 9, color: Color(0xFF555555), fontFamily: 'monospace')),
+          Text(time, style: FluxForgeTheme.dockMono(size: 9, color: const Color(0xFF555555))),
           const SizedBox(width: 6),
-          Text(icon, style: TextStyle(fontSize: 10, color: color)),
+          Text(icon, style: FluxForgeTheme.dockSans(size: 10, color: color)),
           const SizedBox(width: 4),
           Expanded(
-            child: Text(text, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8))),
+            child: Text(text, style: FluxForgeTheme.dockSans(size: 10, color: color.withValues(alpha: 0.8))),
           ),
         ],
       ),
@@ -930,7 +950,7 @@ class _InlineTextFieldState extends State<_InlineTextField> {
       height: 22,
       child: TextField(
         controller: _controller,
-        style: const TextStyle(fontSize: 10, color: Color(0xFFCCCCCC)),
+        style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFCCCCCC)),
         decoration: const InputDecoration(
           isDense: true,
           contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -995,7 +1015,7 @@ class _InlineNumberFieldState extends State<_InlineNumberField> {
           height: 22,
           child: TextField(
             controller: _controller,
-            style: const TextStyle(fontSize: 10, color: Color(0xFFCCCCCC)),
+            style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFCCCCCC)),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
             decoration: const InputDecoration(
@@ -1010,7 +1030,7 @@ class _InlineNumberFieldState extends State<_InlineNumberField> {
           ),
         ),
         const SizedBox(width: 4),
-        Text(widget.suffix, style: const TextStyle(fontSize: 9, color: Color(0xFF666666))),
+        Text(widget.suffix, style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF666666))),
       ],
     );
   }

@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
 import '../../../../services/extension_sdk_service.dart';
+import '../../../../theme/flux_forge_theme.dart';
 
 class ExtensionSdkPanel extends StatefulWidget {
   final void Function(String action, Map<String, dynamic>? params)? onAction;
@@ -67,8 +68,8 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
               children: [
                 const Icon(Icons.extension, size: 14, color: LowerZoneColors.dawAccent),
                 const SizedBox(width: 6),
-                const Text('EXTENSION SDK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
-                  color: LowerZoneColors.dawAccent, letterSpacing: 1.0)),
+                Text('EXTENSION SDK', style: FluxForgeTheme.dockSans(size: 11,
+                  weight: FontWeight.bold, color: LowerZoneColors.dawAccent, letterSpacing: 1.0)),
                 const Spacer(),
                 if (svc.activeCount > 0) _buildBadge('${svc.activeCount}', Colors.green),
                 if (svc.errorCount > 0) ...[
@@ -103,8 +104,8 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
             // Templates section
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: const Text('TEMPLATES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
-                color: LowerZoneColors.textMuted, letterSpacing: 1.0)),
+              child: Text('TEMPLATES', style: FluxForgeTheme.dockSans(size: 9,
+                weight: FontWeight.bold, color: LowerZoneColors.textMuted, letterSpacing: 1.0)),
             ),
             ...svc.templates.map((tpl) => _buildTemplateItem(tpl)),
           ],
@@ -125,7 +126,8 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
             border: Border.all(color: active ? LowerZoneColors.dawAccent : LowerZoneColors.border),
           ),
           child: Text(label, textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+            style: FluxForgeTheme.dockSans(size: 10,
+              weight: active ? FontWeight.w600 : FontWeight.normal,
               color: active ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary)),
         ),
       ),
@@ -159,15 +161,16 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(ext.manifest.name, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500,
+                  Text(ext.manifest.name, style: FluxForgeTheme.dockSans(size: 10,
+                    weight: FontWeight.w500,
                     color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textPrimary),
                     overflow: TextOverflow.ellipsis),
                   Text('${ext.manifest.language.label} • v${ext.manifest.version}',
-                    style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                    style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                 ],
               ),
             ),
-            Text(ext.state.label, style: TextStyle(fontSize: 8, color: stateColor)),
+            Text(ext.state.label, style: FluxForgeTheme.dockSans(size: 8, color: stateColor)),
           ],
         ),
       ),
@@ -185,9 +188,9 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tpl.name, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500,
+                Text(tpl.name, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500,
                   color: LowerZoneColors.textPrimary), overflow: TextOverflow.ellipsis),
-                Text(tpl.language.label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                Text(tpl.language.label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
               ],
             ),
           ),
@@ -207,8 +210,8 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
           border: Border(left: BorderSide(
             color: isActive ? LowerZoneColors.dawAccent : Colors.transparent, width: 3)),
         ),
-        child: Text(section.label, style: TextStyle(fontSize: 10,
-          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+        child: Text(section.label, style: FluxForgeTheme.dockSans(size: 10,
+          weight: isActive ? FontWeight.w600 : FontWeight.normal,
           color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary)),
       ),
     );
@@ -219,7 +222,7 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
   Widget _buildExtensionsList(ExtensionSdkService svc) {
     final exts = svc.extensions;
     if (exts.isEmpty) {
-      return const Center(child: Text('No extensions loaded', style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted)));
+      return Center(child: Text('No extensions loaded', style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted)));
     }
 
     return Column(
@@ -230,11 +233,11 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
           color: LowerZoneColors.bgMid,
           child: Row(
             children: [
-              const Text('LOADED EXTENSIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                color: LowerZoneColors.textSecondary, letterSpacing: 1.0)),
+              Text('LOADED EXTENSIONS', style: FluxForgeTheme.dockSans(size: 10,
+                weight: FontWeight.bold, color: LowerZoneColors.textSecondary, letterSpacing: 1.0)),
               const Spacer(),
               Text('${exts.length} extensions • ${svc.activeCount} active',
-                style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+                style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
             ],
           ),
         ),
@@ -278,7 +281,8 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
               ),
               child: Center(
                 child: Text(ext.manifest.language.fileExtension,
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _langColor(ext.manifest.language))),
+                  style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold,
+                    color: _langColor(ext.manifest.language))),
               ),
             ),
             const SizedBox(width: 10),
@@ -290,16 +294,17 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
                   Row(
                     children: [
                       Flexible(
-                        child: Text(ext.manifest.name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                        child: Text(ext.manifest.name, style: FluxForgeTheme.dockSans(size: 11,
+                          weight: FontWeight.w600,
                           color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textPrimary),
                           overflow: TextOverflow.ellipsis),
                       ),
                       const SizedBox(width: 6),
-                      Text('v${ext.manifest.version}', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                      Text('v${ext.manifest.version}', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(ext.manifest.description, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary),
+                  Text(ext.manifest.description, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textSecondary),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 3),
                   // Capabilities
@@ -310,7 +315,7 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
                         color: LowerZoneColors.bgSurface,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(c.label, style: const TextStyle(fontSize: 7, color: LowerZoneColors.textMuted)),
+                      child: Text(c.label, style: FluxForgeTheme.dockSans(size: 7, color: LowerZoneColors.textMuted)),
                     )).toList(),
                   ),
                 ],
@@ -322,9 +327,9 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text('CPU ${ext.cpuPercent.toStringAsFixed(1)}%',
-                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                  style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                 Text(ext.memoryLabel,
-                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                  style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
               ],
             ),
             const SizedBox(width: 8),
@@ -343,7 +348,7 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
                     border: Border.all(color: stateColor.withValues(alpha: 0.3)),
                   ),
                   child: Text(ext.state == ExtensionState.active ? 'Disable' : 'Enable',
-                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: stateColor)),
+                    style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w500, color: stateColor)),
                 ),
               ),
           ],
@@ -363,8 +368,8 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
             children: [
               const Icon(Icons.menu_book, size: 12, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 6),
-              Text(section.label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                color: LowerZoneColors.textSecondary, letterSpacing: 1.0)),
+              Text(section.label, style: FluxForgeTheme.dockSans(size: 10,
+                weight: FontWeight.bold, color: LowerZoneColors.textSecondary, letterSpacing: 1.0)),
             ],
           ),
         ),
@@ -373,8 +378,7 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: SelectableText(section.content,
-              style: const TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary,
-                fontFamily: 'monospace', height: 1.5)),
+              style: FluxForgeTheme.dockMono(size: 11, color: LowerZoneColors.textPrimary, height: 1.5)),
           ),
         ),
       ],
@@ -388,13 +392,13 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
     if (ext == null) {
       return Container(
         color: LowerZoneColors.bgDeepest,
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.extension, size: 32, color: LowerZoneColors.textMuted),
-              SizedBox(height: 8),
-              Text('Select an extension', style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted)),
+              const Icon(Icons.extension, size: 32, color: LowerZoneColors.textMuted),
+              const SizedBox(height: 8),
+              Text('Select an extension', style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted)),
             ],
           ),
         ),
@@ -432,9 +436,9 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(ext.manifest.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
-                        color: LowerZoneColors.textPrimary)),
-                      Text('by ${ext.manifest.author}', style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
+                      Text(ext.manifest.name, style: FluxForgeTheme.dockSans(size: 13,
+                        weight: FontWeight.bold, color: LowerZoneColors.textPrimary)),
+                      Text('by ${ext.manifest.author}', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary)),
                     ],
                   ),
                 ),
@@ -455,7 +459,7 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
                 children: [
                   Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: stateColor)),
                   const SizedBox(width: 6),
-                  Text(ext.state.label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: stateColor)),
+                  Text(ext.state.label, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500, color: stateColor)),
                 ],
               ),
             ),
@@ -489,7 +493,7 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
                   children: [
                     const Icon(Icons.error_outline, size: 12, color: Colors.red),
                     const SizedBox(width: 6),
-                    Expanded(child: Text(ext.errorMessage!, style: const TextStyle(fontSize: 9, color: Colors.red))),
+                    Expanded(child: Text(ext.errorMessage!, style: FluxForgeTheme.dockSans(size: 9, color: Colors.red))),
                   ],
                 ),
               ),
@@ -497,7 +501,8 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
             const SizedBox(height: 16),
 
             // Description
-            Text(ext.manifest.description, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary, height: 1.4)),
+            Text(ext.manifest.description, style: FluxForgeTheme.dockSans(size: 10,
+              color: LowerZoneColors.textSecondary, height: 1.4)),
             const SizedBox(height: 16),
 
             // Info grid
@@ -513,7 +518,7 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
             const SizedBox(height: 12),
 
             // Capabilities
-            const Text('CAPABILITIES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+            Text('CAPABILITIES', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold,
               color: LowerZoneColors.textMuted, letterSpacing: 1.0)),
             const SizedBox(height: 6),
             Wrap(spacing: 4, runSpacing: 4,
@@ -523,7 +528,7 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
                   color: LowerZoneColors.bgSurface,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(c.label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary)),
+                child: Text(c.label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textSecondary)),
               )).toList(),
             ),
           ],
@@ -549,7 +554,7 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
           children: [
             Icon(icon, size: 12, color: color),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: color)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500, color: color)),
           ],
         ),
       ),
@@ -563,9 +568,9 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(width: 80,
-            child: Text(label, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w500,
-            color: LowerZoneColors.textPrimary))),
+            child: Text(label, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted))),
+          Expanded(child: Text(value, style: FluxForgeTheme.dockSans(size: 9,
+            weight: FontWeight.w500, color: LowerZoneColors.textPrimary))),
         ],
       ),
     );
@@ -578,7 +583,7 @@ class _ExtensionSdkPanelState extends State<ExtensionSdkPanel> {
         color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(text, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: color)),
+      child: Text(text, style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: color)),
     );
   }
 

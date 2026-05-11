@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../providers/slot_lab/sss_provider.dart';
+import '../../theme/flux_forge_theme.dart';
 
 /// SSS Panel — Scale & Stability Suite (MASTER_SPEC §16).
 ///
@@ -71,10 +72,10 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
         const SizedBox(width: 4),
         Text(
           'Scale & Stability Suite',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.w600,
             color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
           ),
         ),
         const Spacer(),
@@ -87,7 +88,11 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
             ),
             child: Text(
               '${_provider.projects.length} projects',
-              style: const TextStyle(color: Color(0xFF4CAF50), fontSize: 9, fontWeight: FontWeight.w500),
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w500,
+                color: const Color(0xFF4CAF50),
+              ),
             ),
           ),
       ],
@@ -108,8 +113,8 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
         labelPadding: const EdgeInsets.symmetric(horizontal: 10),
         labelColor: const Color(0xFF4CAF50),
         unselectedLabelColor: Colors.white54,
-        labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontSize: 10),
+        labelStyle: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600),
+        unselectedLabelStyle: FluxForgeTheme.dockSans(size: 10),
         dividerColor: Colors.transparent,
         tabs: const [
           Tab(text: 'Projects'),
@@ -156,10 +161,10 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
             height: 24,
             child: TextField(
               controller: _projectNameCtrl,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'New project name...',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+                hintStyle: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.3)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                 filled: true,
                 fillColor: const Color(0xFF2A2A3E),
@@ -204,10 +209,10 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(p.name, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                Text(p.name, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: Colors.white)),
                 Text(
                   'Hash: ${p.configHash.length > 12 ? p.configHash.substring(0, 12) : p.configHash}... ${p.certified ? "• Certified" : ""}',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8),
+                  style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.4)),
                 ),
               ],
             ),
@@ -219,7 +224,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
                 color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: const Text('CERTIFIED', style: TextStyle(color: Color(0xFF4CAF50), fontSize: 7, fontWeight: FontWeight.w700)),
+              child: Text('CERTIFIED', style: FluxForgeTheme.dockSans(size: 7, weight: FontWeight.w700, color: const Color(0xFF4CAF50))),
             ),
         ],
       ),
@@ -231,7 +236,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
       return Center(
         child: Text(
           'No isolated projects — create one above',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+          style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.3)),
         ),
       );
     }
@@ -247,7 +252,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
             visualDensity: const VisualDensity(vertical: -4),
             contentPadding: const EdgeInsets.symmetric(horizontal: 8),
             leading: Icon(Icons.folder, size: 14, color: isActive ? const Color(0xFF4CAF50) : Colors.white30),
-            title: Text(p.name, style: TextStyle(color: Colors.white.withValues(alpha: isActive ? 0.9 : 0.5), fontSize: 10)),
+            title: Text(p.name, style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: isActive ? 0.9 : 0.5))),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -295,7 +300,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
                 const SizedBox(width: 6),
                 Text(
                   'Regression Required — High-risk changes detected',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10),
+                  style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.7)),
                 ),
               ],
             ),
@@ -316,11 +321,11 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
             const SizedBox(height: 8),
             Text(
               'Config Diff Engine',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.3)),
             ),
             Text(
               'Compare configurations with risk analysis',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8),
+              style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.2)),
             ),
           ],
         ),
@@ -349,7 +354,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
                 ),
                 child: Text(
                   d.risk.label,
-                  style: TextStyle(color: Color(d.risk.color), fontSize: 8, fontWeight: FontWeight.w600),
+                  style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.w600, color: Color(d.risk.color)),
                 ),
               ),
               const SizedBox(width: 6),
@@ -357,10 +362,10 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(d.key, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500)),
+                    Text(d.key, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500, color: Colors.white)),
                     Text(
                       '${d.diffType}: ${d.oldValue ?? "∅"} → ${d.newValue ?? "∅"}',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8),
+                      style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.4)),
                     ),
                   ],
                 ),
@@ -423,7 +428,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
         const SizedBox(height: 2),
         Text(
           '${(_provider.regressionPassRate * 100).toStringAsFixed(1)}% — ${_provider.regressionResults.length} scenarios tested',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8),
+          style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.4)),
         ),
       ],
     );
@@ -439,11 +444,11 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
             const SizedBox(height: 8),
             Text(
               'Auto Regression Suite',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.3)),
             ),
             Text(
               '10 stress scenarios • deterministic verification',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8),
+              style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.2)),
             ),
           ],
         ),
@@ -470,7 +475,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(r.scenario, style: const TextStyle(color: Colors.white, fontSize: 10)),
+                child: Text(r.scenario, style: FluxForgeTheme.dockSans(size: 10, color: Colors.white)),
               ),
               if (r.deterministic)
                 const Icon(Icons.fingerprint, size: 10, color: Color(0xFF4CAF50))
@@ -479,7 +484,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
               const SizedBox(width: 4),
               Text(
                 r.hash.length > 8 ? r.hash.substring(0, 8) : r.hash,
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8, fontFamily: 'monospace'),
+                style: FluxForgeTheme.dockMono(size: 8, color: Colors.white.withValues(alpha: 0.3)),
               ),
             ],
           ),
@@ -550,8 +555,8 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
   Widget _summaryItem(String label, String value, Color color) {
     return Column(
       children: [
-        Text(value, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8)),
+        Text(value, style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w700, color: color)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.4))),
       ],
     );
   }
@@ -566,11 +571,11 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
             const SizedBox(height: 8),
             Text(
               '10,000-Spin Burn Test',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white.withValues(alpha: 0.3)),
             ),
             Text(
               'Energy drift • Harmonic creep • Spectral bias\nVoice trend • Fatigue accumulation',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8),
+              style: FluxForgeTheme.dockSans(size: 8, color: Colors.white.withValues(alpha: 0.2)),
               textAlign: TextAlign.center,
             ),
           ],
@@ -606,7 +611,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
         children: [
           Row(
             children: [
-              Text(m.name, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+              Text(m.name, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: Colors.white)),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -614,7 +619,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
                   color: trendColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(3),
                 ),
-                child: Text(m.trend.label, style: TextStyle(color: trendColor, fontSize: 8, fontWeight: FontWeight.w600)),
+                child: Text(m.trend.label, style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.w600, color: trendColor)),
               ),
             ],
           ),
@@ -649,9 +654,9 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
       children: [
         Text(
           '${value.toStringAsFixed(2)}$suffix',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontFamily: 'monospace'),
+          style: FluxForgeTheme.dockMono(size: 9, color: Colors.white.withValues(alpha: 0.7)),
         ),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 7)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 7, color: Colors.white.withValues(alpha: 0.3))),
       ],
     );
   }
@@ -671,7 +676,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
         children: [
           Icon(passed ? Icons.check : Icons.close, size: 10, color: color),
           const SizedBox(width: 3),
-          Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: color)),
         ],
       ),
     );
@@ -700,10 +705,10 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w500,
                 color: color.withValues(alpha: onTap != null ? 0.9 : 0.3),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -721,7 +726,7 @@ class _SssPanelState extends State<SssPanel> with SingleTickerProviderStateMixin
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(3),
         ),
-        child: Text(label, style: TextStyle(color: color, fontSize: 8)),
+        child: Text(label, style: FluxForgeTheme.dockSans(size: 8, color: color)),
       ),
     );
   }

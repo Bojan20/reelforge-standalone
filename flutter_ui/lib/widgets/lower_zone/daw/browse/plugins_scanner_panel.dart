@@ -17,6 +17,7 @@ import '../../lower_zone_types.dart';
 import '../../../../providers/plugin_provider.dart';
 import '../../../../providers/dsp_chain_provider.dart';
 import '../../../../src/rust/native_ffi.dart' show NativePluginParamInfo;
+import '../../../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PLUGINS SCANNER PANEL
@@ -94,9 +95,9 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
                 ),
                 child: Text(
                   '${plugins.length}',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.bold,
                     color: LowerZoneColors.dawAccent,
                   ),
                 ),
@@ -146,8 +147,8 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
                       const SizedBox(width: 4),
                       Text(
                         isScanning ? 'Scanning...' : 'Rescan',
-                        style: TextStyle(
-                          fontSize: 9,
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
                           color: isScanning ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
                         ),
                       ),
@@ -159,9 +160,9 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
           ),
           const SizedBox(height: 8),
           // Hint text
-          const Text(
+          Text(
             'Click to insert on track  \u2022  Double-click to open editor',
-            style: TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary),
+            style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textTertiary),
           ),
           const SizedBox(height: 8),
           // Search bar
@@ -181,7 +182,7 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
               ),
               child: Text(
                 pluginProvider.scanError!,
-                style: const TextStyle(fontSize: 9, color: LowerZoneColors.error),
+                style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.error),
               ),
             ),
             const SizedBox(height: 8),
@@ -199,8 +200,8 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
               ),
               child: Text(
                 _statusMessage!,
-                style: TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: _statusIsError ? LowerZoneColors.error : const Color(0xFF40FF90),
                 ),
                 maxLines: 2,
@@ -278,10 +279,10 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
           children: [
             Text(
               'Plugin failed: $pluginName',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: FluxForgeTheme.dockSans(weight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            Text(reason, style: const TextStyle(fontSize: 12)),
+            Text(reason, style: FluxForgeTheme.dockSans(size: 12)),
           ],
         ),
         action: SnackBarAction(
@@ -398,9 +399,9 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
         const SizedBox(width: 6),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent,
             letterSpacing: 0.5,
           ),
@@ -417,19 +418,19 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
         children: [
           _buildBrowserHeader('PLUGINS', Icons.extension),
           const SizedBox(height: 24),
-          const Center(
+          Center(
             child: Column(
               children: [
-                Icon(Icons.extension_off, size: 48, color: LowerZoneColors.textMuted),
-                SizedBox(height: 12),
+                const Icon(Icons.extension_off, size: 48, color: LowerZoneColors.textMuted),
+                const SizedBox(height: 12),
                 Text(
                   'Plugin Provider not available',
-                  style: TextStyle(fontSize: 12, color: LowerZoneColors.textMuted),
+                  style: FluxForgeTheme.dockSans(size: 12, color: LowerZoneColors.textMuted),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   'Add PluginProvider to widget tree',
-                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textTertiary),
+                  style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textTertiary),
                 ),
               ],
             ),
@@ -449,10 +450,10 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
       ),
       child: TextField(
         onChanged: provider.setSearchQuery,
-        style: const TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary),
+        style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textPrimary),
         decoration: InputDecoration(
           hintText: 'Search plugins...',
-          hintStyle: const TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
+          hintStyle: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted),
           prefixIcon: const Icon(Icons.search, size: 14, color: LowerZoneColors.textMuted),
           suffixIcon: provider.searchQuery.isNotEmpty
               ? GestureDetector(
@@ -510,8 +511,8 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
                     const SizedBox(width: 2),
                     Text(
                       'Blocked (${provider.blacklistedIds.length})',
-                      style: TextStyle(
-                        fontSize: 9,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: provider.showBlacklisted ? LowerZoneColors.error : LowerZoneColors.textMuted,
                       ),
                     ),
@@ -546,8 +547,8 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
                   const SizedBox(width: 2),
                   Text(
                     'Favorites',
-                    style: TextStyle(
-                      fontSize: 9,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
                       color: provider.showFavoritesOnly ? LowerZoneColors.warning : LowerZoneColors.textMuted,
                     ),
                   ),
@@ -575,8 +576,8 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
           ),
         ),
@@ -615,16 +616,16 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
               children: [
                 Text(
                   category,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: color,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   '${plugins.length}',
-                  style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                  style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
                 ),
               ],
             ),
@@ -717,7 +718,7 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
         message: tooltipLines.join('\n'),
         waitDuration: const Duration(milliseconds: 600),
         preferBelow: false,
-        textStyle: const TextStyle(fontSize: 10, color: Color(0xFFCCCCCC)),
+        textStyle: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFCCCCCC)),
         decoration: BoxDecoration(
           color: const Color(0xFF1E1E2A),
           borderRadius: BorderRadius.circular(6),
@@ -767,7 +768,7 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
               ),
               child: Text(
                 _formatLabel(plugin.format),
-                style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: fmtColor),
+                style: FluxForgeTheme.dockSans(size: 7, weight: FontWeight.bold, color: fmtColor),
               ),
             ),
             const SizedBox(width: 6),
@@ -778,22 +779,21 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
                 children: [
                   Text(
                     plugin.name,
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: isBlacklisted
                           ? LowerZoneColors.error
                           : isLoaded
                               ? const Color(0xFF40FF90)
                               : LowerZoneColors.textPrimary,
-                      fontWeight: isLoaded ? FontWeight.bold : FontWeight.normal,
-                      decoration: isBlacklisted ? TextDecoration.lineThrough : null,
-                    ),
+                      weight: isLoaded ? FontWeight.bold : FontWeight.normal,
+                    ).copyWith(decoration: isBlacklisted ? TextDecoration.lineThrough : null),
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (plugin.vendor.isNotEmpty)
                     Text(
                       plugin.vendor,
-                      style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                      style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
                     ),
                 ],
               ),
@@ -889,12 +889,12 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
           child: Row(children: [
             const Icon(Icons.info_outline, size: 14, color: Color(0xFF888888)),
             const SizedBox(width: 8),
-            Text(plugin.formatName, style: const TextStyle(fontSize: 11, color: Color(0xFFCCCCCC))),
+            Text(plugin.formatName, style: FluxForgeTheme.dockSans(size: 11, color: const Color(0xFFCCCCCC))),
             const SizedBox(width: 4),
-            Text('•', style: const TextStyle(color: Color(0xFF555555))),
+            Text('•', style: FluxForgeTheme.dockSans(color: const Color(0xFF555555))),
             const SizedBox(width: 4),
             Flexible(child: Text(plugin.path.split('/').last,
-                style: const TextStyle(fontSize: 10, color: Color(0xFF888888)),
+                style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF888888)),
                 overflow: TextOverflow.ellipsis)),
           ]),
           enabled: false,
@@ -903,19 +903,19 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
         if (!isBlacklisted)
           PopupMenuItem(
             value: 'insert',
-            child: const Row(children: [
-              Icon(Icons.add, size: 14, color: Color(0xFF40FF90)),
-              SizedBox(width: 8),
-              Text('Insert on track', style: TextStyle(fontSize: 11)),
+            child: Row(children: [
+              const Icon(Icons.add, size: 14, color: Color(0xFF40FF90)),
+              const SizedBox(width: 8),
+              Text('Insert on track', style: FluxForgeTheme.dockSans(size: 11)),
             ]),
           ),
         if (!isBlacklisted)
           PopupMenuItem(
             value: 'editor',
-            child: const Row(children: [
-              Icon(Icons.open_in_new, size: 14, color: Color(0xFF4A9EFF)),
-              SizedBox(width: 8),
-              Text('Open editor', style: TextStyle(fontSize: 11)),
+            child: Row(children: [
+              const Icon(Icons.open_in_new, size: 14, color: Color(0xFF4A9EFF)),
+              const SizedBox(width: 8),
+              Text('Open editor', style: FluxForgeTheme.dockSans(size: 11)),
             ]),
           ),
         if (!isBlacklisted)
@@ -926,7 +926,7 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
                   color: const Color(0xFFFFAA00)),
               const SizedBox(width: 8),
               Text(plugin.isFavorite ? 'Remove from favorites' : 'Add to favorites',
-                  style: const TextStyle(fontSize: 11)),
+                  style: FluxForgeTheme.dockSans(size: 11)),
             ]),
           ),
         const PopupMenuDivider(),
@@ -937,7 +937,7 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
                 size: 14, color: isBlacklisted ? const Color(0xFF40FF90) : LowerZoneColors.error),
             const SizedBox(width: 8),
             Text(isBlacklisted ? 'Remove from blacklist' : 'Add to blacklist',
-                style: TextStyle(fontSize: 11,
+                style: FluxForgeTheme.dockSans(size: 11,
                     color: isBlacklisted ? const Color(0xFF40FF90) : LowerZoneColors.error)),
           ]),
         ),
@@ -1066,9 +1066,9 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
                 Expanded(
                   child: Text(
                     instance.name,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.bold,
                       color: LowerZoneColors.textPrimary,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -1110,10 +1110,10 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
           // Parameters
           Expanded(
             child: params.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'No parameters exposed',
-                      style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                      style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
                     ),
                   )
                 : ListView.builder(
@@ -1139,7 +1139,7 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
             width: 80,
             child: Text(
               param.name,
-              style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary),
+              style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textSecondary),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1165,7 +1165,7 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
             width: 35,
             child: Text(
               value.toStringAsFixed(2),
-              style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
               textAlign: TextAlign.right,
             ),
           ),
@@ -1191,7 +1191,7 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
           const SizedBox(height: 8),
           Text(
             hasFilters ? 'No plugins match filters' : 'No plugins found',
-            style: const TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted),
           ),
           if (hasFilters) ...[
             const SizedBox(height: 8),
@@ -1204,17 +1204,17 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: LowerZoneColors.dawAccent),
                 ),
-                child: const Text(
+                child: Text(
                   'Clear Filters',
-                  style: TextStyle(fontSize: 10, color: LowerZoneColors.dawAccent),
+                  style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.dawAccent),
                 ),
               ),
             ),
           ] else ...[
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Click "Rescan" to scan for plugins',
-              style: TextStyle(fontSize: 9, color: LowerZoneColors.textTertiary),
+              style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textTertiary),
             ),
           ],
         ],

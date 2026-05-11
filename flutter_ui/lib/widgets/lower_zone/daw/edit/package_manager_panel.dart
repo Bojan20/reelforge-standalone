@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
 import '../../../../services/package_manager_service.dart';
+import '../../../../theme/flux_forge_theme.dart';
 
 class PackageManagerPanel extends StatefulWidget {
   final void Function(String action, Map<String, dynamic>? params)? onAction;
@@ -84,8 +85,8 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
               children: [
                 const Icon(Icons.inventory_2, size: 14, color: LowerZoneColors.dawAccent),
                 const SizedBox(width: 6),
-                const Text('PACKAGES', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
-                  color: LowerZoneColors.dawAccent, letterSpacing: 1.0)),
+                Text('PACKAGES', style: FluxForgeTheme.dockSans(size: 11,
+                  weight: FontWeight.bold, color: LowerZoneColors.dawAccent, letterSpacing: 1.0)),
                 const Spacer(),
                 _buildBadge('${svc.installedCount}', Colors.green),
                 if (svc.updatesCount > 0) ...[
@@ -132,8 +133,8 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('REPOSITORIES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
-                  color: LowerZoneColors.textMuted, letterSpacing: 1.0)),
+                Text('REPOSITORIES', style: FluxForgeTheme.dockSans(size: 9,
+                  weight: FontWeight.bold, color: LowerZoneColors.textMuted, letterSpacing: 1.0)),
                 const SizedBox(height: 6),
                 ...svc.repositories.map((repo) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
@@ -142,7 +143,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                       Icon(repo.enabled ? Icons.check_circle : Icons.cancel,
                         size: 10, color: repo.enabled ? Colors.green : LowerZoneColors.textMuted),
                       const SizedBox(width: 6),
-                      Expanded(child: Text(repo.name, style: TextStyle(fontSize: 9,
+                      Expanded(child: Text(repo.name, style: FluxForgeTheme.dockSans(size: 9,
                         color: repo.enabled ? LowerZoneColors.textSecondary : LowerZoneColors.textMuted),
                         overflow: TextOverflow.ellipsis)),
                     ],
@@ -158,12 +159,12 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: LowerZoneColors.border),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.sync, size: 10, color: LowerZoneColors.textSecondary),
-                        SizedBox(width: 4),
-                        Text('Sync All', style: TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary)),
+                        const Icon(Icons.sync, size: 10, color: LowerZoneColors.textSecondary),
+                        const SizedBox(width: 4),
+                        Text('Sync All', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textSecondary)),
                       ],
                     ),
                   ),
@@ -182,7 +183,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+          Text(title, style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold,
             color: LowerZoneColors.textMuted, letterSpacing: 1.0)),
           const SizedBox(height: 6),
           Wrap(spacing: 4, runSpacing: 4, children: chips),
@@ -201,7 +202,8 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: active ? LowerZoneColors.dawAccent : LowerZoneColors.border),
         ),
-        child: Text(label, style: TextStyle(fontSize: 9, fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+        child: Text(label, style: FluxForgeTheme.dockSans(size: 9,
+          weight: active ? FontWeight.w600 : FontWeight.normal,
           color: active ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary)),
       ),
     );
@@ -214,7 +216,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
         color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(text, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: color)),
+      child: Text(text, style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: color)),
     );
   }
 
@@ -234,10 +236,10 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                   height: 28,
                   child: TextField(
                     controller: _searchCtrl,
-                    style: const TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary),
+                    style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textPrimary),
                     decoration: InputDecoration(
                       hintText: 'Search packages...',
-                      hintStyle: const TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
+                      hintStyle: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted),
                       prefixIcon: const Icon(Icons.search, size: 14, color: LowerZoneColors.textMuted),
                       filled: true,
                       fillColor: LowerZoneColors.bgDeepest,
@@ -268,7 +270,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                       if (o == svc.sortOrder) const Icon(Icons.check, size: 12, color: LowerZoneColors.dawAccent)
                       else const SizedBox(width: 12),
                       const SizedBox(width: 6),
-                      Text(o.label, style: const TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary)),
+                      Text(o.label, style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textPrimary)),
                     ],
                   ),
                 )).toList(),
@@ -284,13 +286,13 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                     children: [
                       const Icon(Icons.sort, size: 12, color: LowerZoneColors.textSecondary),
                       const SizedBox(width: 4),
-                      Text(svc.sortOrder.label, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary)),
+                      Text(svc.sortOrder.label, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textSecondary)),
                     ],
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              Text('${packages.length} packages', style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+              Text('${packages.length} packages', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted)),
             ],
           ),
         ),
@@ -299,7 +301,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
         // Package list
         Expanded(
           child: packages.isEmpty
-            ? const Center(child: Text('No packages found', style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted)))
+            ? Center(child: Text('No packages found', style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted)))
             : ListView.builder(
                 itemCount: packages.length,
                 itemBuilder: (context, index) => _buildPackageRow(svc, packages[index]),
@@ -339,12 +341,13 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                   Row(
                     children: [
                       Flexible(
-                        child: Text(pkg.name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                        child: Text(pkg.name, style: FluxForgeTheme.dockSans(size: 11,
+                          weight: FontWeight.w600,
                           color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textPrimary),
                           overflow: TextOverflow.ellipsis),
                       ),
                       const SizedBox(width: 6),
-                      Text('v${pkg.version}', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                      Text('v${pkg.version}', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
                       if (pkg.isBuiltIn) ...[
                         const SizedBox(width: 4),
                         _buildBadge('Built-in', LowerZoneColors.textMuted),
@@ -352,7 +355,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(pkg.description, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary),
+                  Text(pkg.description, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textSecondary),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               ),
@@ -364,7 +367,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
               children: [
                 Icon(Icons.star, size: 10, color: pkg.rating >= 4.0 ? Colors.amber : LowerZoneColors.textMuted),
                 const SizedBox(width: 2),
-                Text(pkg.rating.toStringAsFixed(1), style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary)),
+                Text(pkg.rating.toStringAsFixed(1), style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textSecondary)),
               ],
             ),
             const SizedBox(width: 12),
@@ -386,7 +389,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
           ),
-          child: const Text('Installed', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: Colors.green)),
+          child: Text('Installed', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w500, color: Colors.green)),
         );
       case PackageStatus.updateAvailable:
         return GestureDetector(
@@ -398,7 +401,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
             ),
-            child: const Text('Update', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Colors.orange)),
+            child: Text('Update', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: Colors.orange)),
           ),
         );
       case PackageStatus.available:
@@ -411,7 +414,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: LowerZoneColors.dawAccent.withValues(alpha: 0.3)),
             ),
-            child: const Text('Install', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: LowerZoneColors.dawAccent)),
+            child: Text('Install', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: LowerZoneColors.dawAccent)),
           ),
         );
       case PackageStatus.installing:
@@ -423,7 +426,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
             children: [
               const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5)),
               const SizedBox(width: 4),
-              Text(pkg.status.label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              Text(pkg.status.label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
             ],
           ),
         );
@@ -456,9 +459,9 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(pkg.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
-                        color: LowerZoneColors.textPrimary)),
-                      Text('by ${pkg.author}', style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
+                      Text(pkg.name, style: FluxForgeTheme.dockSans(size: 13,
+                        weight: FontWeight.bold, color: LowerZoneColors.textPrimary)),
+                      Text('by ${pkg.author}', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary)),
                     ],
                   ),
                 ),
@@ -487,7 +490,8 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
             const SizedBox(height: 16),
 
             // Description
-            Text(pkg.description, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary, height: 1.4)),
+            Text(pkg.description, style: FluxForgeTheme.dockSans(size: 10,
+              color: LowerZoneColors.textSecondary, height: 1.4)),
             const SizedBox(height: 16),
 
             // Info grid
@@ -507,14 +511,14 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                   i < pkg.rating.floor() ? Icons.star : (i < pkg.rating.ceil() ? Icons.star_half : Icons.star_border),
                   size: 14, color: Colors.amber)),
                 const SizedBox(width: 6),
-                Text('${pkg.rating.toStringAsFixed(1)} / 5.0', style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
+                Text('${pkg.rating.toStringAsFixed(1)} / 5.0', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary)),
               ],
             ),
             const SizedBox(height: 12),
 
             // Tags
             if (pkg.tags.isNotEmpty) ...[
-              const Text('TAGS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+              Text('TAGS', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold,
                 color: LowerZoneColors.textMuted, letterSpacing: 1.0)),
               const SizedBox(height: 6),
               Wrap(spacing: 4, runSpacing: 4,
@@ -524,7 +528,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                     color: LowerZoneColors.bgSurface,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(t, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary)),
+                  child: Text(t, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textSecondary)),
                 )).toList(),
               ),
             ],
@@ -532,7 +536,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
             // Dependencies
             if (pkg.dependencies.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text('DEPENDENCIES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+              Text('DEPENDENCIES', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold,
                 color: LowerZoneColors.textMuted, letterSpacing: 1.0)),
               const SizedBox(height: 6),
               ...pkg.dependencies.map((d) => Padding(
@@ -541,7 +545,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
                   children: [
                     const Icon(Icons.subdirectory_arrow_right, size: 10, color: LowerZoneColors.textMuted),
                     const SizedBox(width: 4),
-                    Text(d, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary)),
+                    Text(d, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textSecondary)),
                   ],
                 ),
               )),
@@ -555,15 +559,15 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
   Widget _buildNoSelection() {
     return Container(
       color: LowerZoneColors.bgDeepest,
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.inventory_2, size: 32, color: LowerZoneColors.textMuted),
-            SizedBox(height: 8),
-            Text('Select a package', style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted)),
-            SizedBox(height: 4),
-            Text('to view details', style: TextStyle(fontSize: 9, color: LowerZoneColors.textTertiary)),
+            const Icon(Icons.inventory_2, size: 32, color: LowerZoneColors.textMuted),
+            const SizedBox(height: 8),
+            Text('Select a package', style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted)),
+            const SizedBox(height: 4),
+            Text('to view details', style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textTertiary)),
           ],
         ),
       ),
@@ -585,7 +589,7 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
           children: [
             Icon(icon, size: 12, color: color),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: color)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500, color: color)),
           ],
         ),
       ),
@@ -599,9 +603,9 @@ class _PackageManagerPanelState extends State<PackageManagerPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(width: 80,
-            child: Text(label, style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w500,
-            color: LowerZoneColors.textPrimary))),
+            child: Text(label, style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted))),
+          Expanded(child: Text(value, style: FluxForgeTheme.dockSans(size: 9,
+            weight: FontWeight.w500, color: LowerZoneColors.textPrimary))),
         ],
       ),
     );
