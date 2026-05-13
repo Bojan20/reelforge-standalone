@@ -16,11 +16,19 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 
+# tract — only pulled in when `onnx` is on. Workspace already pins 0.21 (rf-ml
+# uses it). Optional + feature-gated so the default workspace build never
+# touches the ~30 s tract compile.
+tract-onnx = { workspace = true, optional = true }
+tract-core = { workspace = true, optional = true }
+
 [features]
 default = []
 # Real ONNX inference via tract. Disabled by default so workspace builds stay
 # fast and the mock backend is enough for unit / integration tests. Flip on
-# when you need actual model execution (5.1.2 will wire Stable Audio Open Small).
-onnx = []
+# when you need actual model execution. 5.1.2 lands the runtime skeleton;
+# the production Stable Audio Open Small model file is provisioned out-of-band
+# (it's a multi-GB blob — too big for the repo).
+onnx = ["dep:tract-onnx", "dep:tract-core"]
 
 [dev-dependencies]

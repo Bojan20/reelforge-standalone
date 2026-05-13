@@ -38,9 +38,9 @@
 //! ## Status (Sprint 18)
 //!
 //! - 5.1.1 ✅ crate skeleton, trait, `MockBackend`, deterministic PCM, tests
-//! - 5.1.2 ⏳ tract ONNX runtime + Stable Audio Open Small loader
-//! - 5.1.3 ⏳ `sam_ffi.rs` C ABI for Dart
-//! - 5.1.8 ⏳ compliance validator pass on generated buffers
+//! - 5.1.2 ✅ tract ONNX runtime skeleton + Stable Audio Open Small ModelSpec
+//! - 5.1.3 ✅ `generative_ffi.rs` C ABI for Dart
+//! - 5.1.8 ✅ compliance validator pass on generated buffers
 
 pub mod backend;
 pub mod compliance;
@@ -48,14 +48,19 @@ pub mod request;
 pub mod response;
 pub mod mock;
 
-#[cfg(feature = "onnx")]
+// `onnx` module exposes `OnnxBackend` unconditionally so callers can name
+// the type without juggling cfg attrs. Behind the `onnx` feature it pulls
+// in tract and runs real inference; without it `generate()` returns
+// `GenError::Unsupported` (and the constructor accepts any file path so
+// the wiring above can be unit-tested end-to-end without a model).
 pub mod onnx;
 
-pub use backend::{GenerativeBackend, GenError};
+pub use backend::{BackendCapabilities, GenerativeBackend, GenError};
 pub use compliance::{
     compute_compliance, ComplianceFinding, ComplianceLevel, ComplianceReport,
 };
 pub use mock::MockBackend;
+pub use onnx::{ModelSpec, OnnxBackend};
 pub use request::{
     EmotionalArc, EmotionalArcPoint, GenerationRequest, GenerationStyle,
     SlotStageHint,
