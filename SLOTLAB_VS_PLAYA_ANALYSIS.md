@@ -954,5 +954,687 @@ cd /Users/vanvinklstudio/Projects/fluxforge-studio
 
 ---
 
-**END OF APPENDIX C** — generisano 2026-05-14 22:50 UTC od strane Corti (CORTEX organism), na osnovu kompletnog drugog audita `~/IGT/playa-{core,slot}` source-a posle 30 dana razvoja FluxForge-a.
+## C.14 — Pravi 6-Repo IGT Belgrade Ecosystem
+
+> **Treći prolaz**: posle pažljivog skeniranja `~/IGT/`, otkriveno da playa-core i playa-slot nisu jedini.
+> Ima **6 IGT repa** ukupno (svi private na github.com/igtinteractive, svi klonirani lokalno).
+
+### C.14.1 Inventar 6 repozitorijuma
+
+| # | Repo | Size | Verzija | Šta je | Last commit | Tip |
+|---|---|---:|---|---|---|---|
+| 1 | **playa-core** | 101MB | 3.2.0-dev.48 | Framework foundation (Sequencer, IXF Proxy, CEC, MobX) | `bee07b2b` | Runtime engine |
+| 2 | **playa-slot** | 116MB | 3.2.0-dev.85 | Slot extension (reels, behaviors, paylines) | `f3a6d670` | Runtime engine |
+| 3 | **playa-cli** | 29MB | 1.8.21-PLAYAUF-6314 | **Dev server + 15 skin-ova + IXF bridge v1.4** | `116104b` | Tooling |
+| 4 | **layout_tool** | 34MB | 0.5.2 | **Electron app** — PSD → game layout converter | `b40a8ac` | Authoring tool |
+| 5 | **config-parser** | 660KB | 1.0.2 | TypeScript CLI — JSON config → SQL data | `42d213e` | Build tool |
+| 6 | **qa-tools** | 25MB | 1.0.1 | **Lerna monorepo** sa 4 paketa, **80 game templates** | `f577476` | QA framework |
+
+**Total disk usage**: **~306 MB.** Svi koriste **Jenkinsfile** (NE GitHub Actions), svi se publish-uju na **`https://igtinteractive.playadev.com/nexus/repository/npm-internal/`** (Sonatype Nexus).
+
+### C.14.2 Otkriveni atributi tima
+
+- **`author: "GIT Belgrade"`** u `qa-tools` paketima (`qa-client-tools`, `taf-client`, `taf-proxy`, `taf`). **GIT = "Greentube/IGT" Belgrade tim** — IGT je 2019 kupio Greentube od Novomatic-a, Belgrade tim je nasledjen.
+- **`dusan.svitlica@igt.com`** je npm maintainer placeholder paketa (`playa-core`, `playa-slot`, ... na public npm-u). Srpski engineer.
+- **`aul-igt`** (Leo Au) — eslint-plugin-foundry maintainer 2023.
+- **TAF instances**: `SrecaWork`, `SrecaHome`, `nemanja`, `nemanjaLocal`, `mazga`, `nemanjaLoc` — **sva 6 sa srpskim imenima**, dev workstation LAN IP-jevi `172.17.226.x` i `172.17.227.x`. Sreca = "Lady Luck", developer alias.
+- **Production TAF**: `taf.lab.wagerworks.com` — WagerWorks je IGT Online Gaming subsidiary (kupljen 2005).
+
+### C.14.3 Interna URL infrastruktura (potvrđeno)
+
+| URL | Šta je |
+|---|---|
+| `https://igtinteractive.playadev.com/` | Glavni IGT dev environment |
+| `https://igtinteractive.playadev.com/nexus/repository/npm-internal/` | **Privatni Nexus npm registry** — odakle `@foundry/*` paketi dolaze |
+| `https://igtinteractive.playadev.com/nexus/repository/npm-group/` | npm aggregator (internal + public) |
+| `https://game-dev-build.rgs.cloud/repository/npm-internal/` | Legacy npm registry (legacy publish target) |
+| `https://taf.lab.wagerworks.com` | **Production TAF server** (port 443 HTTPS) |
+| `https://${server}.lab.wagerworks.com/skb/gateway` | RGS gateway endpoint (`/skb` = "Slot Kernel Backend") |
+| `https://${server}.lab.wagerworks.com` | Force servlet URL |
+| `/RGSTUNNEL/rgs-gsdev02/skb` | RGS tunnel server (development) |
+| `mongodb://taf-repo.lab.wagerworks.com:27017` | TAF MongoDB instance |
+| `mongodb://172.17.226.151:27017` | TAF MongoDB Belgrade |
+
+### C.14.4 IGT Belgrade dev workstations (iz `tafConfig.json`)
+
+```yaml
+SrecaWork:       172.17.226.151:8001  # primary dev workstation
+SrecaWorkLocal:  172.17.226.151:8001  # localhost variant
+SrecaWorkDocker: 172.17.226.151:7500  # dockerized variant
+SrecaHome:       172.17.226.151:9100  # home setup (dynamic IP)
+nemanja:         172.17.227.84:8021   # Nemanja's workstation
+nemanjaLocal:    172.17.227.84:8021   # Nemanja localhost
+nemanjaLoc:      localhost:8021       # local dev
+mazga:           172.17.227.149:8021  # Mazga's workstation
+TafWWL:          taf.lab.wagerworks.com:443  # production
+```
+
+**Reverse engineering**: Belgrade tim ima **3 imenovana razvojna inženjera** (Sreca, Nemanja, Mazga) + production TAF na WagerWorks LAN-u. **Mongo na 27017** za TAF test rezultate (logs, screenshots, run history).
+
+---
+
+## C.15 — IXF v1.4 Wire Protocol (potpuna spec iz `igtBridge.js`)
+
+> **Ovo je PRAVI IXF protokol koji RGS koristi.** 212 redova JS, kopirano direktno iz `~/IGT/playa-cli/console/IXF/1.4/igtBridge.js` (© IGT 2016).
+> Resolved Gap #11 iz Appendix C — sad imamo wire-format spec.
+
+### C.15.1 Arhitektura: MXF (Message eXchange Framework)
+
+**IXF = IGT eXecution Framework**.
+**MXF = Message eXchange Framework** (donja apstrakcija, dispatches messages preko `window.postMessage`).
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  PARENT WINDOW (RGS host: kasino lobby / launcher)          │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  console.js (IXF host, dispatches commands)          │   │
+│  │  + com.igt.mxf (message framework, postMessage layer)│   │
+│  └──────────────────────────────────────────────────────┘   │
+│                          ▲                                   │
+│                          │ window.postMessage(origin,target) │
+│                          ▼                                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  iframe: GAME (Playa engine)                          │   │
+│  │  ┌────────────────────────────────────────────────┐  │   │
+│  │  │ IXF.js — message handlers + protocol           │  │   │
+│  │  │ igtBridge.js — public API for game code        │  │   │
+│  │  └────────────────────────────────────────────────┘  │   │
+│  │  Game listens to: bridge.addEvent("eventName",cb)   │   │
+│  │  Game sends:      bridge.sendMessage("type",params) │   │
+│  └──────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### C.15.2 Bridge Public API — kompletan inventar
+
+**`bridge.console.*`** — komande za host environment:
+
+| Metoda | Šta radi |
+|---|---|
+| `bridge.console.activate(height)` | sendMessage('consoleResize', height) — resize game iframe |
+| `bridge.console.navigate(url)` | window.parent.location = url (loadi novu igru) |
+| `bridge.console.resume()` | proxy za com.igt.mxf.resume |
+| `bridge.console.reserveSize(cssLength)` | reserveSize prefetch za layout |
+| `bridge.console.relayMessage(msg)` | sendMessage('relayMessage', msg) — host-to-host broadcast |
+| `bridge.console.options.setSize({w,h})` | promeni game viewport |
+| `bridge.console.options.stakeDeduction(enable)` | **toggle Stake Deduction API** (regulatory critical) |
+| `bridge.console.options.handleFullscreen(enable)` | controls fullscreen behavior |
+| `bridge.console.options.pinchZoomFixer(enable)` | mobile pinch-zoom mitigation |
+
+**`bridge.game.*`** — komande od host-a ka igri:
+
+| Metoda | Šta radi |
+|---|---|
+| `bridge.game.pause(bPause)` | sendMessage('pauseGame' / 'unPauseGame') |
+| `bridge.game.halt()` | sendMessage('haltGame') — emergency stop (regulator-mandated) |
+| `bridge.game.stopAutospin()` | sendMessage('stopAutospin') — RG enforced |
+
+**`bridge.addEvent / removeEvent / addOneShotEvent / addEvents / removeEvents`** — event subscription API.
+
+**`bridge.doCommand(command, params)`** — sendMessage('command', cmd, params) — direct command dispatch.
+
+**`bridge.launchParameters`** — read-only, URL query params parsed (skincode, currency, language, ...).
+
+**`bridge.commands`** — registered command palette.
+
+**`bridge.MXFflags`** — feature flags (debug, beta, etc).
+
+### C.15.3 Currency formatter (built-in, regulator-compliant)
+
+Iz `igtBridge.js:109-162` — kada host pošalje `currency` event sa `_config` objektom:
+
+```typescript
+interface CurrencyConfig {
+    "@currencyCode": string;           // ISO 4217 (GBP, EUR, USD)
+    MAJOR_SYMBOL: string;              // "£" "€" "$"
+    MAJOR_SYMBOL_ALIGNMENT: "left" | "right";
+    MAJOR_SYMBOL_PADDING_SPACE: "true" | "false";
+    USE_THOUSANDS_SEPARATOR: "yes" | "no";
+    THOUSANDS_SEPARATOR: string;       // "," " " "."
+    DECIMAL_SEPARATOR: string;         // "." ","
+    DECIMAL_PRECISION: string;         // "2" "3" "0"
+}
+
+// Generated formatters:
+bridge.currency.format(value)        // full: £1,234.56
+bridge.currency.formatS(value)       // short: £1,235 (drops .00)
+bridge.currency.formatL(value)       // long: £1,234.56
+```
+
+**Zašto je bitno za FluxForge**: ovo je **regulator-compliant currency formatter** — UK GC i MGA inspekcije proveravaju da li slot pravilno prikazuje stake i wins u odabranoj valuti. Naš `flutter_ui` ima samo Dart `NumberFormat`, ne **RGS-driven** currency configuration.
+
+**Gap #17 (novi)**: `flutter_ui/lib/services/rgs_currency_formatter.dart` koji prima `CurrencyConfig` payload iz RGS-a i generiše tri formatter funkcije (`format/formatS/formatL`).
+
+### C.15.4 Script loading sa CDN-aware fallback
+
+Iz `igtBridge.js:175-204` — bootstrapping pattern:
+
+```javascript
+// 1. Find self in DOM (kako bi znao gde je deploy-ovan)
+var _thisScriptUrl = [...document.scripts].reduce((r,v) =>
+    v.src.match(/\/igtBridge\.js($|\?)/) ? v.src : r, undefined
+);
+
+// 2. Get parent URL (handles iframe scenario)
+var _parentTarget = (window.location != window.parent.location)
+    ? document.referrer
+    : _thisScriptUrl;
+
+// 3. Load IXF.js iz iste lokacije
+_script.src = _thisScriptUrl.replace(/\/[^\/]+($|\?)/, '/IXF.js$1');
+
+// 4. Set MXF origin za CDN compatibility
+com.igt.mxf.setMessageOrigin(window.parent, _thisScriptUrl);
+```
+
+**Šta otkriva**:
+- **CDN-aware**: bridge zna da bi root document mogao da bude na DB serveru a sve ostalo na CDN-u. Pattern: `referrer` za parent, `script.src` za self. **SKATE-1393** je interni Jira ticket za ovaj CDN fix.
+- **SKATE-3702** je Jira ticket za "Grammarly browser extension breaks DOM script order" — interesantan bug iz produkcije.
+
+### C.15.5 Wire format protokol (`bridge.addEvents`)
+
+Game registruje handler za `currency` event preko `bridge.addEvents({})` mape:
+
+```javascript
+bridge.addEvents({
+    'currency': function(_config) { /* generate formatters */ },
+    'spin_resolved': function(_outcome) { /* handle outcome */ },
+    'feature_trigger': function(_data) { /* enter bonus */ },
+    'stake_change': function(_stake) { /* update bet */ },
+    // ... etc
+});
+```
+
+**Wire convention**: 
+- Event NAME = lowerCamelCase (`currency`, `gameInitial`, `setRNG`, `screenShot`)
+- Payload = single argument (object ili primitive)
+- Send convention: `bridge.sendMessage(type, ...args)` → host receives via MXF
+
+**Discovered event names** (extracted iz playaSlotTemplate.js iz qa-tools):
+```
+GameInitial         StateChange         SetRNG              BetEnabled
+SkipButton          ScreenShot          TutorialCloseButton FreeSpinOutcome
+FreeSpinNextStage   TotalBetMeterButton SpinButton          PlayButton
+PaytableInitializeGame                  SpinOutcome         InitialGameState
+```
+
+**Gap #18 (novi)**: ovi event nameovi su **IGT industry standard** — FluxForge `EventRegistry` mora da emituje kompatibilan event vokabular u channel `Game` da bismo bili **drop-in test fixture compatible** sa TAF.
+
+---
+
+## C.16 — TAF: Test Automation Framework (otkrivena cela arhitektura)
+
+> **TAF = Test Automation Framework, autor: GIT Belgrade.**
+> 4 paketa u Lerna monorepo: `taf`, `taf-client`, `taf-proxy`, `taf-proxy-simple`, plus `qa-client-tools`.
+> Dockerizovano, MongoDB backend, React frontend.
+
+### C.16.1 Arhitektura
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  TAF DEPLOYMENT TOPOLOGY                     │
+│                                                              │
+│  ┌──────────────┐         ┌──────────────┐                  │
+│  │ taf-client   │◄────────│  taf server  │                  │
+│  │ (React UI    │ axios   │ (Node Express │                  │
+│  │  port 3000)  │         │ app.js, port  │                  │
+│  │              │         │ 7000 docker)  │                  │
+│  └──────────────┘         └──────┬───────┘                  │
+│         │                        │                          │
+│         │ WebSocket              │ MongoDB                  │
+│         ▼                        ▼                          │
+│  ┌──────────────┐         ┌──────────────┐                  │
+│  │ taf-proxy    │         │ mongo:27017  │                  │
+│  │ (man-in-     │         │ (test runs,  │                  │
+│  │  middle      │         │  logs,       │                  │
+│  │  RGS proxy)  │         │  screenshots)│                  │
+│  └──────┬───────┘         └──────────────┘                  │
+│         │                                                    │
+│         ▼                                                    │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ test-runner.js + runnerApi.js                        │   │
+│  │  - boot game iframe (proxy.html + proxyConector.js)  │   │
+│  │  - inject deviceId                                   │   │
+│  │  - subscribe na postal channels (game messages)      │   │
+│  │  - State Machine (Stately.js) drives test flow       │   │
+│  │  - mockEvents.js — fake RGS responses                │   │
+│  │  - takes screenshots → MongoDB                       │   │
+│  │  - identifyEvent() matches against eventTriggers     │   │
+│  └──────────────────────────────────────────────────────┘   │
+│         │                                                    │
+│         ▼                                                    │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Game (Playa engine)                                  │   │
+│  │  - postal channels emit events                        │   │
+│  │  - TAF injects RNG via setRng(rngArray)               │   │
+│  │  - replay via gameReplayToken                         │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### C.16.2 `Template(runnerIn, configuration, gameTemplateConfig, testTemplate)`
+
+Iz `playaSlotTemplate.js:10-581` — pattern koji svaki game template implementira:
+
+```typescript
+// State Machine pattern (Stately.js v2.0.0)
+testTemplate.startSM = function() {
+    var Stately = require('stately.js');
+    testTemplate.roundSM = new Stately.machine(testTemplate.stateDefinitions, 'INIT');
+}
+
+// States loaded iz: templates/Playa2.0/slotTempleteStates/*.js
+// Each state file exports: addState(template, runner) { /* state def */ }
+
+// Event identification preko config-driven matching
+function identifyEvent(event) {
+    for (i in testTemplate.templateConfig.eventTriggers) {
+        var eventTemplate = testTemplate.templateConfig.eventTriggers[i];
+        if (compare(eventTemplate.event, event)) {  // deep-diff comparison
+            payload = testTemplate.getPayloadCustom(event, eventTemplate)
+                   || testTemplate.getPayload(event, eventTemplate);
+            eventList.push({name: eventTemplate.name, payload: payload});
+        }
+    }
+    return eventList;
+}
+
+// Default Handler: 16 known events
+testTemplate.defaultHandler = function(eventName, payload) {
+    switch (eventName) {
+        case 'GameInitial':     // resume SM, disable bet/skip/spin
+        case 'StateChange':     // reset reload timer
+        case 'SetRNG':          // sm.rngSet()
+        case 'BetEnabled':      // toggle bet
+        case 'SkipButton':      // toggle skip
+        case 'TutorialCloseButton':
+        case 'FreeSpinOutcome': // freespin replay logic
+        case 'FreeSpinNextStage':
+        case 'TotalBetMeterButton':
+        case 'SpinButton':
+        case 'PlayButton':
+        case 'PaytableInitializeGame':
+        case 'ScreenShot':
+        // ...
+    }
+}
+```
+
+### C.16.3 5 Playa engine variants (potvrđeni iz game_templates)
+
+| Template | Engine type | FluxForge gap? |
+|---|---|---|
+| `PlayaSlotGameTemplate_200-9017-001` | **STANDARD reels** | ✅ imamo |
+| `PlayaSlotIndependentReelsTemplate_200-9008-001` | **INDEPENDENT reels** — svaki reel se vrti odvojeno (Megaways-style) | 🔴 nemamo |
+| `PlayaSlotStepperReelTemplate_200-9043-001` | **STEPPER reels** — mehanički simbol-by-simbol stop pattern | 🔴 nemamo |
+| `PlayaSlotTemplate34543Reels_200-9023-001` | **PYRAMID 3-4-5-4-3** — non-rectangular grid (Vikings, etc) | 🔴 nemamo |
+| `PlayaSlotTumblingReelsTemplate_200-9010-001` | **TUMBLING reels** — cascade-based | ⚠️ delimično — `CascadesChapter` postoji ali bez per-cell stagger |
+
+**Gap #19 (novi)**: `rf-slot-lab/src/reels/` module mora da dobije **engine-type-driven reel architecture** umesto fixed-grid:
+- `IndependentReelEngine` — svaki reel ima sopstveni RNG state, varijabilan symbol count
+- `StepperReelEngine` — stepper protocol sa per-symbol stop timing
+- `PyramidGridEngine` — non-rectangular grid sa per-reel row count
+- `TumblingReelEngine` (✅ već imamo, ali treba per-cell stagger iz Appendix C.8)
+
+### C.16.4 80 game templates — full inventory (catalog)
+
+**Brand groupings** (po familija — IGT brendovi):
+
+| Brand | Count | Primer naslova |
+|---|---:|---|
+| **MegaJackpots** | 8 | DaVinciDiamonds, FortuneCoin, JungleTower, LuckyLarrysLobstermania, MajesticBuffalo, OceanSpirit |
+| **WheelOfFortune** (sa Wof + PBWOF) | 6 | DiamondSpins2XWilds, GoldSpinTripleRedHot7s, ShimmeringSapphires, TripleExtremeSpinPort, NonLinkTripleRedHot7s |
+| **Cleopatra** | 6 | Caesars, Christmas, FortKnox, Foundry, Grand, HyperHits |
+| **Playa engine templates** | 5 | Standard, IndependentReels, StepperReel, 3-4-5-4-3, TumblingReels |
+| **CashEruption** | 5 | Foundry, Hephaestus, HogginCash, PowerSurge, RedHotJoker, + Vegas variant |
+| **TheWildLife** | 3 | Standard, Extreme, Foundry |
+| **FortKnox** | 3 | Cats, CatsFanDuelCT, CleopatraFanDuelCT |
+| **ProsperityLink** | 2 | CaiYunHengTong, WanShiRuYi (asian themes) |
+| **MoneyMania** | 2 | Cleopatra, SphinxFire |
+| **FortuneCoin** | 2 | FeverSpins, Foundry |
+| **DiamondSpins** | 2 | Cats, Dionysus |
+| **CoolCatch** | 2 | Standard, 2LicenseToKrill |
+| **BookOfUnseen** | 2 | Standard, BB variant |
+| **Sphinx** | 1 | CoinBoost |
+| **OTHER** (unique titles) | 31 | Cleopatra alt brands, indie titles, branded IPs |
+
+**Cele liste 80 game templatea** (sorted alphabetically):
+```
+BETMGMWheelOfFortuneTripleExtremeSpin_200-1629-001  BookOfUnseenBB_200-1696-001
+BookOfUnseen_200-1665-001                            BountyOBucks_200-1639-001
+CashEruptionFoundry_200-1637-001                     CashEruptionHephaestus_200-1651-001
+CashEruptionHogginCash_200-1670-001                  CashEruptionPowerSurge_200-1709-001
+CashEruptionRedHotJoker_200-1643-001                 CatsFoundry_200-1644-001
+CleopatraCaesars_200-1642-001                        CleopatraChristmas_200-1632-001
+CleopatraFortKnox_200-1624-001                       CleopatraFoundry_200-1631-001
+CleopatraGrand_200-1627-001                          CleopatraHyperHits_200-1658-001
+CoinsAndCloversCashEruption_200-1694-001             CoolCatch2LicenseToKrill_200-1681-001
+CoolCatch_200-1613-001                               DeclarationOfSpindependence_200-1610-001
+DiamondSpinsCats_200-1619-001                        DiamondSpinsDionysus_200-1612-001
+DoubleTopDollar_200-1683-001                         FortKnoxCatsFanDuelCT_200-1674-001
+FortKnoxCats_200-1646-001                            FortKnoxCleopatraFanDuelCT_200-1673-001
+FortuneCharm_200-1697-001                            FortuneCoinFeverSpins_200-1684-001
+FortuneCoinFoundry_200-1635-001                      GreenbackAttack_200-1672-001
+KittyGlitterGrand_200-1657-001                       LionSafari_200-1633-001
+LuckyGoldenLions_200-1707-001                        LuckyLarrysLobstermania2Foundry_200-1638-001
+MariasMarigolds_200-1605-001                         MedusaQueenOfStone_200-1615-001
+MegaJackpotsDaVinciDiamonds_200-1666-001             MegaJackpotsFortuneCoin_200-1652-001
+MegaJackpotsJungleTower_200-1634-001                 MegaJackpotsLuckyLarrysLobstermania_200-1676-001
+MegaJackpotsMajesticBuffalo_200-1598-001             MegaJackpotsOceanSpirit_200-1682-001
+MoneyManiaCleopatra_200-1623-001                     MoneyManiaSphinxFire_200-1640-001
+MysteryOfTheLampTreasureOasis_200-1664-001           OceanSpirit_200-1698-001
+PBWOFDiamondsDeluxeDateNight_200-1655-001            PinballDoubleGold_200-1686-001
+PlayaSlotGameTemplate_200-9017-001                   PlayaSlotIndependentReelsTemplate_200-9008-001
+PlayaSlotStepperReelTemplate_200-9043-001            PlayaSlotTemplate34543Reels_200-9023-001
+PlayaSlotTumblingReelsTemplate_200-9010-001          PolarWilds_200-1591-001
+PowerHitsPowerBucksFoundry_200-1641-001              PowerbucksCleopatraGrand_200-1593-001
+ProsperityLinkCaiYunHengTong_200-1662-001            ProsperityLinkWanShiRuYi_200-1645-001
+ProsperityPearl_200-1689-001                         RadVanFortuin_200-1648-001
+RedHotJokerCascade_200-1679-001                      RegalRiches_200-1571-001
+RoguesRiches_200-1693-001                            SevensWildGold_200-1654-001
+SphinxCoinBoost_200-1669-001                         StinkinRichSkunksGoneWild_200-1614-001
+TheWildLifeExtreme_200-1626-001                      TheWildLifeFoundry_200-1660-001
+TheWildLife_200-1660-001                             TreasureBoxClans_200-1653-001
+TripleGoldBars_200-1618-001                          VegasCashEruption_200-1607-001
+WaterWarriors_200-1602-001                           WheelOfFortuneDiamondSpins2XWilds_200-1663-001
+WheelOfFortuneGoldSpinTripleRedHot7sLink_200-1608-001 WheelOfFortuneShimmeringSapphires_200-1649-001
+WheelOfFortuneTripleExtremeSpinPort_200-1630-001     WhitneyHouston_200-1691-001
+WofNonLinkWheelOfFortuneTripleRedHot7sGoldSpin_200-1609-001
+WolfRunEclipse_200-1622-001
+```
+
+### C.16.5 Software ID convention
+
+**`200-XXXX-YYY`** = IGT software identifier:
+- `200-` = vendor prefix (IGT)
+- `XXXX` = game family ID (1571 = RegalRiches, 1591 = PolarWilds, 1598 = MajesticBuffalo, ... 1709 = CashEruptionPowerSurge)
+- `9XXX` = engine template prefix (9008, 9010, 9017, 9023, 9043)
+- `YYY` = build version (001 default)
+
+**Najraniji**: RegalRiches `200-1571` (legacy port)
+**Najnoviji**: CashEruptionPowerSurge `200-1709`
+
+**Range**: 1571–1709 = **138 game IDs između najstarijeg i najnovijeg** → IGT ima više igara nego što su u TAF coverage-u, ali su ovo 80 koje QA tim aktivno testira.
+
+### C.16.6 Special test markets (iz skin folder-a)
+
+Iz `playa-cli/console/skins/`:
+
+| Skin | Tržište | Šta posebno |
+|---|---|---|
+| `default` | Generic | Globalni baseline |
+| `defaultPoland` | 🇵🇱 PL | KSGRZ regulator compliance, PLN currency |
+| `defaultSpain` | 🇪🇸 ES | DGOJ regulator, EUR, specific font support |
+| `defaultUKRC` | 🇬🇧 UK Remote Casino | **UKGC najstroziji**, RG audio cues, autoplay limits |
+| `defaultNew` | (unknown) | Updated UI baseline |
+| `defaultHidden` | Demo/internal | Hidden UI elements (testing) |
+| `LNB` | (operator?) | LNB platform skin |
+| `WQP2` | (operator?) | WagerWorks Quality Platform 2 |
+| `gcm` | GCM platform | Game Content Management |
+| `replay` | Replay mode | RGS replay tool |
+| `demo` | Demo/marketing | Public showcase |
+| `nowidgets` | Minimal | Stripped-down for headless testing |
+| `testing/SKATE-4927` | QA target | Test codename SKATE-4927 |
+| `examples` | Onboarding | Developer reference skin |
+| `static` | Static HTML | No JS framework |
+| `textwidget` | A11y? | Text-only widget rendering |
+
+### C.16.7 Stake Deduction API — regulator critical
+
+Iz `igtBridge.js:57-58`:
+```javascript
+stakeDeduction: function(enable) {
+    com.igt.mxf.sendMessage('setOptions', {stakeDeduction: !!enable});
+}
+```
+
+**Šta je**: opt-in API gde igra eksplicitno deklariše regulatoru "moj UI radi stake deduction u tačno ovom trenutku". UKGC i MGA proveravaju da:
+1. Igra mora da koristi Stake Deduction API
+2. Stake je deducted PRE response-a od RGS-a (`onBeforeRequest` u IXF flow-u, koreliše sa naš Appendix C.2.2 finding)
+3. UI mora vizuelno da pokaže deduction (counter animation)
+
+**Gap #20 (novi)**: FluxForge mora da emituje **`setOptions.stakeDeduction`** preko našeg novog Compliance event channel-a — RGAR report bi to prikazao kao "Stake Deduction API: ENABLED ✅".
+
+---
+
+## C.17 — Layout Tool (Electron app, PSD → game layout)
+
+Iz `~/IGT/layout_tool/src/main.js:1-823` (823 reda Electron orchestration).
+
+### C.17.1 Arhitektura
+
+**Electron desktop app** sa Pixi.js / DOM dual-renderer. Main process koordinira:
+1. **Menu** (File/Edit/Add/View/Help) sa keyboard shortcuts iz `settings.dat`
+2. **Project workflow**: New Project → Import PSD → Edit Layout → Export Layout
+3. **Multi-window pattern**: glavni prozor + import window + extension editor + export dialog
+4. **IPC channels** preko `ipcMain.on()` (Node renderer protocol)
+
+### C.17.2 Keyboard shortcut model
+
+Iz `main.js:67-69`:
+```javascript
+fs.readFile('settings.dat', 'utf8', (err, data) => {
+    settings = JSON.parse(data);
+    Object.keys(settings.keyboardShortcuts).forEach(function(e) {
+        keyboardShortcuts[e] = settings.keyboardShortcuts[e];
+    });
+});
+```
+
+Bindings prepoznati u menu:
+- `pan` (Move/Pan viewport) `translate` (Move object) `rotate` `scale`
+- `copy` `paste` `duplicate` `delete`
+- `undo` `redo`
+- `zoomIn` `zoomOut` `zoomReset`
+- `togglefullscreen` (built-in role)
+
+**FluxForge može da kopira**: Iste keybindings za naš **`gad_panel.dart`** timeline editor (sad NEMA keyboard shortcuts coverage — pomenuto u FLUX_MASTER_VISION I.6 "~40 defined, missing sub-tab nav, no Help → Keyboard overlay"). **Gap #21**.
+
+### C.17.3 PSD Import Pipeline
+
+Iz `main.js:697-700, 757-784`:
+```javascript
+ipcMain.on('importPsd', async (event, arg) => {
+    openImportWindow();
+});
+
+openImportWindow = () => {
+    importWindow = new BrowserWindow({
+        parent: mainWindow,
+        width: 800, height: 400,
+        modal: true,
+        webPreferences: { nodeIntegration: true, devTools: true }
+    });
+    importWindow.loadURL('file://' + __dirname + '/importProcess/importWindow.html');
+};
+```
+
+**Šta je**: PSD fajl (Photoshop) → import wizard → izvuče layer tree → mapira na **Pixi.js game layout JSON**.
+
+**Output**: kompatibilan sa Playa engine `displayObjects` taksonomijom (vidi Playa2.0 templateConfig.json):
+
+```json
+{
+  "displayObjects": [
+    {
+      "name": "SpinButton",
+      "continuous": ["visible", "interactive"],
+      "snapShot": ["value", "name", "visible", "interactive"],
+      "path": ["ui", "gameLayout", "spinButtonLayout", "spinButton"]
+    },
+    {
+      "name": "Infobar",
+      "continuous": ["visible", "_text"],
+      "snapShot": [...],
+      "path": ["infobar", "infobarMessageContainer", "infobarLeftLabel"]
+    },
+    // ...
+  ]
+}
+```
+
+**FluxForge ekvivalent**: `flutter_ui/lib/screens/helix/...` ima vizuelni dock-based layout, ali **NEMA PSD import**. Sound designer ne može da uveze art direktora's PSD i automatski mapira na game stage events.
+
+**Gap #22 (novi)**: `flutter_ui/lib/services/psd_importer.dart` (long-term feature). PSD parsing via `image` package za Dart + custom layer hierarchy parser → `displayObjects[]` JSON kompatibilan sa Playa konvencijom (omogućava i export ka IGT-u kao "we read your layout files").
+
+---
+
+## C.18 — `config-parser`: JSON Game Config → SQL Loader
+
+Iz `~/IGT/config-parser/src/index.ts` + `generate.ts`.
+
+### C.18.1 Cilj
+
+Konvertuje game-side `config.json` u **SQL load statement** koji ide u IGT-ovu **`gc_` schema** (game configuration database).
+
+**Output fajl**: `gameDataFile/load_gc_${familyId}-${gameNumber}_data.sql`
+
+### C.18.2 Struktura `config.json`
+
+Iz `generate.ts:1-67`:
+```typescript
+interface ConfigJson {
+    enableReplay: "Y" | "N" | null;
+    gameClient: GameClient[];
+}
+
+interface GameClient {
+    code: string;            // npr "STD" (standard), "MIN" (minimal), "INT" (international), "TAB" (tablet), "MOB" (mobile)
+    channel: string;         // "WEB", "MOBILE", "TABLET"
+    presentation: string;    // "HTML5", "FLASH" (legacy)
+    technology: string;      // "playa", "ag", "ws"
+    width: string;           // pixel size for that channel
+    height: string;
+    meterwidth: string;
+    meterheight: string;
+    gameFolder?: string;     // CDN path override
+    enableFreeSpin?: string; // "Y" / "N"
+}
+```
+
+**Discovered channel codes** iz playa-cli skins:
+- `STD` = standard desktop (default Pixi canvas)
+- `MIN` = minimal (headless / kiosk)
+- `INT` = international (multi-language fallback)
+- `TAB` = tablet (touch-optimized layout)
+- `MOB` = mobile (smaller viewport)
+
+### C.18.3 SQL Output Pattern
+
+Iz `generate.ts:69-108`:
+```sql
+BEGIN;
+  UPDATE GAME_CLIENT_VERSION SET ... WHERE family='${family}' AND game=${game};
+  UPDATE GAME_CLIENT_INFO SET enableReplay='${replay}' WHERE ...;
+  LOAD_CHANNEL_PRESENTATION_CONFIG(
+    '${family}', ${game},
+    gameChnlpres('WEB', 'HTML5', 1920, 1080, ..., 'Y'),
+    'playa', 'STD', '${version}'
+  );
+END;
+```
+
+**FluxForge gap #23 (novi)**: Export servis za **IGT SQL loader format** — ako bismo bili drop-in replacement za Playa runtime, naš export pipeline bi trebao da emituje `load_gc_${id}_data.sql` koji se pluguje direktno u IGT RGS database deployment scripts.
+
+---
+
+## C.19 — Updated Gap Total + Sprint Reorg
+
+### C.19.1 Cumulative gap list (sada 23)
+
+| # | Gap | Modul | Severity | Effort | Sprint |
+|---:|---|---|---|---|---|
+| 1 | autoResolveCompleted flag | rf-engine/async_flow.rs | HIGH | 4h | 2 |
+| 2 | Per-step blocking config | rf-engine/async_flow.rs | HIGH | 2h | 2 |
+| 3 | Per-sequence skippable config | rf-engine/async_flow.rs | HIGH | 3h | 2 |
+| 4 | Conditional execution `condition()` | rf-engine/async_flow.rs | MED | 2h | 2 |
+| 5 | Per-stage profiling sa console.table | rf-stage/profiling.rs | LOW | 4h | 3 |
+| 6 | 14 IXF stage aliases | game_flow_provider.dart | CRIT | 6h | 1 |
+| 7 | IXF-compatible state taxonomy mapping | dokumentacija | CRIT | 2h | 1 |
+| 8 | pauseOn/skipOn/forkOn side-effect semantika | composite_event_system_provider.dart | HIGH | 12h | 3 |
+| 9 | Pluggable TransitionFlow handlers | rf-engine/transition.rs | MED | 8h | 3 |
+| 10 | 5 named channels u EventRegistry | event_registry.dart | **SHOWSTOPPER** | 16h | 1 |
+| 11 | CEC wire format export (Game.CECEvent JSON) | cec_event_exporter.dart | HIGH | 8h | 1 |
+| 12 | DAG-based init system | init_dag.dart | MED | 16h | 3 |
+| 13 | Selective Stacking u Rust slot engine | rf-slot-lab/symbols.rs | HIGH | 24h | 2 |
+| 14 | Rust-side Rollup schedule computation | rf-slot-lab/rollup.rs | HIGH | 12h | 2 |
+| 15 | Per-cell stagger timing u Cascades | rf-slot-lab/cascades.rs | MED | 8h | 3 |
+| 16 | Command-based slot ops taksonomija | rf-slot-lab/command.rs | LOW | 32h | 4 |
+| **17** | **RGS Currency Formatter (Playa-compatible)** | flutter_ui/services/rgs_currency_formatter.dart | HIGH | 6h | 1 |
+| **18** | **IGT event vocabulary (16 industry-standard event names)** | event_registry.dart vocabulary | HIGH | 4h | 1 |
+| **19** | **Engine-type-driven reel architecture (Independent/Stepper/Pyramid/Tumbling)** | rf-slot-lab/reels.rs (refaktor) | HIGH | 40h | 4 |
+| **20** | **Stake Deduction API emit** | event_registry.dart | CRIT | 3h | 1 |
+| **21** | **Editor keyboard shortcuts (parity sa layout_tool)** | flutter_ui keyboard maps | MED | 8h | 3 |
+| **22** | **PSD Importer → displayObjects JSON** | flutter_ui/services/psd_importer.dart | LOW | 40h | 5 |
+| **23** | **SQL Loader export (load_gc_*.sql) za IGT RGS deployment** | rf-slot-export/igt_sql.rs | MED | 12h | 4 |
+
+**New total effort**: 159h (originalno) + **113h (novo)** = **272h ≈ 7 weeks one dev**.
+
+### C.19.2 Reorganized 5-sprint plan
+
+**Sprint 1** (1.5w) — **Compliance + Wire Compat** (originalno 24h, sad 47h):
+- #10 EventRegistry 5 channels (rešava i existing race condition)
+- #11 CEC wire format export
+- #6 + #7 IXF stage aliases
+- **NOVO**: #17 RGS Currency Formatter
+- **NOVO**: #18 IGT event vocabulary (16 imena)
+- **NOVO**: #20 Stake Deduction API emit
+
+→ Sprint 1 outcome: FluxForge može da bude **drop-in compatible** sa Playa runtime monitoring. TAF može da pokrene FluxForge igre.
+
+**Sprint 2** (2w) — **Feature Engine Parity** (originalno 47h):
+- #1, #2, #3, #4 Async flow primitives
+- #13 Selective Stacking u Rust
+- #14 Rollup schedule computation
+
+**Sprint 3** (2w) — **Architecture Upgrade** (originalno 44h, sad 52h):
+- #8 pauseOn/skipOn/forkOn semantika
+- #9 Pluggable TransitionFlow handlers
+- #12 DAG-based init system
+- #15 Per-cell stagger u Cascades
+- #5 Per-stage profiling
+- **NOVO**: #21 Editor keyboard shortcuts
+
+**Sprint 4** (3w) — **Engine Type Diversity** (44h + nova 52h = 96h):
+- #16 Command-based slot ops taksonomija
+- **NOVO**: #19 Independent/Stepper/Pyramid/Tumbling reel engines
+- **NOVO**: #23 SQL Loader export za IGT RGS
+
+**Sprint 5** (long-term, 1w) — **Authoring Bridge** (novi):
+- **NOVO**: #22 PSD Importer (long-term moat)
+
+### C.19.3 ROI ranking (Severity / Effort)
+
+Top 5 NAJBOLJI ROI gap-ovi:
+1. **#7 IXF taxonomy mapping** — CRIT × 2h = **best**
+2. **#20 Stake Deduction API** — CRIT × 3h
+3. **#18 IGT event vocabulary** — HIGH × 4h
+4. **#17 RGS Currency Formatter** — HIGH × 6h
+5. **#6 IXF stage aliases** — CRIT × 6h
+
+**Critical recommendation**: Sprint 1 mora **prvo** da prođe sve compliance-related gap-ove (#10, #11, #17, #18, #20) jer to otvara **TAF kao test platform** — onda možemo da testiramo svaki sledeći gap protiv pravih IGT game templates.
+
+---
+
+## C.20 — Šta JE ekspandirano u trećem prolazu (executive summary)
+
+Originalan Appendix C (drugi prolaz): identifikovano 16 gap-ova iz 2 repa (playa-core, playa-slot).
+
+Treći prolaz (ovaj rad): otkrio **dodatna 4 repa** + 7 novih gap-ova:
+
+| Dodatak | Šta donosi |
+|---|---|
+| **C.14 — 6-repo ecosystem** | Pravi IGT Belgrade stack: 306MB total, Nexus npm, MongoDB TAF backend, 3 imenovana dev-a |
+| **C.15 — IXF v1.4 spec** | 212-line wire protocol kompletno dokumentovan: bridge API, currency formatter, MXF, CDN-aware loading |
+| **C.16 — TAF arhitektura** | Test Automation Framework: Lerna monorepo, Docker + MongoDB + React frontend, Stately.js FSM, 80 game template inventar, 5 Playa engine variants, software ID convention `200-XXXX-YYY` |
+| **C.17 — layout_tool** | Electron PSD→layout converter, keyboard shortcut model, `displayObjects` taksonomija |
+| **C.18 — config-parser** | JSON config → SQL loader pattern (`load_gc_${id}_data.sql`), gc_ schema, channel/presentation enum |
+| **C.19 — 23 gap-ova total** | +7 novih gap-ova, reorganizovan 5-sprint plan (272h total) |
+| **5 Playa engine variants** | INDEPENDENT, STEPPER, PYRAMID (3-4-5-4-3), TUMBLING, STANDARD — naš `rf-slot-lab` ima samo STANDARD i delimično TUMBLING |
+| **Stake Deduction API** | Regulator-critical opt-in emit, **#20 sprint 1 priority** |
+| **`taf.lab.wagerworks.com` server alias** | WagerWorks = IGT Online subsidiary, MongoDB backend `mongodb://taf-repo.lab.wagerworks.com:27017` |
+
+---
+
+**END OF APPENDIX C** — Drugi prolaz generisan 2026-05-14 22:50 UTC. **Treći prolaz proširen 2026-05-14 23:30 UTC** (C.14–C.20) od strane Corti (CORTEX organism). Sva 6 IGT repa lokalno klonirana, 80 game templates kategorisani, IXF v1.4 protokol dokumentovan, TAF arhitektura mapirana, 7 novih gap-ova identifikovano.
 
